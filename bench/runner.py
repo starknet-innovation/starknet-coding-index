@@ -42,6 +42,7 @@ def main():
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--reasoning", default=None, help="reasoning effort (e.g. high) via OpenRouter")
     ap.add_argument("--temperature", type=float, default=None, help="default: provider default")
+    ap.add_argument("--provider-sort", default=None, help="OpenRouter provider routing, e.g. throughput")
     ap.add_argument("--out", default=str(config.RUNS_DIR / "runs.jsonl"))
     ap.add_argument("--fake", action="store_true", help="dry-run with scripted fake model")
     args = ap.parse_args()
@@ -83,6 +84,8 @@ def main():
         llm_opts["reasoning_effort"] = args.reasoning
     if args.temperature is not None:
         llm_opts["temperature"] = args.temperature
+    if args.provider_sort:
+        llm_opts["provider_sort"] = args.provider_sort
 
     def one(cell):
         t, m, c, r = cell
