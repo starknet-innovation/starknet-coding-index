@@ -42,3 +42,36 @@ uv run python -m bench.validate_tasks            # gate: solutions pass, stubs f
 uv run python -m bench.runner --models <id,...> --conditions baseline,mcp --reps 1
 uv run python -m bench.report
 ```
+
+## Self-hosted Cairo Coder (hosted API sunset 2026-07-31)
+
+The hosted api.cairo-coder.com is quota-limited and being sunset, so the MCP
+backend can run entirely locally in `vendor/cairo-coder` (gitignored clone of
+KasarLabs/cairo-coder; our modifications are tracked in
+`vendor/patches/openrouter-routing.diff`). OpenRouter is the only external AI
+dependency — same models as production: `google/gemini-embedding-001` for
+embeddings, `google/gemini-3-flash-preview` for generation.
+
+Bring-up (from `vendor/cairo-coder`):
+
+```bash
+git apply ../patches/openrouter-routing.diff     # if starting from a fresh clone
+docker compose up -d postgres                    # pgvector on :5455
+cd ingesters && bun install && bun run generate-embeddings:yes   # needs mdbook 0.4.x + antora on PATH
+cd ../python && uv sync --python 3.12
+set -a && source ../.env && set +a && uv run cairo-coder         # serves :3001
+```
+
+Then point the harness at it:
+
+```bash
+CAIRO_CODER_URL=http://localhost:3001/v1/chat/completions uv run python -m bench.runner ...
+```
+
+Ingestion status: 10/11 sources (3,160 chunks). `starknet_blog` requires
+`www.starknet.io:443` on the sandbox network allowlist; rerun
+`generate-embeddings:yes` after allowing it (reruns are incremental).
+Gotchas encoded in the patch: langchain's `OpenAIEmbeddings` and litellm's
+embedding path both mis-handle OpenRouter's embeddings route (positional
+indexing / base64 encoding_format) — both sides use direct OpenAI-SDK/fetch
+clients with `encoding_format: float` instead.

@@ -5,3 +5,4 @@ target/
 .snfoundry_cache/
 results/workspaces/
 .env
+vendor/
