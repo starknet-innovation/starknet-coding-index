@@ -54,7 +54,7 @@ def main():
     ap.add_argument("--conditions", default="baseline,mcp")
     ap.add_argument("--reps", type=int, default=1)
     ap.add_argument("--rep-offset", type=int, default=0, help="start rep numbering here")
-    ap.add_argument("--concurrency", type=int, default=4)
+    ap.add_argument("--concurrency", type=int, default=20)
     ap.add_argument("--reasoning", default=None, help="reasoning effort (e.g. high) via OpenRouter")
     ap.add_argument("--temperature", type=float, default=None, help="default: provider default")
     ap.add_argument("--provider-sort", default=None, help="OpenRouter provider routing, e.g. throughput")
