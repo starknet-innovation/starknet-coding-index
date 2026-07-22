@@ -39,7 +39,9 @@ def chat(model, messages, tools, temperature=None, reasoning_effort=None,
         start = time.monotonic()
         try:
             extra_body = {"usage": {"include": True}}
-            if reasoning_effort:
+            if reasoning_effort == "disabled":
+                extra_body["reasoning"] = {"enabled": False}
+            elif reasoning_effort:
                 extra_body["reasoning"] = {"effort": reasoning_effort}
             if provider_sort:
                 extra_body["provider"] = {"sort": provider_sort}
