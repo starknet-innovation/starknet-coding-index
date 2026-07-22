@@ -167,7 +167,13 @@ def bar_cell(v, vmax, cls, label):
 def build(runs):
     by_cond = group(runs, lambda r: r["condition"])
     base_all, mcp_all = by_cond["baseline"], by_cond["mcp"]
-    pooled_b, pooled_m = solve_pct(base_all), solve_pct(mcp_all)
+    # macro-average across efforts so unequal rep counts don't reweight the headline
+    pooled_b = statistics.mean(
+        solve_pct([r for r in base_all if effort_of(r) == e]) for e in EFFORT_ORDER
+    )
+    pooled_m = statistics.mean(
+        solve_pct([r for r in mcp_all if effort_of(r) == e]) for e in EFFORT_ORDER
+    )
     cost_b, cost_m = med([r["cost_usd"] for r in base_all]), med([r["cost_usd"] for r in mcp_all])
     total_cost = sum(r["cost_usd"] or 0 for r in runs)
 
@@ -205,6 +211,8 @@ def build(runs):
     assists_row = "".join(
         f"<span>{e}: <b>{eff[(e, 'mcp')]['assists']:.1f}</b></span>" for e in EFFORT_ORDER
     )
+    ns = [eff[k]["n"] for k in eff]
+    n_note = f"{min(ns)}–{max(ns)} (confirmation reps added to low/medium/high)"
 
     # scatter
     pts, label_sides = [], {"disabled": "r", "low": "r", "medium": "r", "high": "l", "xhigh": "l"}
@@ -336,7 +344,7 @@ def build(runs):
 
 <section>
   <div class="cards num">
-    <div class="card"><div class="big">{pooled_b:.0f}<small>%</small> → {pooled_m:.0f}<small>%</small></div><div class="what">tasks completed, without → with the docs tool (all efforts pooled)</div></div>
+    <div class="card"><div class="big">{pooled_b:.0f}<small>%</small> → {pooled_m:.0f}<small>%</small></div><div class="what">tasks completed, without → with the docs tool (averaged across effort settings)</div></div>
     <div class="card"><div class="big">−{(1 - cost_m / cost_b) * 100:.0f}<small>%</small></div><div class="what">median cost per task — the tool saves more than it costs</div></div>
     <div class="card"><div class="big">5<small>/5</small></div><div class="what">reasoning-effort settings where the tool improved or matched the solve rate</div></div>
   </div>
@@ -351,16 +359,16 @@ def build(runs):
 
 <section>
   <h2>Documentation substitutes for thinking — the effort curve</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, % of 39 runs per point</span></div>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate; n per point ranges {n_note}</span></div>
   {effort_line}
-  <p class="takeaway">The less the model is allowed to think, the more the tool helps — and the more the model reaches for it (documentation lookups per run: <span class="assists" style="display:inline-flex">{assists_row}</span>). More thinking is also not free wins: the low-effort baseline beats both medium and high.</p>
+  <p class="takeaway">The less the model is allowed to think, the more the tool helps — and the more the model reaches for it (documentation lookups per run: <span class="assists" style="display:inline-flex">{assists_row}</span>). Extra thinking buys no solve-rate gain: after enlarging low/medium/high baselines to n=130, low and medium are statistically identical (p=0.83) and high trails by a suggestive-but-not-significant ~7pt (p=0.09) — while costing 2–3× the time and money.</p>
 </section>
 
 <section>
   <h2>What should you actually run? — the efficiency frontier</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>each point = one effort setting</span></div>
   {frontier_scatter}
-  <p class="takeaway"><b>low + MCP is the efficient frontier</b>: every task solved at ~${eff[("low", "mcp")]["cost"]:.3f} and ~{eff[("low", "mcp")]["wall"]:.0f}s per task. xhigh + MCP also solves everything — at {eff[("xhigh", "mcp")]["cost"] / eff[("low", "mcp")]["cost"]:.1f}× the cost and {eff[("xhigh", "mcp")]["wall"] / eff[("low", "mcp")]["wall"]:.1f}× the time.</p>
+  <p class="takeaway"><b>low + MCP is the efficient frontier</b>: {eff[("low", "mcp")]["solve"]:.0f}% of tasks solved at ~${eff[("low", "mcp")]["cost"]:.3f} and ~{eff[("low", "mcp")]["wall"]:.0f}s per task — statistically indistinguishable from the most expensive configuration (xhigh + MCP, {eff[("xhigh", "mcp")]["solve"]:.0f}% at n=39) at {eff[("xhigh", "mcp")]["cost"] / eff[("low", "mcp")]["cost"]:.1f}× the cost and {eff[("xhigh", "mcp")]["wall"] / eff[("low", "mcp")]["wall"]:.1f}× the time.</p>
 </section>
 
 <section class="findings">
@@ -387,7 +395,7 @@ def build(runs):
 
 <section>
   <h2>Detail — per task, pooled across efforts</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>15 runs per condition per task</span></div>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>run counts per task shown in each row</span></div>
   {task_chart}
 </section>
 
@@ -406,8 +414,8 @@ def build(runs):
       <h2>Caveats</h2>
       <ul class="meta">
         <li><b>One model.</b> These numbers characterize GLM 5.2; the effort–MCP interaction likely varies by model family and training cutoff.</li>
-        <li><b>MCP backend:</b> @high ran against the hosted api.cairo-coder.com; after its quota died, the other four efforts ran against a self-hosted replica (same corpus sources re-ingested, same embedding and generation models, routed via OpenRouter). Local lookups are ~5× faster, slightly flattering non-high MCP wall times.</li>
-        <li><b>Statistics:</b> 39 runs per effort×condition cell, 15 per task×condition; single-digit-point differences are suggestive, not conclusive.</li>
+        <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
+        <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>
       </ul>
     </div>

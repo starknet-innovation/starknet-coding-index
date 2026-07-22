@@ -49,3 +49,11 @@ Runs aggregated: 390
 4. Effort-tier MCP runs other than @high used the self-hosted replica (full corpus, same models); local assist calls are ~5x faster than hosted was, slightly flattering non-high MCP wall times.
 
 New-batch spend: ~$29 OpenRouter (xhigh alone ~$12), 312 runs in 33 min at concurrency 20, zero provider errors.
+
+## Confirmation study (2026-07-22, +351 runs; 854 total)
+
+**Baseline effort ordering at n=130/cell (was n=39):** low 90.8% [84.6,94.6], medium 90.0% [83.6,94.1], high 83.8% [76.6,89.2]. Low vs medium p=0.83 (identical); low/medium vs high p=0.09/0.14 (suggestive, not significant). **The earlier "low 97% > medium 90% > high 85%" ordering was 3-rep noise and is retracted.** What survives: extra thinking buys no solve-rate gain while costing 2-3x time and money; low+MCP remains the efficient frontier at 97.3% [92.5,99.1].
+
+**Hosted vs local backend A/B (@high mcp, 39 runs each):** identical effectiveness (38/39 solved both, ~same turns); only lookup latency differs (~5x faster locally, 96s->64s median wall). Hosted-index staleness did NOT skew the original results. Data pooled.
+
+**Incomplete:** ~34 low/medium MCP cells (reps 6-9) failed with OpenRouter 402 — account credits exhausted ($200.16/$200.00). Resumable with the standard runner command after a top-up (~$3-5 needed).
