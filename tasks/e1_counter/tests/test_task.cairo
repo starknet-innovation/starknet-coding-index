@@ -1,5 +1,5 @@
 use counter::{ICounterDispatcher, ICounterDispatcherTrait};
-use snforge_std::{declare, ContractClassTrait, DeclareResultTrait, spy_events};
+use snforge_std::{declare, ContractClassTrait, DeclareResultTrait, spy_events, EventSpyTrait};
 use starknet::ContractAddress;
 
 fn deploy(initial: u64) -> ICounterDispatcher {
@@ -44,14 +44,13 @@ fn test_increment_emits_event() {
     let counter = deploy(0);
     let mut spy = spy_events();
     counter.increment(7);
-    let events = spy.get_events();
-    assert!(events.events.len() == 1, "expected exactly one event");
-    let (from, event) = events.events.at(0);
+    let events = spy.get_events().events.span();
+    assert!(events.len() == 1, "expected exactly one event");
+    let (from, event) = events.at(0);
     assert!(from == @counter.contract_address, "event from wrong contract");
-    assert!(event.keys.at(0) == @selector!("Incremented"), "wrong event name");
+    assert!(event.keys == @array![selector!("Incremented")], "wrong event name");
     // struct fields land in data in declaration order: amount, new_value
-    assert!(event.data.at(0) == @7, "wrong amount in event");
-    assert!(event.data.at(1) == @7, "wrong new_value in event");
+    assert!(event.data == @array![7, 7], "wrong event data");
 }
 
 #[test]
@@ -59,11 +58,10 @@ fn test_decrement_emits_event() {
     let counter = deploy(10);
     let mut spy = spy_events();
     counter.decrement(3);
-    let events = spy.get_events();
-    assert!(events.events.len() == 1, "expected exactly one event");
-    let (from, event) = events.events.at(0);
+    let events = spy.get_events().events.span();
+    assert!(events.len() == 1, "expected exactly one event");
+    let (from, event) = events.at(0);
     assert!(from == @counter.contract_address, "event from wrong contract");
-    assert!(event.keys.at(0) == @selector!("Decremented"), "wrong event name");
-    assert!(event.data.at(0) == @3, "wrong amount in event");
-    assert!(event.data.at(1) == @7, "wrong new_value in event");
+    assert!(event.keys == @array![selector!("Decremented")], "wrong event name");
+    assert!(event.data == @array![3, 7], "wrong event data");
 }
