@@ -40,8 +40,15 @@ Scarb 2.19.4 (Cairo 2.19.4), Starknet Foundry 0.62.1, universal-sierra-compiler 
 export OPENROUTER_API_KEY=... CAIRO_CODER_API_KEY=...
 uv run python -m bench.validate_tasks            # gate: solutions pass, stubs fail
 uv run python -m bench.runner --models <spec,...> --conditions baseline,mcp --reps 1
-uv run python -m bench.report
+uv run python -m bench.report          # markdown tables -> results/report.md
+uv run python -m bench.html_report     # visual report  -> results/report.html
 ```
+
+`results/report.html` is self-contained (inline SVG charts, no JS/external
+assets) and structured overview-first: hero verdict, difficulty-impact chart,
+effort curve, efficiency frontier, then detail tables and methodology.
+It is generated locally only — publishing it anywhere is a manual,
+explicitly-requested step.
 
 Model specs attach a per-model reasoning effort with `@` — mix efforts and
 non-reasoning models freely in one matrix:
