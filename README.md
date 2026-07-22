@@ -81,11 +81,9 @@ cd ../python && uv sync --python 3.12
 set -a && source ../.env && set +a && uv run cairo-coder         # serves :3001
 ```
 
-Then point the harness at it:
-
-```bash
-CAIRO_CODER_URL=http://localhost:3001/v1/chat/completions uv run python -m bench.runner ...
-```
+The harness targets it by default (`bench/config.py` points at
+`http://localhost:3001/v1/chat/completions`); just make sure the backend is
+running before MCP-condition runs.
 
 Ingestion status: **11/11 sources, 4,105 chunks** (complete corpus parity with
 the hosted service). Reruns of `generate-embeddings:yes` are incremental

@@ -184,6 +184,7 @@ def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=Non
         "condition": condition,
         "rep": rep,
         "llm_opts": llm_opts,
+        "cairo_coder_url": config.CAIRO_CODER_URL if condition == "mcp" else None,
         "solved": solved,
         "compiled": bool(final_eval and final_eval["compiled"]),
         "tests_passed": final_eval["tests_passed"] if final_eval else 0,

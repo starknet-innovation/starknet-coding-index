@@ -17,10 +17,11 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # level; the placeholder only satisfies the SDK's non-empty check.
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") or "proxy-injected"
 
-# Overridable for a self-hosted deployment (mirrors the MCP package's
-# CAIRO_CODER_API_ENDPOINT local mode), e.g. http://localhost:3001/v1/chat/completions
+# The self-hosted deployment (vendor/cairo-coder) is the only backend now:
+# the hosted api.cairo-coder.com key is quota-dead and the service sunsets
+# 2026-07-31. Env override kept for exceptional cases only.
 CAIRO_CODER_URL = os.environ.get(
-    "CAIRO_CODER_URL", "https://api.cairo-coder.com/v1/chat/completions"
+    "CAIRO_CODER_URL", "http://localhost:3001/v1/chat/completions"
 )
 CAIRO_CODER_API_KEY = os.environ.get("CAIRO_CODER_API_KEY", "")
 
