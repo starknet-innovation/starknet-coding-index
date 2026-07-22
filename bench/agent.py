@@ -80,10 +80,14 @@ def _msg_to_dict(msg):
     return d
 
 
-def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=None):
-    """Execute one benchmark run. Returns a JSON-serializable result record."""
+def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=None, api_model=None):
+    """Execute one benchmark run. Returns a JSON-serializable result record.
+
+    `model` is the display/grouping spec (may carry an @effort suffix);
+    `api_model` is the id sent to the API (defaults to `model`)."""
     chat_fn = chat_fn or models.chat
     llm_opts = llm_opts or {}
+    api_model = api_model or model
     ws = workspace.create_workspace(task_id, run_id)
     tools = [SUBMIT_TOOL] + ([cairo_coder.ASSIST_TOOL_SCHEMA] if condition == "mcp" else [])
 
@@ -99,7 +103,7 @@ def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=Non
 
     try:
         for turn in range(1, config.MAX_ASSISTANT_TURNS + 1):
-            msg, meta = chat_fn(model, messages, tools, **llm_opts)
+            msg, meta = chat_fn(api_model, messages, tools, **llm_opts)
             meta["turn"] = turn
             llm_calls.append(meta)
             as_dict = _msg_to_dict(msg)
@@ -176,6 +180,7 @@ def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=Non
         "run_id": run_id,
         "task": task_id,
         "model": model,
+        "api_model": api_model,
         "condition": condition,
         "rep": rep,
         "llm_opts": llm_opts,

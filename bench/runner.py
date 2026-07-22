@@ -2,6 +2,13 @@
 
 Usage:
   uv run python -m bench.runner --models qwen/qwen3-coder --conditions baseline,mcp --reps 1
+
+Model specs may carry a per-model reasoning effort with `@`:
+  z-ai/glm-5.2@high,z-ai/glm-5.2@low,moonshotai/kimi-k3
+`@none` forces no reasoning param even when --reasoning is set. A bare spec
+uses --reasoning as its default (or nothing). OpenRouter variant suffixes
+(`:free`, `:nitro`, ...) are part of the model id and pass through untouched.
+The full spec is what gets recorded, resumed on, and grouped in reports.
 """
 
 import argparse
@@ -16,6 +23,14 @@ from . import agent, config
 
 def slug(s):
     return re.sub(r"[^a-zA-Z0-9._-]+", "-", s)
+
+
+def parse_model_spec(spec, default_reasoning=None):
+    """Split 'model@effort' into (api_model, reasoning_effort)."""
+    if "@" in spec:
+        api_model, effort = spec.rsplit("@", 1)
+        return api_model, (None if effort == "none" else effort)
+    return spec, default_reasoning
 
 
 def load_done(path):
@@ -79,18 +94,22 @@ def main():
 
     lock = threading.Lock()
 
-    llm_opts = {}
-    if args.reasoning:
-        llm_opts["reasoning_effort"] = args.reasoning
+    base_opts = {}
     if args.temperature is not None:
-        llm_opts["temperature"] = args.temperature
+        base_opts["temperature"] = args.temperature
     if args.provider_sort:
-        llm_opts["provider_sort"] = args.provider_sort
+        base_opts["provider_sort"] = args.provider_sort
 
     def one(cell):
         t, m, c, r = cell
+        api_model, effort = parse_model_spec(m, default_reasoning=args.reasoning)
+        llm_opts = dict(base_opts)
+        if effort:
+            llm_opts["reasoning_effort"] = effort
         run_id = f"{t}__{slug(m)}__{c}__rep{r}"
-        rec = agent.run_agent(t, m, c, run_id, r, chat_fn=chat_fn, llm_opts=llm_opts)
+        rec = agent.run_agent(
+            t, m, c, run_id, r, chat_fn=chat_fn, llm_opts=llm_opts, api_model=api_model
+        )
         with lock:
             with open(out_path, "a") as f:
                 f.write(json.dumps(rec) + "\n")

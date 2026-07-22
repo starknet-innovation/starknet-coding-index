@@ -39,9 +39,21 @@ Scarb 2.19.4 (Cairo 2.19.4), Starknet Foundry 0.62.1, universal-sierra-compiler 
 ```bash
 export OPENROUTER_API_KEY=... CAIRO_CODER_API_KEY=...
 uv run python -m bench.validate_tasks            # gate: solutions pass, stubs fail
-uv run python -m bench.runner --models <id,...> --conditions baseline,mcp --reps 1
+uv run python -m bench.runner --models <spec,...> --conditions baseline,mcp --reps 1
 uv run python -m bench.report
 ```
+
+Model specs attach a per-model reasoning effort with `@` — mix efforts and
+non-reasoning models freely in one matrix:
+
+```bash
+--models z-ai/glm-5.2@high,z-ai/glm-5.2@low,moonshotai/kimi-k3
+```
+
+A bare spec inherits `--reasoning` (if given) as its default; `@none` forces
+no reasoning param. OpenRouter variant suffixes (`:free`, `:nitro`) are part
+of the model id and pass through. The full spec is the identity used for
+resume, results, and report grouping.
 
 ## Self-hosted Cairo Coder (hosted API sunset 2026-07-31)
 

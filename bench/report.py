@@ -22,6 +22,11 @@ def load_runs(paths):
                 except json.JSONDecodeError:
                     continue
                 if r.get("error") is None:
+                    # Older records carry effort only in llm_opts; fold it into
+                    # the model label so groups stay distinct across runs.
+                    effort = (r.get("llm_opts") or {}).get("reasoning_effort")
+                    if effort and "@" not in r["model"]:
+                        r["model"] = f"{r['model']}@{effort}"
                     runs.append(r)
     return runs
 
