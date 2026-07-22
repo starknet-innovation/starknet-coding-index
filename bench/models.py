@@ -24,19 +24,25 @@ def client():
 RETRIABLE_STATUS = {408, 429, 500, 502, 503, 504}
 
 
-def chat(model, messages, tools, temperature=0.0, max_attempts=5):
+def chat(model, messages, tools, temperature=None, reasoning_effort=None, max_attempts=5):
     """One chat completion. Returns (message_dict, meta) where meta has
-    usage tokens, OpenRouter-reported cost, latency, retries."""
+    usage tokens, OpenRouter-reported cost, latency, retries.
+
+    temperature=None means provider default; reasoning_effort e.g. "high"
+    is passed via OpenRouter's unified reasoning parameter."""
     attempt, retries, use_temperature = 0, 0, temperature is not None
     while True:
         attempt += 1
         start = time.monotonic()
         try:
+            extra_body = {"usage": {"include": True}}
+            if reasoning_effort:
+                extra_body["reasoning"] = {"effort": reasoning_effort}
             kwargs = dict(
                 model=model,
                 messages=messages,
                 tools=tools,
-                extra_body={"usage": {"include": True}},
+                extra_body=extra_body,
             )
             if use_temperature:
                 kwargs["temperature"] = temperature

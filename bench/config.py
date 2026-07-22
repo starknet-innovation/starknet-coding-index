@@ -13,7 +13,9 @@ SCARB_VERSION = "2.19.4"
 SNFORGE_VERSION = "0.62.1"
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+# The sandbox proxy injects the real OpenRouter credentials at the network
+# level; the placeholder only satisfies the SDK's non-empty check.
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") or "proxy-injected"
 
 CAIRO_CODER_URL = "https://api.cairo-coder.com/v1/chat/completions"
 CAIRO_CODER_API_KEY = os.environ.get("CAIRO_CODER_API_KEY", "")

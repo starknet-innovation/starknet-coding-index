@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--reps", type=int, default=1)
     ap.add_argument("--rep-offset", type=int, default=0, help="start rep numbering here")
     ap.add_argument("--concurrency", type=int, default=4)
+    ap.add_argument("--reasoning", default=None, help="reasoning effort (e.g. high) via OpenRouter")
+    ap.add_argument("--temperature", type=float, default=None, help="default: provider default")
     ap.add_argument("--out", default=str(config.RUNS_DIR / "runs.jsonl"))
     ap.add_argument("--fake", action="store_true", help="dry-run with scripted fake model")
     args = ap.parse_args()
@@ -76,10 +78,16 @@ def main():
 
     lock = threading.Lock()
 
+    llm_opts = {}
+    if args.reasoning:
+        llm_opts["reasoning_effort"] = args.reasoning
+    if args.temperature is not None:
+        llm_opts["temperature"] = args.temperature
+
     def one(cell):
         t, m, c, r = cell
         run_id = f"{t}__{slug(m)}__{c}__rep{r}"
-        rec = agent.run_agent(t, m, c, run_id, r, chat_fn=chat_fn)
+        rec = agent.run_agent(t, m, c, run_id, r, chat_fn=chat_fn, llm_opts=llm_opts)
         with lock:
             with open(out_path, "a") as f:
                 f.write(json.dumps(rec) + "\n")
