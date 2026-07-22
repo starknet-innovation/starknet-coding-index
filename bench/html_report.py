@@ -164,7 +164,10 @@ def bar_cell(v, vmax, cls, label):
 
 # ---------------------------------------------------------------- build page
 
-def build(runs):
+def build(all_runs):
+    # The effort-curve study is GLM 5.2; other models get their own sections.
+    runs = [r for r in all_runs if r["model"].startswith("z-ai/glm-5.2")]
+    k3_runs = [r for r in all_runs if r["model"].startswith("moonshotai/kimi-k3")]
     by_cond = group(runs, lambda r: r["condition"])
     base_all, mcp_all = by_cond["baseline"], by_cond["mcp"]
     # macro-average across efforts so unequal rep counts don't reweight the headline
@@ -269,6 +272,48 @@ def build(runs):
 
     tier_chart = dumbbell_chart(tier_rows, 60, 100)
 
+    # Kimi K3 comparison rows (single supported thinking config, always-max)
+    k3_html = ""
+    if k3_runs:
+        k3 = {}
+        for c in ["baseline", "mcp"]:
+            rs = [r for r in k3_runs if r["condition"] == c]
+            k3[c] = {
+                "n": len(rs),
+                "solved": sum(r["solved"] for r in rs),
+                "one_turn": sum(1 for r in rs if r["turns"] == 1),
+                "wall": med([r["wall_time_s"] for r in rs]),
+                "cost": med([r["cost_usd"] for r in rs]),
+                "assists": sum(r["n_assist_calls"] for r in rs),
+            }
+        g = eff[("high", "baseline")], eff[("high", "mcp")]
+        rows = []
+        for label, d, cls in [
+            ("GLM 5.2 @high · baseline", g[0], "b"), ("GLM 5.2 @high · mcp", g[1], "m"),
+        ]:
+            rows.append(
+                f'<tr><td class="task">{label}</td>'
+                + bar_cell(d["solve"], 100, cls, f"{d['solve']:.0f}%")
+                + f'<td class="num">{d["wall"]:.0f}s</td><td class="num">${d["cost"]:.3f}</td>'
+                + f'<td class="num">{d["assists"]:.1f}</td></tr>'
+            )
+        for label, c, cls in [("Kimi K3 · baseline", "baseline", "b"), ("Kimi K3 · mcp", "mcp", "m")]:
+            d = k3[c]
+            pct = 100 * d["solved"] / d["n"]
+            rows.append(
+                f'<tr><td class="task">{label}</td>'
+                + bar_cell(pct, 100, cls, f"{pct:.0f}% ({d['solved']}/{d['n']})")
+                + f'<td class="num">{d["wall"]:.0f}s</td><td class="num">${d["cost"]:.3f}</td>'
+                + f'<td class="num">{d["assists"] / d["n"]:.1f}</td></tr>'
+            )
+        k3_one_turn = 100 * (k3["baseline"]["one_turn"] + k3["mcp"]["one_turn"]) / len(k3_runs)
+        k3_html = f"""
+<section>
+  <h2>A stronger model needs no documentation — Kimi K3</h2>
+  <div class="tablewrap"><table class="num"><tr><th>Configuration</th><th class="barcell">Solve rate</th><th>Med. wall</th><th>Med. cost</th><th>Assists/run</th></tr>{"".join(rows)}</table></div>
+  <p class="takeaway">Kimi K3 (its single supported thinking configuration, {len(k3_runs)} runs) <b>solves the entire suite in both conditions</b> — {k3_one_turn:.0f}% of runs on the first submission, including tasks GLM failed repeatedly — and <b>never once calls the documentation tool</b> despite having it available. The MCP's value is a function of the model's knowledge gap, not a constant: GLM 5.2 gains up to +21pt; K3 has no gap to fill on this suite. Evaluating documentation tools against frontier models needs harder or post-training-cutoff tasks — this suite saturates.</p>
+</section>"""
+
     n_runs = len(runs)
     hero_lift = pooled_m - pooled_b
 
@@ -331,13 +376,13 @@ def build(runs):
 <main>
 <header>
   <h1>Does documentation access make an LLM a better Starknet developer?</h1>
-  <p class="lede">We gave the same model the same {len({r["task"] for r in runs})} smart-contract tasks, with and without the <b>Cairo Coder</b> documentation tool, across five reasoning-effort settings. With the tool, the model completes more tasks, spends less doing it, and needs it most exactly where you'd expect: on the tasks in the middle of the difficulty range.</p>
+  <p class="lede">We gave models the same {len({r["task"] for r in runs})} smart-contract tasks, with and without the <b>Cairo Coder</b> documentation tool. For GLM 5.2 — across five reasoning-effort settings — the tool means more tasks completed at lower cost, most of all on mid-difficulty contracts. For the stronger Kimi K3, the suite saturates: the answer depends on the model's knowledge gap.</p>
   <div class="chips">
-    <span class="chip">model <b>GLM 5.2</b></span>
-    <span class="chip">runs <b>{n_runs}</b></span>
-    <span class="chip">reasoning efforts <b>5</b></span>
+    <span class="chip">models <b>GLM 5.2 · Kimi K3</b></span>
+    <span class="chip">runs <b>{n_runs + len(k3_runs)}</b></span>
+    <span class="chip">reasoning efforts <b>5 + 1</b></span>
     <span class="chip">hidden tests <b>106</b></span>
-    <span class="chip">total LLM spend <b>${total_cost:.0f}</b></span>
+    <span class="chip">total LLM spend <b>${total_cost + sum(r["cost_usd"] or 0 for r in k3_runs):.0f}</b></span>
     <span class="chip">2026-07-22</span>
   </div>
 </header>
@@ -370,6 +415,8 @@ def build(runs):
   {frontier_scatter}
   <p class="takeaway"><b>low + MCP is the efficient frontier</b>: {eff[("low", "mcp")]["solve"]:.0f}% of tasks solved at ~${eff[("low", "mcp")]["cost"]:.3f} and ~{eff[("low", "mcp")]["wall"]:.0f}s per task — statistically indistinguishable from the most expensive configuration (xhigh + MCP, {eff[("xhigh", "mcp")]["solve"]:.0f}% at n=39) at {eff[("xhigh", "mcp")]["cost"] / eff[("low", "mcp")]["cost"]:.1f}× the cost and {eff[("xhigh", "mcp")]["wall"] / eff[("low", "mcp")]["wall"]:.1f}× the time.</p>
 </section>
+
+{k3_html}
 
 <section class="findings">
   <h2>Findings</h2>
@@ -413,7 +460,7 @@ def build(runs):
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>One model.</b> These numbers characterize GLM 5.2; the effort–MCP interaction likely varies by model family and training cutoff.</li>
+        <li><b>Model dependence, demonstrated:</b> the GLM sections characterize GLM 5.2 (854 runs); Kimi K3 (78 runs, n=39 per condition) shows the other extreme — full saturation, zero tool use. K3 runs used a harness that round-trips reasoning history (per Moonshot's requirement); GLM runs predate that fix, which its own data shows it did not need.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>

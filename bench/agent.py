@@ -77,6 +77,14 @@ def _msg_to_dict(msg):
             }
             for tc in msg.tool_calls
         ]
+    # Round-trip the model's reasoning (OpenRouter's reasoning_details field).
+    # Some models — notably Kimi K3 — are trained with preserved thinking
+    # history and degrade if the harness drops it between turns.
+    details = getattr(msg, "reasoning_details", None)
+    if details is None and getattr(msg, "model_extra", None):
+        details = msg.model_extra.get("reasoning_details")
+    if details:
+        d["reasoning_details"] = details
     return d
 
 
