@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+target/
+.snfoundry_cache/
+results/workspaces/
+.env
