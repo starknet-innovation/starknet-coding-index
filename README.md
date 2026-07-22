@@ -68,9 +68,10 @@ Then point the harness at it:
 CAIRO_CODER_URL=http://localhost:3001/v1/chat/completions uv run python -m bench.runner ...
 ```
 
-Ingestion status: 10/11 sources (3,160 chunks). `starknet_blog` requires
-`www.starknet.io:443` on the sandbox network allowlist; rerun
-`generate-embeddings:yes` after allowing it (reruns are incremental).
+Ingestion status: **11/11 sources, 4,105 chunks** (complete corpus parity with
+the hosted service). Reruns of `generate-embeddings:yes` are incremental
+(hash-compared per chunk). Network note: `starknet_blog` crawls
+`www.starknet.io`, which must be on the sandbox allowlist.
 Gotchas encoded in the patch: langchain's `OpenAIEmbeddings` and litellm's
 embedding path both mis-handle OpenRouter's embeddings route (positional
 indexing / base64 encoding_format) — both sides use direct OpenAI-SDK/fetch
