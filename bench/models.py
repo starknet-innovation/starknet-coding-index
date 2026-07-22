@@ -1,5 +1,6 @@
 """OpenRouter chat client with usage/cost accounting and retry."""
 
+import json
 import time
 
 from openai import OpenAI, APIStatusError, APIConnectionError, APITimeoutError
@@ -77,7 +78,8 @@ def chat(model, messages, tools, temperature=None, reasoning_effort=None, max_at
                 time.sleep(min(60, 2 ** attempt))
                 continue
             raise
-        except (APIConnectionError, APITimeoutError):
+        except (APIConnectionError, APITimeoutError, json.JSONDecodeError):
+            # JSONDecodeError: provider/proxy returned a malformed body
             if attempt < max_attempts:
                 retries += 1
                 time.sleep(min(60, 2 ** attempt))
