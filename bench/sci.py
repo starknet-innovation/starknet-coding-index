@@ -166,7 +166,14 @@ def compute_sci(runs_for_model):
         vals = [r[key] for r in runs_for_model if r.get(key) is not None]
         return statistics.median(vals) if vals else None
 
-    raw = {"med_llm": med("llm_time_s"), "med_cost": med("cost_usd"),
+    # Speed = model latency incl. doc-tool wait: for baseline runs assist
+    # time is zero, so this only matters when scoring the mcp condition.
+    svc_times = [
+        r["llm_time_s"] + (r.get("assist_time_s") or 0)
+        for r in runs_for_model if r.get("llm_time_s") is not None
+    ]
+    raw = {"med_llm": statistics.median(svc_times) if svc_times else None,
+           "med_cost": med("cost_usd"),
            "med_ctok": med("completion_tokens"), "n_runs": len(runs_for_model)}
     components = {
         "correct": correct,
