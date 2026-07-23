@@ -391,7 +391,7 @@ def build(all_runs):
     w_ = SCI_SPEC["weights"]
     sci_html = f"""
 <section>
-  <h2>Starknet Coding Index — SCI {SCI_SPEC['version']} <span style="text-transform:none">(baseline, no assistance)</span></h2>
+  <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool), at its strongest thinking configuration, with a 10-turn compile-and-repair budget — 39 runs per model. The score blends five measurements:</p>
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
