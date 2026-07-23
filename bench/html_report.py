@@ -15,8 +15,6 @@ from . import config
 from .report import load_runs
 from .sci import SCI_SPEC, leaderboard
 
-EFFORT_ORDER = ["disabled", "low", "medium", "high", "xhigh"]
-TIERS = [("e", "easy"), ("m", "medium"), ("h", "hard")]
 SLATE = "#7C8DB0"
 CORAL = "#E2653E"
 INK = "#1C2230"
@@ -24,9 +22,6 @@ MUTED = "#5C6572"
 LINE = "#E3E6EC"
 GOOD = "#2E9E6B"
 
-
-def effort_of(run):
-    return run["model"].split("@", 1)[1] if "@" in run["model"] else "high"
 
 
 def med(vals):
@@ -61,35 +56,6 @@ def svg_open(w, h):
     )
 
 
-def dumbbell_chart(rows, x_min, x_max, w=760, row_h=54, label_w=150, unit="%"):
-    """rows: [(label, baseline_val, mcp_val, n_note)]"""
-    pad_r, top = 90, 18
-    h = top + row_h * len(rows) + 26
-    cw = w - label_w - pad_r
-    sx = lambda v: label_w + (v - x_min) / (x_max - x_min) * cw
-    parts = [svg_open(w, h)]
-    # gridlines
-    for gv in range(int(x_min), int(x_max) + 1, 10):
-        x = sx(gv)
-        parts.append(f'<line x1="{x:.0f}" y1="{top - 6}" x2="{x:.0f}" y2="{h - 24}" stroke="{LINE}" stroke-width="1"/>')
-        parts.append(f'<text x="{x:.0f}" y="{h - 8}" font-size="11" fill="{MUTED}" text-anchor="middle">{gv}{unit}</text>')
-    for i, (label, b, m, note) in enumerate(rows):
-        y = top + row_h * i + row_h / 2
-        xb, xm = sx(b), sx(m)
-        parts.append(f'<text x="0" y="{y - 6}" font-size="13" fill="{INK}" dominant-baseline="middle">{label}</text>')
-        parts.append(f'<text x="0" y="{y + 10}" font-size="10.5" fill="{MUTED}" dominant-baseline="middle">{note}</text>')
-        parts.append(f'<line x1="{xb:.0f}" y1="{y:.0f}" x2="{xm:.0f}" y2="{y:.0f}" stroke="#C9CFDC" stroke-width="3"/>')
-        parts.append(f'<circle cx="{xb:.0f}" cy="{y:.0f}" r="7" fill="{SLATE}"/>')
-        parts.append(f'<circle cx="{xm:.0f}" cy="{y:.0f}" r="7" fill="{CORAL}"/>')
-        delta = m - b
-        sign = "+" if delta >= 0 else "−"
-        parts.append(
-            f'<text x="{max(xb, xm) + 14:.0f}" y="{y:.0f}" font-size="13" font-weight="600" '
-            f'fill="{GOOD if delta > 0 else MUTED}" dominant-baseline="middle">{sign}{abs(delta):.0f}pt</text>'
-        )
-    parts.append("</svg>")
-    return "".join(parts)
-
 
 def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101):
     """series: [(name, color, [values]), ...]; annotations: [(xi, y, text)]"""
@@ -122,36 +88,6 @@ def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101)
     parts.append("</svg>")
     return "".join(parts)
 
-
-def scatter_chart(points, ring, w=760, h=320, x_max=0.16, y_min=68, y_max=102):
-    """points: [(x_cost, y_solve, label, color, label_side)]; ring: (x, y)"""
-    pad_l, pad_r, pad_t, pad_b = 46, 24, 12, 54
-    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
-    sx = lambda v: pad_l + v / x_max * cw
-    sy = lambda v: pad_t + (y_max - v) / (y_max - y_min) * ch
-    parts = [svg_open(w, h)]
-    for gv in range(70, 101, 10):
-        y = sy(gv)
-        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
-        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}%</text>')
-    for cv in [0.04, 0.08, 0.12, 0.16]:
-        x = sx(cv)
-        parts.append(f'<line x1="{x:.0f}" y1="{pad_t}" x2="{x:.0f}" y2="{h - pad_b + 4}" stroke="{LINE}"/>')
-        parts.append(f'<text x="{x:.0f}" y="{h - 34}" font-size="11" fill="{MUTED}" text-anchor="middle">${cv:.2f}</text>')
-    parts.append(
-        f'<text x="{(pad_l + w - pad_r) / 2:.0f}" y="{h - 12}" font-size="11" fill="{MUTED}" '
-        f'text-anchor="middle">median cost per run (USD) — lower-right is worse, upper-left is better</text>'
-    )
-    rx, ry = sx(ring[0]), sy(ring[1])
-    parts.append(f'<circle cx="{rx:.0f}" cy="{ry:.0f}" r="13" fill="none" stroke="{GOOD}" stroke-width="2" stroke-dasharray="3 2"/>')
-    for x, y, label, color, side in points:
-        px, py = sx(x), sy(y)
-        parts.append(f'<circle cx="{px:.0f}" cy="{py:.0f}" r="6" fill="{color}"/>')
-        anchor = "start" if side == "r" else "end"
-        lx = px + 10 if side == "r" else px - 10
-        parts.append(f'<text x="{lx:.0f}" y="{py:.0f}" font-size="11" fill="{INK}" text-anchor="{anchor}" dominant-baseline="middle">{label}</text>')
-    parts.append("</svg>")
-    return "".join(parts)
 
 
 SCI_OPEN_COLOR = "#3D5A96"    # open-weight models
@@ -247,13 +183,6 @@ def mcp_lift_chart(pairs, w=760, h=404):
     return "".join(parts)
 
 
-def heat_cell(pct):
-    # white -> green scale over 60..100
-    a = max(0.0, min(1.0, (pct - 60) / 40))
-    return (
-        f'<td style="background:rgba(46,158,107,{0.06 + a * 0.5:.2f});text-align:right" class="num">{pct:.0f}%</td>'
-    )
-
 
 def bar_cell(v, vmax, cls, label):
     wpct = max(2, v / vmax * 100)
@@ -278,112 +207,6 @@ ROSTER = [
 
 
 def build(all_runs):
-    # The effort-curve study is GLM 5.2; the lab roster gets its own section.
-    runs = [r for r in all_runs if r["model"].startswith("z-ai/glm-5.2")]
-    by_cond = group(runs, lambda r: r["condition"])
-    base_all, mcp_all = by_cond["baseline"], by_cond["mcp"]
-    # macro-average across efforts so unequal rep counts don't reweight the headline
-    pooled_b = statistics.mean(
-        solve_pct([r for r in base_all if effort_of(r) == e]) for e in EFFORT_ORDER
-    )
-    pooled_m = statistics.mean(
-        solve_pct([r for r in mcp_all if effort_of(r) == e]) for e in EFFORT_ORDER
-    )
-    cost_b, cost_m = med([r["cost_usd"] for r in base_all]), med([r["cost_usd"] for r in mcp_all])
-    total_cost = sum(r["cost_usd"] or 0 for r in runs)
-
-    # tier stats pooled across efforts
-    tier_rows = []
-    for t, tname in TIERS:
-        rs = [r for r in runs if r["task"].startswith(t)]
-        b = [r for r in rs if r["condition"] == "baseline"]
-        m = [r for r in rs if r["condition"] == "mcp"]
-        ntasks = len({r["task"] for r in rs})
-        tier_rows.append((f"{tname} ({ntasks} tasks)", solve_pct(b), solve_pct(m), f"n={len(b)} per condition"))
-
-    # effort stats
-    eff = {}
-    for e in EFFORT_ORDER:
-        for c in ["baseline", "mcp"]:
-            rs = [r for r in runs if effort_of(r) == e and r["condition"] == c]
-            eff[(e, c)] = {
-                "n": len(rs),
-                "solve": solve_pct(rs),
-                "wall": med([model_time(r) for r in rs]),
-                "cost": med([r["cost_usd"] for r in rs]),
-                "assists": sum(r["n_assist_calls"] for r in rs) / len(rs),
-            }
-
-    effort_line = line_chart(
-        EFFORT_ORDER,
-        [
-            ("baseline", SLATE, [eff[(e, "baseline")]["solve"] for e in EFFORT_ORDER]),
-            ("with MCP", CORAL, [eff[(e, "mcp")]["solve"] for e in EFFORT_ORDER]),
-        ],
-        annotations=[(0, 84.5, "+21pt with thinking off")],
-    )
-
-    assists_row = "".join(
-        f"<span>{e}: <b>{eff[(e, 'mcp')]['assists']:.1f}</b></span>" for e in EFFORT_ORDER
-    )
-    ns = [eff[k]["n"] for k in eff]
-    n_note = f"{min(ns)}–{max(ns)} (confirmation reps added to low/medium/high)"
-
-    # scatter
-    pts, label_sides = [], {"disabled": "r", "low": "r", "medium": "r", "high": "l", "xhigh": "l"}
-    for e in EFFORT_ORDER:
-        for c, color in [("baseline", SLATE), ("mcp", CORAL)]:
-            d = eff[(e, c)]
-            pts.append((d["cost"], d["solve"], e, color, label_sides[e]))
-    frontier = (eff[("low", "mcp")]["cost"], eff[("low", "mcp")]["solve"])
-    frontier_scatter = scatter_chart(pts, ring=frontier)
-
-    # heatmap: rows = efforts, col groups = tiers x cond
-    heat = ['<table class="num"><tr><th rowspan="2">Effort</th>']
-    for _, tname in TIERS:
-        heat.append(f'<th colspan="2" style="text-align:center">{tname}</th>')
-    heat.append("</tr><tr>")
-    for _ in TIERS:
-        heat.append(f'<th style="color:{SLATE}">base</th><th style="color:{CORAL}">mcp</th>')
-    heat.append("</tr>")
-    for e in EFFORT_ORDER:
-        heat.append(f'<tr><td class="task">{e}</td>')
-        for t, _ in TIERS:
-            for c in ["baseline", "mcp"]:
-                rs = [r for r in runs if effort_of(r) == e and r["condition"] == c and r["task"].startswith(t)]
-                heat.append(heat_cell(solve_pct(rs)))
-        heat.append("</tr>")
-    heat.append("</table>")
-    heatmap = "".join(heat)
-
-    # effort detail table
-    max_wall = max(eff[k]["wall"] for k in eff)
-    max_cost = max(eff[k]["cost"] for k in eff)
-    et = ['<table class="num"><tr><th>Effort</th><th>Cond.</th><th class="barcell">Solve rate</th>'
-          '<th class="barcell">Median model time</th><th class="barcell">Median cost</th><th>Assists/run</th></tr>']
-    for e in EFFORT_ORDER:
-        for j, (c, cls) in enumerate([("baseline", "b"), ("mcp", "m")]):
-            d = eff[(e, c)]
-            et.append("<tr>" + (f'<td class="task" rowspan="2">{e}</td>' if j == 0 else ""))
-            et.append(f'<td><span class="cond {cls}">{c}</span></td>')
-            et.append(bar_cell(d["solve"], 100, cls, f"{d['solve']:.0f}%"))
-            et.append(bar_cell(d["wall"], max_wall, cls, f"{d['wall']:.0f}s"))
-            et.append(bar_cell(d["cost"], max_cost, cls, f"${d['cost']:.3f}"))
-            et.append(f'<td>{d["assists"]:.1f}</td></tr>' if c == "mcp" else "<td>—</td></tr>")
-    et.append("</table>")
-    effort_table = "".join(et)
-
-    # per-task dumbbells pooled across efforts
-    task_rows = []
-    for task in sorted({r["task"] for r in runs}):
-        rs = [r for r in runs if r["task"] == task]
-        b = [r for r in rs if r["condition"] == "baseline"]
-        m = [r for r in rs if r["condition"] == "mcp"]
-        task_rows.append((task, solve_pct(b), solve_pct(m), f"{sum(r['solved'] for r in b)}/{len(b)} → {sum(r['solved'] for r in m)}/{len(m)}"))
-    task_chart = dumbbell_chart(task_rows, 30, 100, row_h=44, label_w=170)
-
-    tier_chart = dumbbell_chart(tier_rows, 60, 100)
-
     # Does the effort pattern generalize? Small-multiple curves per model.
     FAMILIES = [
         ("GLM 5.2", "z-ai/glm-5.2@", ["disabled", "low", "medium", "high", "xhigh"]),
@@ -699,9 +522,6 @@ def build(all_runs):
   <p class="takeaway"><b>Anthropic's ladder tells the opposite story.</b> Haiku 4.5 (#12) keeps the family trait — thinking off is its best mode — but sheds 20 correctness points against Sonnet and adds a failure mode its siblings lack: given a big thinking budget it overthinks its way from 89% down to 66%.</p>
 </section>"""
 
-    n_runs = len(runs)
-    hero_lift = pooled_m - pooled_b
-
     findings_html = """
 <section class="findings">
   <h2>Findings</h2>
@@ -803,56 +623,6 @@ def build(all_runs):
 {k3_html}
 
 <section>
-  <h2>Deep dive — the original GLM 5.2 effort study</h2>
-  <p class="takeaway">Everything below this line is a single model — <b>GLM 5.2</b> — measured across five reasoning-effort settings with and without the tool ({n_runs} runs, up to n=130 per baseline cell). It is where the substitution law was first established and remains the deepest per-effort dataset in the study.</p>
-</section>
-
-<section>
-  <div class="cards num">
-    <div class="card"><div class="big">{pooled_b:.0f}<small>%</small> → {pooled_m:.0f}<small>%</small></div><div class="what">tasks completed, without → with the docs tool (averaged across effort settings)</div></div>
-    <div class="card"><div class="big">−{(1 - cost_m / cost_b) * 100:.0f}<small>%</small></div><div class="what">median cost per task — the tool saves more than it costs</div></div>
-    <div class="card"><div class="big">5<small>/5</small></div><div class="what">reasoning-effort settings where the tool improved or matched the solve rate</div></div>
-  </div>
-</section>
-
-<section>
-  <h2>GLM 5.2 · where the tool matters — task difficulty</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span></div>
-  {tier_chart}
-  <p class="takeaway">Easy tasks don't need help. <b>Mid-difficulty contracts — token variants, escrow, voting — are where documentation pays: failures disappear entirely (+{tier_rows[1][2] - tier_rows[1][1]:.0f}pt).</b> The hardest tasks (account abstraction, components) improve but still fail sometimes: knowing the docs isn't the same as getting the architecture right.</p>
-</section>
-
-<section>
-  <h2>GLM 5.2 · documentation substitutes for thinking — the effort curve</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate; n per point ranges {n_note}</span></div>
-  {effort_line}
-  <p class="takeaway">The less the model is allowed to think, the more the tool helps — and the more the model reaches for it (documentation lookups per run: <span class="assists" style="display:inline-flex">{assists_row}</span>). Extra thinking buys no solve-rate gain: after enlarging low/medium/high baselines to n=130, low and medium are statistically identical (p=0.83) and high trails by a suggestive-but-not-significant ~7pt (p=0.09) at roughly the same cost — while the xhigh tier spends ~2.4× the time and ~1.9× the money of low for a statistically indistinguishable solve rate.</p>
-</section>
-
-<section>
-  <h2>GLM 5.2 · what should you run? — the efficiency frontier</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>each point = one effort setting</span></div>
-  {frontier_scatter}
-  <p class="takeaway"><b>low + MCP is the efficient frontier</b>: {eff[("low", "mcp")]["solve"]:.0f}% of tasks solved at ~${eff[("low", "mcp")]["cost"]:.3f} and ~{eff[("low", "mcp")]["wall"]:.0f}s per task — statistically indistinguishable from the most expensive configuration (xhigh + MCP, {eff[("xhigh", "mcp")]["solve"]:.0f}% at n=39) at {eff[("xhigh", "mcp")]["cost"] / eff[("low", "mcp")]["cost"]:.1f}× the cost and {eff[("xhigh", "mcp")]["wall"] / eff[("low", "mcp")]["wall"]:.1f}× the time.</p>
-</section>
-
-<section>
-  <h2>Detail — effort × condition</h2>
-  <div class="tablewrap">{effort_table}</div>
-</section>
-
-<section>
-  <h2>Detail — solve rate by effort × difficulty</h2>
-  <div class="tablewrap">{heatmap}</div>
-</section>
-
-<section>
-  <h2>Detail — per task, pooled across efforts</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>run counts per task shown in each row</span></div>
-  {task_chart}
-</section>
-
-<section>
   <div class="split">
     <div>
       <h2>Methodology</h2>
@@ -866,7 +636,7 @@ def build(all_runs):
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>Model dependence, demonstrated:</b> the GLM sections characterize GLM 5.2 (884 runs); the roster (78 runs per model) spans full saturation (K3, MiMo) to collapse (Qwen3.6-27B). Roster runs round-trip reasoning history and stream responses; GLM runs predate those harness fixes, which GLM's own data shows it did not need.</li>
+        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study) — it anchors the substitution-law finding and the n=130 statistics; newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
         <li><b>Five roster cells abandoned:</b> repeated host-sleep/network stalls made 5 qwen/minimax baseline cells (of 390) unrecoverable within budget; they are counted as failures, consistent with their completed sibling reps (which failed in 10-turn slogs). Time/cost medians exclude them.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
