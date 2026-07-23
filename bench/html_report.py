@@ -13,6 +13,7 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
+from .sci import SCI_SPEC, leaderboard
 
 EFFORT_ORDER = ["disabled", "low", "medium", "high", "xhigh"]
 TIERS = [("e", "easy"), ("m", "medium"), ("h", "hard")]
@@ -142,6 +143,61 @@ def scatter_chart(points, ring, w=760, h=320, x_max=0.16, y_min=68, y_max=102):
         anchor = "start" if side == "r" else "end"
         lx = px + 10 if side == "r" else px - 10
         parts.append(f'<text x="{lx:.0f}" y="{py:.0f}" font-size="11" fill="{INK}" text-anchor="{anchor}" dominant-baseline="middle">{label}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+SCI_COLORS = {
+    "correct": "#3D5A96",  # deep blue — the dominant component
+    "oneshot": "#3E9B8F",  # teal
+    "speed": "#7FAE5C",    # green
+    "cost": "#C99A3C",     # amber
+    "tokens": "#9A8FB8",   # grey-violet
+}
+SCI_COMPONENT_LABELS = {
+    "correct": "correctness ×0.50", "oneshot": "one-shot ×0.15",
+    "speed": "speed ×0.15", "cost": "cost ×0.15", "tokens": "token-eff ×0.05",
+}
+
+
+def sci_bar_chart(rows, w=760, row_h=46, label_w=200):
+    """Ranked horizontal stacked-bar chart of SCI rows (from bench.sci.leaderboard).
+
+    Each bar is the weighted sum of its components (segments); open-weight
+    models get a green 'open' chip, closed-weight a grey 'closed' chip and a
+    dashed bar outline. Reusable: pass any number of rows.
+    """
+    weights = SCI_SPEC["weights"]
+    pad_r, top = 56, 8
+    h = top + row_h * len(rows) + 30
+    cw = w - label_w - pad_r
+    sx = lambda v: label_w + v / 100 * cw
+    parts = [svg_open(w, h)]
+    for gv in range(0, 101, 20):
+        x = sx(gv)
+        parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{h - 26}" stroke="{LINE}"/>')
+        parts.append(f'<text x="{x:.0f}" y="{h - 10}" font-size="11" fill="{MUTED}" text-anchor="middle">{gv}</text>')
+    for i, r in enumerate(rows):
+        y = top + row_h * i + 8
+        bar_h = row_h - 18
+        # label + open/closed chip
+        parts.append(f'<text x="0" y="{y + bar_h / 2:.0f}" font-size="13" fill="{INK}" dominant-baseline="middle">{r["label"]}</text>')
+        chip_x, chip_y = 0, y + bar_h / 2 + 12
+        chip_text = "open" if r["open_weight"] else "closed"
+        chip_fill = "#E7F4EE" if r["open_weight"] else "#ECEEF2"
+        chip_ink = GOOD if r["open_weight"] else MUTED
+        parts.append(f'<rect x="{chip_x}" y="{chip_y - 8}" width="{len(chip_text) * 7 + 10}" height="14" rx="3" fill="{chip_fill}"/>')
+        parts.append(f'<text x="{chip_x + 5}" y="{chip_y - 1}" font-size="10" fill="{chip_ink}" font-family="var(--mono)">{chip_text}</text>')
+        # stacked segments
+        x = label_w
+        for key in ["correct", "oneshot", "speed", "cost", "tokens"]:
+            seg = weights[key] * r["components"][key] / 100 * cw
+            if seg > 0.5:
+                parts.append(f'<rect x="{x:.1f}" y="{y}" width="{seg:.1f}" height="{bar_h}" fill="{SCI_COLORS[key]}"/>')
+            x += seg
+        if not r["open_weight"]:
+            parts.append(f'<rect x="{label_w}" y="{y - 1.5}" width="{x - label_w + 1.5:.1f}" height="{bar_h + 3}" fill="none" stroke="{MUTED}" stroke-width="1.2" stroke-dasharray="4 3"/>')
+        parts.append(f'<text x="{x + 8:.0f}" y="{y + bar_h / 2:.0f}" font-size="14" font-weight="600" fill="{INK}" dominant-baseline="middle">{r["sci"]:.1f}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -348,6 +404,21 @@ def build(all_runs):
   <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +21pt for the weakest entrant (Qwen3.6-27B, 28%→49%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~23s and ~$0.004 per task — an order of magnitude cheaper and faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
 </section>"""
 
+    # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
+    sci_rows = leaderboard(all_runs)
+    sci_legend = "".join(
+        f'<span><span class="key" style="background:{SCI_COLORS[k]};border-radius:2px"></span>{SCI_COMPONENT_LABELS[k]}</span>'
+        for k in ["correct", "oneshot", "speed", "cost", "tokens"]
+    )
+    a = SCI_SPEC["anchors"]
+    sci_html = f"""
+<section>
+  <h2>Starknet Coding Index — SCI {SCI_SPEC['version']} <span style="text-transform:none">(baseline, no assistance)</span></h2>
+  <div class="legend">{sci_legend}<span><span class="key" style="background:#E7F4EE;border-radius:2px"></span>open weights</span><span><span class="key" style="border:1.2px dashed {MUTED};border-radius:2px"></span>closed weights</span></div>
+  {sci_bar_chart(sci_rows)}
+  <p class="takeaway">One number per model for "how good is this LLM at writing Starknet contracts today": half the score is hidden-test correctness, the rest rewards one-shot solves, speed, price, and token efficiency (fixed log anchors: {a["speed"][0]}s–{a["speed"][1]}s, ${a["cost"][0]}–${a["cost"][1]}, {a["tokens"][0] // 1000}k–{a["tokens"][1] // 1000}k tokens — so future additions never reshuffle existing scores). Max-thinking config, 39 runs per model, 10-turn budget. <b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-anchor speed and cost outweighs Kimi K3's unmatched 90% one-shot rate.</p>
+</section>"""
+
     n_runs = len(runs)
     hero_lift = pooled_m - pooled_b
 
@@ -419,6 +490,8 @@ def build(all_runs):
     <span class="chip">2026-07-22/23</span>
   </div>
 </header>
+
+{sci_html}
 
 <section>
   <div class="cards num">

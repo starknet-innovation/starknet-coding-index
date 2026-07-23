@@ -61,3 +61,21 @@ Findings: (1) the knowledge-gap law holds across labs — MCP lift is zero at sa
 | MiMo-V2.5-Pro @xhigh | 100% | 97.4% | |
 
 Verdict: GLM's "extra thinking buys nothing" holds for DeepSeek and MiMo; Hy3 is the counterexample (high tier genuinely better at baseline, +7.7pt). The substitution law is universal: MCP lift appears exactly where reasoning/knowledge falls short (hy3@low +5pt), never at saturation. Probes: deepseek low=medium=high collapse to one tier (xhigh 5-10x more reasoning); hy3 has two real tiers; mimo's ladder is cosmetic. Two harness bugs found+fixed at 50-way concurrency: non-string codeSnippets from models crash-proofed (cairo_coder.py), mid-stream disconnects now retried (models.py httpx.HTTPError). Batch: 312 runs in 42 min at concurrency 50, ~$12.
+
+## Starknet Coding Index — SCI v1 (2026-07-23, baseline condition)
+
+SCI = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost + 0.05*TokenEfficiency (0-100).
+Correctness = mean hidden-test pass fraction; resource scores use fixed log anchors
+(speed 20s->1200s, cost $0.003->$0.60, tokens 1k->40k) so future models never reshuffle
+existing scores. Max-thinking config, 39 baseline runs/model, 10-turn budget. All current
+entrants are open-weight; the chart distinguishes open vs closed for future additions.
+
+| # | Model | SCI | Correct | 1-shot | Speed | Cost | Tokens |
+|--:|---|--:|--:|--:|--:|--:|--:|
+| 1 | MiMo-V2.5-Pro | 89.1 | 100.0 | 41 | 97 | 93 | 90 |
+| 2 | Kimi K3 | 82.3 | 100.0 | 90 | 61 | 43 | 65 |
+| 3 | MiniMax M3 | 71.4 | 91.0 | 31 | 65 | 67 | 31 |
+| 4 | Hy3 | 67.7 | 94.9 | 5 | 51 | 69 | 29 |
+| 5 | DeepSeek V4-Pro | 60.7 | 94.9 | 0 | 41 | 39 | 24 |
+| 6 | GLM 5.2 | 59.5 | 96.8 | 0 | 45 | 27 | 8 |
+| 7 | Qwen3.6-27B | 17.6 | 28.2 | 0 | 8 | 15 | 0 |

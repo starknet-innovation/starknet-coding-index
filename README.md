@@ -62,6 +62,18 @@ no reasoning param. OpenRouter variant suffixes (`:free`, `:nitro`) are part
 of the model id and pass through. The full spec is the identity used for
 resume, results, and report grouping.
 
+## Starknet Coding Index (SCI)
+
+One composite score per model for "how good is this LLM at Starknet contracts":
+`SCI = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost + 0.05*TokenEff`,
+computed by `bench/sci.py` (weights + fixed log anchors versioned in `SCI_SPEC`).
+Print the leaderboard with `uv run python -m bench.sci`.
+
+**Adding a model**: benchmark it (`uv run python -m bench.runner --models <spec>
+--provider-sort throughput --conditions baseline,mcp --reps 3`), add one entry to
+`MODEL_REGISTRY` in `bench/sci.py` (spec, label, lab, open_weight), regenerate the
+report. Fixed anchors guarantee existing scores don't move.
+
 ## Self-hosted Cairo Coder (hosted API sunset 2026-07-31)
 
 The hosted api.cairo-coder.com is quota-limited and being sunset, so the MCP
