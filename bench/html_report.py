@@ -158,7 +158,7 @@ SCI_OPEN_COLOR = "#3D5A96"    # open-weight models
 SCI_CLOSED_COLOR = "#9AA3B2"  # closed-weight models
 
 
-def sci_bar_chart(rows, w=760, h=380):
+def sci_bar_chart(rows, w=760, h=396):
     """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
     One solid column per model, colored by open- vs closed-weight; SCI value
@@ -166,7 +166,7 @@ def sci_bar_chart(rows, w=760, h=380):
     — so the roster can grow without neighbors colliding; the lab is omitted
     (it lives in the leaderboard prose). Reusable: pass any number of rows.
     """
-    pad_l, pad_r, pad_t, pad_b = 48, 12, 26, 94
+    pad_l, pad_r, pad_t, pad_b = 48, 12, 26, 122
     cw = w - pad_l - pad_r
     ch = h - pad_t - pad_b
     n = len(rows)
@@ -191,7 +191,7 @@ def sci_bar_chart(rows, w=760, h=380):
             if r.get("variant") else ""
         )
         parts.append(
-            f'<text transform="rotate(-35 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
             f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{variant}</text>'
         )
     parts.append("</svg>")
