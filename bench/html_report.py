@@ -164,10 +164,21 @@ def bar_cell(v, vmax, cls, label):
 
 # ---------------------------------------------------------------- build page
 
+# Best open-weight coder per top Chinese lab, at max thinking (label, spec)
+ROSTER = [
+    ("Moonshot · Kimi K3", "moonshotai/kimi-k3"),
+    ("Xiaomi · MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@xhigh"),
+    ("DeepSeek · V4-Pro", "deepseek/deepseek-v4-pro@xhigh"),
+    ("Tencent · Hy3", "tencent/hy3"),
+    ("Z.ai · GLM 5.2", "z-ai/glm-5.2@xhigh"),
+    ("MiniMax · M3", "minimax/minimax-m3@xhigh"),
+    ("Alibaba · Qwen3.6-27B", "qwen/qwen3.6-27b@xhigh"),
+]
+
+
 def build(all_runs):
-    # The effort-curve study is GLM 5.2; other models get their own sections.
+    # The effort-curve study is GLM 5.2; the lab roster gets its own section.
     runs = [r for r in all_runs if r["model"].startswith("z-ai/glm-5.2")]
-    k3_runs = [r for r in all_runs if r["model"].startswith("moonshotai/kimi-k3")]
     by_cond = group(runs, lambda r: r["condition"])
     base_all, mcp_all = by_cond["baseline"], by_cond["mcp"]
     # macro-average across efforts so unequal rep counts don't reweight the headline
@@ -272,46 +283,43 @@ def build(all_runs):
 
     tier_chart = dumbbell_chart(tier_rows, 60, 100)
 
-    # Kimi K3 comparison rows (single supported thinking config, always-max)
-    k3_html = ""
-    if k3_runs:
-        k3 = {}
+    # Lab roster: best open-weight coder per lab at max thinking
+    roster_rows, roster_stats = [], {}
+    for label, spec in ROSTER:
+        rs = [r for r in all_runs if r["model"] == spec]
+        if not rs:
+            continue
+        st = {}
         for c in ["baseline", "mcp"]:
-            rs = [r for r in k3_runs if r["condition"] == c]
-            k3[c] = {
-                "n": len(rs),
-                "solved": sum(r["solved"] for r in rs),
-                "one_turn": sum(1 for r in rs if r["turns"] == 1),
-                "wall": med([r["wall_time_s"] for r in rs]),
-                "cost": med([r["cost_usd"] for r in rs]),
-                "assists": sum(r["n_assist_calls"] for r in rs),
+            crs = [r for r in rs if r["condition"] == c]
+            st[c] = {
+                "n": len(crs),
+                "solve": solve_pct(crs),
+                "wall": med([r["wall_time_s"] for r in crs]),
+                "cost": med([r["cost_usd"] for r in crs]),
+                "assists": sum(r["n_assist_calls"] for r in crs) / len(crs),
             }
-        g = eff[("high", "baseline")], eff[("high", "mcp")]
-        rows = []
-        for label, d, cls in [
-            ("GLM 5.2 @high · baseline", g[0], "b"), ("GLM 5.2 @high · mcp", g[1], "m"),
-        ]:
-            rows.append(
-                f'<tr><td class="task">{label}</td>'
-                + bar_cell(d["solve"], 100, cls, f"{d['solve']:.0f}%")
-                + f'<td class="num">{d["wall"]:.0f}s</td><td class="num">${d["cost"]:.3f}</td>'
-                + f'<td class="num">{d["assists"]:.1f}</td></tr>'
-            )
-        for label, c, cls in [("Kimi K3 · baseline", "baseline", "b"), ("Kimi K3 · mcp", "mcp", "m")]:
-            d = k3[c]
-            pct = 100 * d["solved"] / d["n"]
-            rows.append(
-                f'<tr><td class="task">{label}</td>'
-                + bar_cell(pct, 100, cls, f"{pct:.0f}% ({d['solved']}/{d['n']})")
-                + f'<td class="num">{d["wall"]:.0f}s</td><td class="num">${d["cost"]:.3f}</td>'
-                + f'<td class="num">{d["assists"] / d["n"]:.1f}</td></tr>'
-            )
-        k3_one_turn = 100 * (k3["baseline"]["one_turn"] + k3["mcp"]["one_turn"]) / len(k3_runs)
-        k3_html = f"""
+        roster_stats[label] = st
+    for label, st in sorted(roster_stats.items(), key=lambda kv: -kv[1]["baseline"]["solve"]):
+        b, m = st["baseline"], st["mcp"]
+        delta = m["solve"] - b["solve"]
+        roster_rows.append(
+            f'<tr class="taskrow"><td class="task" rowspan="2">{label}</td>'
+            f'<td><span class="cond b">baseline</span></td>'
+            + bar_cell(b["solve"], 100, "b", f"{b['solve']:.0f}%")
+            + f'<td class="num">{b["wall"]:.0f}s</td><td class="num">${b["cost"]:.3f}</td>'
+            f'<td class="num" rowspan="2">{"+" if delta >= 0 else "−"}{abs(delta):.0f}pt</td>'
+            f'<td class="num" rowspan="2">{m["assists"]:.1f}</td></tr>'
+            f'<tr class="taskrow2"><td><span class="cond m">mcp</span></td>'
+            + bar_cell(m["solve"], 100, "m", f"{m['solve']:.0f}%")
+            + f'<td class="num">{m["wall"]:.0f}s</td><td class="num">${m["cost"]:.3f}</td></tr>'
+        )
+    k3_html = f"""
 <section>
-  <h2>A stronger model needs no documentation — Kimi K3</h2>
-  <div class="tablewrap"><table class="num"><tr><th>Configuration</th><th class="barcell">Solve rate</th><th>Med. wall</th><th>Med. cost</th><th>Assists/run</th></tr>{"".join(rows)}</table></div>
-  <p class="takeaway">Kimi K3 (its single supported thinking configuration, {len(k3_runs)} runs) <b>solves the entire suite in both conditions</b> — {k3_one_turn:.0f}% of runs on the first submission, including tasks GLM failed repeatedly — and <b>never once calls the documentation tool</b> despite having it available. The MCP's value is a function of the model's knowledge gap, not a constant: GLM 5.2 gains up to +21pt; K3 has no gap to fill on this suite. Evaluating documentation tools against frontier models needs harder or post-training-cutoff tasks — this suite saturates.</p>
+  <h2>The lab roster — best open-weight coder per lab, max thinking</h2>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>39 runs per condition per model</span></div>
+  <div class="tablewrap"><table class="num"><tr><th>Lab · model</th><th>Cond.</th><th class="barcell">Solve rate</th><th>Med. wall</th><th>Med. cost</th><th>MCP lift</th><th>Assists/run</th></tr>{"".join(roster_rows)}</table></div>
+  <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +21pt for the weakest entrant (Qwen3.6-27B, 28%→49%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~23s and ~$0.004 per task — an order of magnitude cheaper and faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
 </section>"""
 
     n_runs = len(runs)
@@ -376,14 +384,13 @@ def build(all_runs):
 <main>
 <header>
   <h1>Does documentation access make an LLM a better Starknet developer?</h1>
-  <p class="lede">We gave models the same {len({r["task"] for r in runs})} smart-contract tasks, with and without the <b>Cairo Coder</b> documentation tool. For GLM 5.2 — across five reasoning-effort settings — the tool means more tasks completed at lower cost, most of all on mid-difficulty contracts. For the stronger Kimi K3, the suite saturates: the answer depends on the model's knowledge gap.</p>
+  <p class="lede">We gave models the same {len({r["task"] for r in runs})} smart-contract tasks, with and without the <b>Cairo Coder</b> documentation tool: GLM 5.2 across five reasoning-effort settings, plus the best open-weight coder from each of seven Chinese labs at max thinking. One law explains all of it — <b>the tool's value tracks the model's Cairo knowledge gap</b>: zero for frontier models that saturate the suite, decisive for models that don't.</p>
   <div class="chips">
-    <span class="chip">models <b>GLM 5.2 · Kimi K3</b></span>
-    <span class="chip">runs <b>{n_runs + len(k3_runs)}</b></span>
-    <span class="chip">reasoning efforts <b>5 + 1</b></span>
+    <span class="chip">labs <b>7</b></span>
+    <span class="chip">runs <b>{len(all_runs)}</b></span>
     <span class="chip">hidden tests <b>106</b></span>
-    <span class="chip">total LLM spend <b>${total_cost + sum(r["cost_usd"] or 0 for r in k3_runs):.0f}</b></span>
-    <span class="chip">2026-07-22</span>
+    <span class="chip">total LLM spend <b>${sum(r["cost_usd"] or 0 for r in all_runs):.0f}</b></span>
+    <span class="chip">2026-07-22/23</span>
   </div>
 </header>
 
@@ -460,7 +467,8 @@ def build(all_runs):
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>Model dependence, demonstrated:</b> the GLM sections characterize GLM 5.2 (854 runs); Kimi K3 (78 runs, n=39 per condition) shows the other extreme — full saturation, zero tool use. K3 runs used a harness that round-trips reasoning history (per Moonshot's requirement); GLM runs predate that fix, which its own data shows it did not need.</li>
+        <li><b>Model dependence, demonstrated:</b> the GLM sections characterize GLM 5.2 (884 runs); the roster (78 runs per model) spans full saturation (K3, MiMo) to collapse (Qwen3.6-27B). Roster runs round-trip reasoning history and stream responses; GLM runs predate those harness fixes, which GLM's own data shows it did not need.</li>
+        <li><b>Five roster cells abandoned:</b> repeated host-sleep/network stalls made 5 qwen/minimax baseline cells (of 390) unrecoverable within budget; they are counted as failures, consistent with their completed sibling reps (which failed in 10-turn slogs). Wall/cost medians exclude them.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>

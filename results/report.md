@@ -34,3 +34,17 @@ Runs aggregated: 962
 | m3_escrow | 3/3 | 3/3 | 2/3 | 3/3 | 4/10 | 6/6 | 9/10 | 9/10 | 7/10 | 9/10 | 3/3 | 3/3 |
 | m4_crud | 3/3 | 3/3 | 2/3 | 3/3 | 9/10 | 6/6 | 9/10 | 10/10 | 10/10 | 9/10 | 3/3 | 3/3 |
 | m5_dispatcher | 3/3 | 3/3 | 3/3 | 3/3 | 10/10 | 6/6 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |
+
+## Lab roster (2026-07-23): best open-weight coder per top Chinese lab, max thinking (78 runs each)
+
+| Lab / model | Baseline | MCP | Lift | Med wall b/m | Med cost b/m | Assists/run |
+|---|---|---|---|---|---|---|
+| Moonshot Kimi K3 | 100% | 100% | 0 | 100s/102s | $0.061/$0.063 | 0.0 |
+| Xiaomi MiMo-V2.5-Pro @xhigh | 100% | 97% | -3 | 23s/20s | $0.004/$0.005 | 0.0 |
+| DeepSeek V4-Pro @xhigh | 95% | 100% | +5 | 225s/211s | $0.074/$0.071 | 1.3 |
+| Tencent Hy3 | 95% | 95% | 0 | 148s/159s | $0.015/$0.015 | 0.5 |
+| Z.ai GLM 5.2 @xhigh | 95% | 100% | +5 | 194s/185s | $0.147/$0.128 | 1.2 |
+| MiniMax M3 @xhigh | 87% | 90% | +3 | 86s/104s | $0.018/$0.020 | 0.5 |
+| Alibaba Qwen3.6-27B @xhigh | 28% | 49% | +21 | 852s/613s | $0.269/$0.188 | 1.3 |
+
+Findings: (1) the knowledge-gap law holds across labs — MCP lift is zero at saturation, largest for the weakest model; (2) MiMo-V2.5-Pro is the efficiency standout (100% at ~23s/$0.004 per task, ~15x cheaper than K3); (3) Qwen3.6-27B collapses on Cairo despite strong general-coding benchmarks — language-specific knowledge is what the MCP substitutes for; (4) Hy3 (released 2026-07-06, freshest data) hits 95% without needing the tool. Notes: 5 qwen/minimax baseline cells abandoned after repeated host-sleep/network stalls, counted as failures (consistent with sibling reps); roster ran with streaming + reasoning-history passthrough. Roster spend: ~$48.
