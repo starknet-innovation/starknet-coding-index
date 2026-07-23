@@ -178,7 +178,10 @@ def sci_bar_chart(rows, w=760, h=360):
         parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
         parts.append(f'<text x="{cx:.0f}" y="{h - 30}" font-size="11" fill="{INK}" text-anchor="middle">{r["label"]}</text>')
-        parts.append(f'<text x="{cx:.0f}" y="{h - 16}" font-size="10" fill="{MUTED}" text-anchor="middle">{r.get("lab", "")}</text>')
+        sub = r.get("lab", "")
+        if r.get("variant"):
+            sub = f'{sub} · {r["variant"]}' if sub else r["variant"]
+        parts.append(f'<text x="{cx:.0f}" y="{h - 16}" font-size="10" fill="{MUTED}" text-anchor="middle" font-family="var(--mono)">{sub}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -392,7 +395,7 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool), at its strongest thinking configuration, with a 10-turn compile-and-repair budget — 39 runs per model. The score blends five measurements:</p>
+  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b> — labeled under each bar (e.g. <code>@low</code>, <code>@xhigh</code>, or <code>default</code> for models with a single fixed mode). 39–130 runs per entry. The score blends five measurements:</p>
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
@@ -402,7 +405,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. All current entrants are open-weight models from Chinese labs; closed-weight models join the same chart as they're benchmarked.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, where correctness is unchanged but runs are 2–3× faster and cheaper. All current entrants are open-weight models from Chinese labs; closed-weight models join the same chart as they're benchmarked.</p>
 </section>"""
 
     n_runs = len(runs)

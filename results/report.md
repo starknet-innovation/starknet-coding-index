@@ -79,3 +79,12 @@ entrants are open-weight; the chart distinguishes open vs closed for future addi
 | 5 | DeepSeek V4-Pro | 60.7 | 94.9 | 0 | 41 | 39 | 24 |
 | 6 | GLM 5.2 | 59.5 | 96.8 | 0 | 45 | 27 | 8 |
 | 7 | Qwen3.6-27B | 17.6 | 28.2 | 0 | 8 | 15 | 0 |
+
+## SCI policy update (2026-07-23): best variant per model, labeled
+
+The leaderboard now scores each model at its best-performing benchmarked variant
+(was: max thinking), with the variant labeled per bar. Changes: Hy3 default->@high
+(67.7->69.1), DeepSeek @xhigh->@low (60.7->65.6), GLM @xhigh->@low (59.5->63.5).
+No rank flips except DeepSeek/GLM tightening behind Hy3. MiMo's best remains @xhigh
+(89.1); its @low scores 83.4. Rationale: SCI includes efficiency, and for GLM/DeepSeek
+max thinking buys no correctness at 2-3x the time/cost.

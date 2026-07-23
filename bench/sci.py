@@ -33,16 +33,28 @@ SCI_SPEC = {
     "anchors": {"speed": (20, 1200), "cost": (0.003, 0.60), "tokens": (1000, 40000)},
 }
 
-# spec -> display metadata. The extension point for future models.
+# Candidate variants per model; the leaderboard scores every candidate with
+# data and keeps the best (policy: "best foot forward", variant labeled on
+# the chart). The extension point for future models.
 MODEL_REGISTRY = [
-    {"spec": "moonshotai/kimi-k3", "label": "Kimi K3", "lab": "Moonshot", "open_weight": True},
-    {"spec": "xiaomi/mimo-v2.5-pro@xhigh", "label": "MiMo-V2.5-Pro", "lab": "Xiaomi", "open_weight": True},
-    {"spec": "deepseek/deepseek-v4-pro@xhigh", "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
-    {"spec": "tencent/hy3", "label": "Hy3", "lab": "Tencent", "open_weight": True},
-    {"spec": "z-ai/glm-5.2@xhigh", "label": "GLM 5.2", "lab": "Z.ai", "open_weight": True},
-    {"spec": "minimax/minimax-m3@xhigh", "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
-    {"spec": "qwen/qwen3.6-27b@xhigh", "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
+    {"specs": ["moonshotai/kimi-k3"], "label": "Kimi K3", "lab": "Moonshot", "open_weight": True},
+    {"specs": ["xiaomi/mimo-v2.5-pro@xhigh", "xiaomi/mimo-v2.5-pro@low"],
+     "label": "MiMo-V2.5-Pro", "lab": "Xiaomi", "open_weight": True},
+    {"specs": ["deepseek/deepseek-v4-pro@xhigh", "deepseek/deepseek-v4-pro@low"],
+     "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
+    {"specs": ["tencent/hy3", "tencent/hy3@high", "tencent/hy3@low"],
+     "label": "Hy3", "lab": "Tencent", "open_weight": True},
+    {"specs": ["z-ai/glm-5.2@xhigh", "z-ai/glm-5.2@high", "z-ai/glm-5.2@medium",
+               "z-ai/glm-5.2@low", "z-ai/glm-5.2@disabled"],
+     "label": "GLM 5.2", "lab": "Z.ai", "open_weight": True},
+    {"specs": ["minimax/minimax-m3@xhigh"], "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
+    {"specs": ["qwen/qwen3.6-27b@xhigh"], "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
 ]
+
+
+def variant_label(spec):
+    """Human label for the thinking variant encoded in a spec."""
+    return "@" + spec.rsplit("@", 1)[1] if "@" in spec else "default"
 
 
 def log_anchor(value, best, worst):
@@ -84,7 +96,10 @@ def compute_sci(runs_for_model):
 
 
 def leaderboard(all_runs, condition=None):
-    """SCI rows for every registry model present in the data, best first."""
+    """SCI rows for every registry model present in the data, best first.
+
+    Each model is scored at every benchmarked candidate variant; the row
+    carries the best-scoring one (spec + variant fields say which)."""
     condition = condition or SCI_SPEC["condition"]
     by_model = defaultdict(list)
     for r in all_runs:
@@ -92,10 +107,15 @@ def leaderboard(all_runs, condition=None):
             by_model[r["model"]].append(r)
     rows = []
     for entry in MODEL_REGISTRY:
-        runs = by_model.get(entry["spec"])
-        if not runs:
+        scored = [
+            {"spec": spec, **compute_sci(by_model[spec])}
+            for spec in entry["specs"]
+            if by_model.get(spec)
+        ]
+        if not scored:
             continue
-        rows.append({**entry, **compute_sci(runs)})
+        best = max(scored, key=lambda s: s["sci"])
+        rows.append({**entry, **best, "variant": variant_label(best["spec"])})
     return sorted(rows, key=lambda r: -r["sci"])
 
 
@@ -105,10 +125,10 @@ def main():
     w = SCI_SPEC["weights"]
     print(f"Starknet Coding Index {SCI_SPEC['version']} — baseline, weights "
           + " ".join(f"{k}={v}" for k, v in w.items()))
-    print(f"{'#':>2} {'Model':16} {'SCI':>6} | {'corr':>5} {'1shot':>5} {'speed':>5} {'cost':>5} {'tok':>5} | {'open':>6} {'n':>3}")
+    print(f"{'#':>2} {'Model':16} {'variant':>9} {'SCI':>6} | {'corr':>5} {'1shot':>5} {'speed':>5} {'cost':>5} {'tok':>5} | {'open':>6} {'n':>3}")
     for i, r in enumerate(rows, 1):
         c = r["components"]
-        print(f"{i:>2} {r['label']:16} {r['sci']:6.1f} | {c['correct']:5.1f} {c['oneshot']:5.0f} "
+        print(f"{i:>2} {r['label']:16} {r['variant']:>9} {r['sci']:6.1f} | {c['correct']:5.1f} {c['oneshot']:5.0f} "
               f"{c['speed']:5.0f} {c['cost']:5.0f} {c['tokens']:5.0f} | "
               f"{'open' if r['open_weight'] else 'closed':>6} {r['raw']['n_runs']:>3}")
 
