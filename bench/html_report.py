@@ -166,7 +166,7 @@ def sci_bar_chart(rows, w=760, h=380):
     then "variant · lab") so long names clear their neighbors as the roster
     grows. Reusable: pass any number of rows (columns share the width).
     """
-    pad_l, pad_r, pad_t, pad_b = 40, 12, 26, 94
+    pad_l, pad_r, pad_t, pad_b = 48, 12, 26, 94
     cw = w - pad_l - pad_r
     ch = h - pad_t - pad_b
     n = len(rows)
@@ -423,6 +423,16 @@ def build(all_runs):
         ("max", "openai/gpt-5.6-luna@max"),
         ("pro", "openai/gpt-5.6-luna-pro"),
     ]
+    TERRA_TIERS = [
+        ("off", "openai/gpt-5.6-terra@disabled"),
+        ("minimal", "openai/gpt-5.6-terra@minimal"),
+        ("low", "openai/gpt-5.6-terra@low"),
+        ("medium", "openai/gpt-5.6-terra@medium"),
+        ("high", "openai/gpt-5.6-terra@high"),
+        ("xhigh", "openai/gpt-5.6-terra@xhigh"),
+        ("max", "openai/gpt-5.6-terra@max"),
+        ("pro", "openai/gpt-5.6-terra-pro"),
+    ]
     MINIMAX_TIERS = [
         ("minimal", "minimax/minimax-m3@minimal"),
         ("low", "minimax/minimax-m3@low"),
@@ -462,7 +472,11 @@ def build(all_runs):
         "closed model that is NOT Cairo-saturated</b>: its solve rate genuinely climbs with the dial (79.5% with "
         "thinking off → 100% at <code>max</code>), it never one-shots at any tier (median 3–4 compiler round-trips), "
         "and its <code>pro</code> serving mode burns 14.5k output tokens and ~$0.11 per task to score <i>below</i> "
-        "<code>max</code>. Completing the open-model ladders sharpened the split. <b>DeepSeek V4-Pro turns out "
+        "<code>max</code>. <b>Terra, Luna's 2.5×-price sibling, shows what that money buys: knowledge, not habits.</b> "
+        "Its thinking-off correctness jumps to 89.7% (Luna: 79.5%) and its curve flattens to noise (only "
+        "<code>medium</code> reaches 100%), but it still never one-shots and its <code>pro</code> mode is again "
+        "strictly dominated ($0.21/task for less than <code>max</code>). Net effect on the index: +0.6 points over "
+        "Luna. Completing the open-model ladders sharpened the split. <b>DeepSeek V4-Pro turns out "
         "not to need its thinking at all</b>: ~95–97% at every tier including off, where it runs 2–4× faster and "
         "cheaper — the off tier jumps it to #5 on the index. <b>Hy3's ladder is erratic</b>: thinking off "
         "collapses it (87%→67%, the GLM pattern), but the dial isn't even monotone — <code>minimal</code> reasons "
@@ -485,6 +499,8 @@ def build(all_runs):
   {tier_table(GEMINI_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Luna (closed weights; <code>pro</code> is the same model in reasoning.mode=pro)</h3>
   {tier_table(LUNA_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Terra (closed weights; Luna's mid-tier sibling, <code>pro</code> = reasoning.mode=pro)</h3>
+  {tier_table(TERRA_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">MiniMax M3 (open weights; <code>disabled</code> accepted but ignored — omitted)</h3>
   {tier_table(MINIMAX_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">Tencent Hy3 (open weights; bare spec ≡ <code>high</code>)</h3>
@@ -550,7 +566,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is often the cheapest one — GLM 5.2 and Hy3 score highest at <code>@low</code>, and Sonnet 5 and DeepSeek V4-Pro score highest with thinking <code>off</code> (DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money — worth +7.6 points and three places). <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task. <b>GPT-5.6 Luna (#5, best variant <code>xhigh</code>) breaks the closed-model pattern</b>: OpenAI's budget tier is the first closed entrant below the saturation club — 97.4% correctness even at its best tier, zero one-shots anywhere, and a <code>pro</code> mode that costs 2–3× its <code>max</code> tier for less correctness.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is often the cheapest one — GLM 5.2 and Hy3 score highest at <code>@low</code>, and Sonnet 5 and DeepSeek V4-Pro score highest with thinking <code>off</code> (DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money — worth +7.6 points and three places). <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task. <b>The GPT-5.6 pair breaks the closed-model pattern</b>: OpenAI's Luna (#7, <code>xhigh</code>) and Terra (#6, <code>off</code>) are the first closed entrants below the saturation club — neither ever one-shots, both ship <code>pro</code> modes that cost 2–3× their <code>max</code> tiers for less correctness, and Terra's 2.5× price premium over Luna buys just +0.6 index points. On Cairo, OpenAI's scale ladder is a knowledge ladder with flat habits.</p>
 </section>"""
 
     n_runs = len(runs)

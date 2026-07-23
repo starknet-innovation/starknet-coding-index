@@ -87,6 +87,11 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
+    {"specs": ["openai/gpt-5.6-terra-pro", "openai/gpt-5.6-terra@max",
+               "openai/gpt-5.6-terra@xhigh", "openai/gpt-5.6-terra@high",
+               "openai/gpt-5.6-terra@medium", "openai/gpt-5.6-terra@low",
+               "openai/gpt-5.6-terra@minimal", "openai/gpt-5.6-terra@disabled"],
+     "label": "GPT-5.6 Terra", "lab": "OpenAI", "open_weight": False},
 ]
 
 
@@ -97,6 +102,7 @@ BARE_VARIANT_LABELS = {
     "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
     "anthropic/claude-sonnet-5": "off",  # no reasoning param = thinking fully off
     "openai/gpt-5.6-luna-pro": "pro",    # same model as luna, reasoning.mode=pro
+    "openai/gpt-5.6-terra-pro": "pro",   # same model as terra, reasoning.mode=pro
 }
 
 
