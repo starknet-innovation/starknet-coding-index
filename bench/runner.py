@@ -58,6 +58,9 @@ def main():
     ap.add_argument("--reasoning", default=None, help="reasoning effort (e.g. high) via OpenRouter")
     ap.add_argument("--temperature", type=float, default=None, help="default: provider default")
     ap.add_argument("--provider-sort", default=None, help="OpenRouter provider routing, e.g. throughput")
+    ap.add_argument("--provider-order", default=None,
+                    help="pin to specific provider(s), comma-separated, no fallbacks — "
+                         "needed when thought signatures don't validate across providers")
     ap.add_argument("--out", default=str(config.RUNS_DIR / "runs.jsonl"))
     ap.add_argument("--fake", action="store_true", help="dry-run with scripted fake model")
     args = ap.parse_args()
@@ -99,6 +102,8 @@ def main():
         base_opts["temperature"] = args.temperature
     if args.provider_sort:
         base_opts["provider_sort"] = args.provider_sort
+    if args.provider_order:
+        base_opts["provider_order"] = [p.strip() for p in args.provider_order.split(",")]
 
     def one(cell):
         t, m, c, r = cell

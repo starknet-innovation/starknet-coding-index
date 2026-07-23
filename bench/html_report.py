@@ -395,6 +395,14 @@ def build(all_runs):
         ("xhigh", "xiaomi/mimo-v2.5-pro@xhigh"),
         ("max", "xiaomi/mimo-v2.5-pro@max"),
     ]
+    GEMINI_TIERS = [
+        ("minimal", "google/gemini-3.6-flash@minimal"),
+        ("low", "google/gemini-3.6-flash@low"),
+        ("medium", "google/gemini-3.6-flash@medium"),
+        ("high", "google/gemini-3.6-flash@high"),
+        ("xhigh", "google/gemini-3.6-flash@xhigh"),
+        ("max", "google/gemini-3.6-flash@max"),
+    ]
     effort_curve_takeaway = (
         "<b>For both leaders the thinking knob buys nothing on this suite — including switching it off.</b> "
         "Sonnet 5 solves 195/195 at identical cost (~$0.024) and output (~1,700 tokens) at every tier because "
@@ -404,8 +412,12 @@ def build(all_runs):
         "MiMo's apparent latency spread (19s at xhigh vs ~45s at the tiers benchmarked in a later batch) is a "
         "provider artifact, not an effort effect: the earlier batch was served at ~81 tok/s, the later at ~33 tok/s, "
         "and within a batch the tiers are flat. One-shot rates wobble without a monotone trend (MiMo 18–41%, "
-        "Sonnet 46–67%) — binomial noise at n=39. The practical rule for saturated models: run the cheapest mode; "
-        "the thinking dial only matters where knowledge runs out (GLM, Hy3, Qwen)."
+        "Sonnet 46–67%) — binomial noise at n=39. <b>Gemini 3.6 Flash is the third pattern: an obedient thinker.</b> "
+        "It spends whatever budget it is granted (2k→7.7k output tokens, $0.023→$0.061 per task, minimal→max) and "
+        "the spend does buy something — one-shot rate climbs steadily from 10% to 46% — but not solves: it is at "
+        "100% from <code>low</code> upward regardless. The practical rule survives all three patterns: for "
+        "knowledge-saturated models, run the cheapest tier that holds correctness; the thinking dial buys solve "
+        "rate only where knowledge runs out (GLM, Hy3, Qwen)."
     )
     sonnet_html = f"""
 <section>
@@ -415,6 +427,8 @@ def build(all_runs):
   {tier_table(SONNET_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">MiMo-V2.5-Pro (open weights)</h3>
   {tier_table(MIMO_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">Gemini 3.6 Flash (closed weights, thinking mandatory — no off tier)</h3>
+  {tier_table(GEMINI_TIERS)}
   <p class="takeaway">{effort_curve_takeaway}</p>
 </section>"""
 
@@ -474,7 +488,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, and Sonnet 5 scores highest with thinking <code>off</code>: its five tiers from off to <code>high</code> are statistically indistinguishable here, so the cheapest-latency mode wins.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, and Sonnet 5 scores highest with thinking <code>off</code>: its five tiers from off to <code>high</code> are statistically indistinguishable here, so the cheapest-latency mode wins. <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task.</p>
 </section>"""
 
     n_runs = len(runs)

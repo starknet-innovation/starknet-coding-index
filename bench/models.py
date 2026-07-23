@@ -68,8 +68,13 @@ def _stream_completion(kwargs):
         for rd in rds or []:
             if not isinstance(rd, dict):
                 continue
-            idx = rd.get("index", 0)
-            slot = rd_by_index.setdefault(idx, {})
+            # Key by (index, id), not index alone: Gemini emits several
+            # complete reasoning.encrypted blocks — one per tool call,
+            # distinguished only by id — that all carry index 0. Merging
+            # them by index concatenates unrelated signature blobs and the
+            # provider rejects the replay ("Corrupted thought signature").
+            key = (rd.get("index", 0), rd.get("id"))
+            slot = rd_by_index.setdefault(key, {})
             for k, v in rd.items():
                 if v is None:
                     continue
@@ -91,20 +96,25 @@ def _stream_completion(kwargs):
             for i, slot in sorted(tool_slots.items())
         ]
         or None,
-        reasoning_details=[rd_by_index[k] for k in sorted(rd_by_index)] or None,
+        # insertion order = stream arrival order; sorting by the key would
+        # interleave same-index blocks from different providers incorrectly
+        reasoning_details=list(rd_by_index.values()) or None,
         model_extra=None,
     )
     return msg, usage, finish
 
 
 def chat(model, messages, tools, temperature=None, reasoning_effort=None,
-         provider_sort=None, max_attempts=5):
+         provider_sort=None, provider_order=None, max_attempts=5):
     """One chat completion. Returns (message_dict, meta) where meta has
     usage tokens, OpenRouter-reported cost, latency, retries.
 
     temperature=None means provider default; reasoning_effort e.g. "high"
     is passed via OpenRouter's unified reasoning parameter; provider_sort
-    e.g. "throughput" picks the fastest provider for the model."""
+    e.g. "throughput" picks the fastest provider for the model.
+    provider_order pins routing to the listed providers with fallbacks off —
+    required for models whose thought signatures only validate on the
+    provider that produced them (e.g. Gemini across AI Studio vs Vertex)."""
     attempt, retries, use_temperature = 0, 0, temperature is not None
     while True:
         attempt += 1
@@ -115,7 +125,9 @@ def chat(model, messages, tools, temperature=None, reasoning_effort=None,
                 extra_body["reasoning"] = {"enabled": False}
             elif reasoning_effort:
                 extra_body["reasoning"] = {"effort": reasoning_effort}
-            if provider_sort:
+            if provider_order:
+                extra_body["provider"] = {"order": provider_order, "allow_fallbacks": False}
+            elif provider_sort:
                 extra_body["provider"] = {"sort": provider_sort}
             kwargs = dict(
                 model=model,

@@ -70,6 +70,10 @@ MODEL_REGISTRY = [
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
                "anthropic/claude-sonnet-5"],
      "label": "Sonnet 5", "lab": "Anthropic", "open_weight": False},
+    {"specs": ["google/gemini-3.6-flash@max", "google/gemini-3.6-flash@xhigh",
+               "google/gemini-3.6-flash@high", "google/gemini-3.6-flash@medium",
+               "google/gemini-3.6-flash@low", "google/gemini-3.6-flash@minimal"],
+     "label": "Gemini 3.6 Flash", "lab": "Google", "open_weight": False},
 ]
 
 
