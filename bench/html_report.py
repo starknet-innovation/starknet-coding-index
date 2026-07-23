@@ -423,6 +423,29 @@ def build(all_runs):
         ("max", "openai/gpt-5.6-luna@max"),
         ("pro", "openai/gpt-5.6-luna-pro"),
     ]
+    MINIMAX_TIERS = [
+        ("minimal", "minimax/minimax-m3@minimal"),
+        ("low", "minimax/minimax-m3@low"),
+        ("medium", "minimax/minimax-m3@medium"),
+        ("high", "minimax/minimax-m3@high"),
+        ("xhigh", "minimax/minimax-m3@xhigh"),
+    ]
+    HY3_TIERS = [
+        ("off", "tencent/hy3@disabled"),
+        ("minimal", "tencent/hy3@minimal"),
+        ("low", "tencent/hy3@low"),
+        ("medium", "tencent/hy3@medium"),
+        ("high", "tencent/hy3@high"),
+        ("xhigh", "tencent/hy3@xhigh"),
+    ]
+    DEEPSEEK_TIERS = [
+        ("off", "deepseek/deepseek-v4-pro@disabled"),
+        ("minimal", "deepseek/deepseek-v4-pro@minimal"),
+        ("low", "deepseek/deepseek-v4-pro@low"),
+        ("medium", "deepseek/deepseek-v4-pro@medium"),
+        ("high", "deepseek/deepseek-v4-pro@high"),
+        ("xhigh", "deepseek/deepseek-v4-pro@xhigh"),
+    ]
     effort_curve_takeaway = (
         "<b>For both leaders the thinking knob buys nothing on this suite — including switching it off.</b> "
         "Sonnet 5 solves 195/195 at identical cost (~$0.024) and output (~1,700 tokens) at every tier because "
@@ -439,8 +462,16 @@ def build(all_runs):
         "closed model that is NOT Cairo-saturated</b>: its solve rate genuinely climbs with the dial (79.5% with "
         "thinking off → 100% at <code>max</code>), it never one-shots at any tier (median 3–4 compiler round-trips), "
         "and its <code>pro</code> serving mode burns 14.5k output tokens and ~$0.11 per task to score <i>below</i> "
-        "<code>max</code>. The practical rule survives all four patterns: run the cheapest tier that holds "
-        "correctness; the thinking dial buys solve rate only where knowledge runs out (GLM, Hy3, Qwen — and Luna)."
+        "<code>max</code>. Completing the open-model ladders sharpened the split. <b>DeepSeek V4-Pro turns out "
+        "not to need its thinking at all</b>: ~95–97% at every tier including off, where it runs 2–4× faster and "
+        "cheaper — the off tier jumps it to #5 on the index. <b>Hy3's ladder is erratic</b>: thinking off "
+        "collapses it (87%→67%, the GLM pattern), but the dial isn't even monotone — <code>minimal</code> reasons "
+        "longer than <code>medium</code> (303s vs 242s median) and both drown in over-budget grinds; "
+        "<code>low</code> stays its sweet spot. <b>MiniMax M3 genuinely needs its thinking</b> (87%→74% descending "
+        "the ladder) and its off switch is fake — the API accepts <code>disabled</code> and reasons anyway, so "
+        "that pseudo-variant is excluded. The practical rule survives every pattern: run the cheapest tier that "
+        "holds correctness; the thinking dial buys solve rate only where knowledge runs out (GLM, Hy3, MiniMax, "
+        "Qwen — and Luna)."
     )
     sonnet_html = f"""
 <section>
@@ -454,6 +485,12 @@ def build(all_runs):
   {tier_table(GEMINI_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Luna (closed weights; <code>pro</code> is the same model in reasoning.mode=pro)</h3>
   {tier_table(LUNA_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">MiniMax M3 (open weights; <code>disabled</code> accepted but ignored — omitted)</h3>
+  {tier_table(MINIMAX_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">Tencent Hy3 (open weights; bare spec ≡ <code>high</code>)</h3>
+  {tier_table(HY3_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">DeepSeek V4-Pro (open weights)</h3>
+  {tier_table(DEEPSEEK_TIERS)}
   <p class="takeaway">{effort_curve_takeaway}</p>
 </section>"""
 
@@ -513,7 +550,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, and Sonnet 5 scores highest with thinking <code>off</code>: its five tiers from off to <code>high</code> are statistically indistinguishable here, so the cheapest-latency mode wins. <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task. <b>GPT-5.6 Luna (#5, best variant <code>xhigh</code>) breaks the closed-model pattern</b>: OpenAI's budget tier is the first closed entrant below the saturation club — 97.4% correctness even at its best tier, zero one-shots anywhere, and a <code>pro</code> mode that costs 2–3× its <code>max</code> tier for less correctness.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is often the cheapest one — GLM 5.2 and Hy3 score highest at <code>@low</code>, and Sonnet 5 and DeepSeek V4-Pro score highest with thinking <code>off</code> (DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money — worth +7.6 points and three places). <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task. <b>GPT-5.6 Luna (#5, best variant <code>xhigh</code>) breaks the closed-model pattern</b>: OpenAI's budget tier is the first closed entrant below the saturation club — 97.4% correctness even at its best tier, zero one-shots anywhere, and a <code>pro</code> mode that costs 2–3× its <code>max</code> tier for less correctness.</p>
 </section>"""
 
     n_runs = len(runs)

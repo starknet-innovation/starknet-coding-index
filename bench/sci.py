@@ -57,14 +57,22 @@ MODEL_REGISTRY = [
                "xiaomi/mimo-v2.5-pro@low", "xiaomi/mimo-v2.5-pro@minimal",
                "xiaomi/mimo-v2.5-pro@disabled"],
      "label": "MiMo-V2.5-Pro", "lab": "Xiaomi", "open_weight": True},
-    {"specs": ["deepseek/deepseek-v4-pro@xhigh", "deepseek/deepseek-v4-pro@low"],
+    {"specs": ["deepseek/deepseek-v4-pro@xhigh", "deepseek/deepseek-v4-pro@high",
+               "deepseek/deepseek-v4-pro@medium", "deepseek/deepseek-v4-pro@low",
+               "deepseek/deepseek-v4-pro@minimal", "deepseek/deepseek-v4-pro@disabled"],
      "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
-    {"specs": ["tencent/hy3", "tencent/hy3@high", "tencent/hy3@low"],
+    {"specs": ["tencent/hy3", "tencent/hy3@xhigh", "tencent/hy3@high",
+               "tencent/hy3@medium", "tencent/hy3@low", "tencent/hy3@minimal",
+               "tencent/hy3@disabled"],
      "label": "Hy3", "lab": "Tencent", "open_weight": True},
     {"specs": ["z-ai/glm-5.2@xhigh", "z-ai/glm-5.2@high", "z-ai/glm-5.2@medium",
                "z-ai/glm-5.2@low", "z-ai/glm-5.2@disabled"],
      "label": "GLM 5.2", "lab": "Z.ai", "open_weight": True},
-    {"specs": ["minimax/minimax-m3@xhigh"], "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
+    {"specs": ["minimax/minimax-m3@xhigh", "minimax/minimax-m3@high",
+               "minimax/minimax-m3@medium", "minimax/minimax-m3@low",
+               "minimax/minimax-m3@minimal"],
+     # @disabled deliberately absent: MiniMax accepts the param but thinks anyway
+     "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
     {"specs": ["qwen/qwen3.6-27b@xhigh"], "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
     {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
@@ -95,7 +103,8 @@ BARE_VARIANT_LABELS = {
 def variant_label(spec):
     """Human label for the thinking level encoded in a spec."""
     if "@" in spec:
-        return spec.rsplit("@", 1)[1]
+        effort = spec.rsplit("@", 1)[1]
+        return "off" if effort == "disabled" else effort
     return BARE_VARIANT_LABELS.get(spec, "unspecified")
 
 
