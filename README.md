@@ -9,7 +9,10 @@ tests passing) and **efficiency** (wall time, tokens, dollar cost, repair iterat
 Each run = `task × model × condition × rep`. The model gets a task spec and must
 produce `src/lib.cairo` for a fixed Scarb package. It iterates in an agentic repair
 loop: submit code → harness runs `scarb build` + `snforge test` → model sees the
-results → resubmits, up to a turn limit.
+results → resubmits, within a budget of 10 turns AND 15 minutes of model time
+(LLM streaming + doc-tool wait — not wall time, which depends on harness
+concurrency). Over budget = failed, enforced live by the agent loop and
+retroactively in scoring.
 
 Two conditions, identical in every way except tool availability:
 

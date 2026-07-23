@@ -26,6 +26,11 @@ CAIRO_CODER_URL = os.environ.get(
 CAIRO_CODER_API_KEY = os.environ.get("CAIRO_CODER_API_KEY", "")
 
 MAX_ASSISTANT_TURNS = 10
+# A run must deliver within this much MODEL time (LLM streaming + doc-tool
+# wait) or it counts as a failure. Model time, not wall time: wall depends on
+# how many tasks the harness runs concurrently. The agent stops starting new
+# turns past the budget; scoring applies the same cap retroactively.
+MODEL_TIME_BUDGET_S = 900
 LLM_CALL_TIMEOUT_S = 600
 CAIRO_CODER_TIMEOUT_S = 300
 BUILD_TIMEOUT_S = 300

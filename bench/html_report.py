@@ -354,10 +354,31 @@ def build(all_runs):
   <h2>Does the effort pattern generalize? — four labs' effort curves</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 39 runs per point</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}</div>
-  <p class="takeaway">Partially. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier answers ~2.2× faster for ~25% less money) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 is the counterexample</b>: its high tier genuinely outperforms low at baseline (97.4% vs 89.7%), and — consistent with the substitution law — the MCP repays the difference at low effort (+5pt) while adding nothing at high. Hy3's bare default matches its high tier (reasoning-token volumes ~14k vs ~11k at low). The universal result across all four labs remains the substitution law: MCP lift appears exactly where reasoning or knowledge falls short, never where the model is already saturated.</p>
+  <p class="takeaway">Yes — and the 15-minute model-time budget settles the one apparent exception. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier answers ~2.2× faster for ~25% less money) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 looked like the counterexample, but its high-tier edge was built on marathon runs</b>: with over-budget solves (some past 40 minutes of thinking) counted as the failures they are, high scores 89.7% vs low's 87.2% — one run apart. What the budget reveals instead is a real MCP lift for Hy3 (87.2%→94.9% at bare/low): the documentation tool converts its over-budget grinds into in-budget solves, exactly what the substitution law predicts. MCP lift appears where reasoning or knowledge falls short — never where the model is already saturated.</p>
 </section>"""
 
-    # Sonnet 5: the first closed-weight effort curve (baseline only, no MCP runs)
+    # Full effort curves: every benchmarked thinking tier, baseline only.
+    def tier_table(tier_spec_pairs):
+        rows = []
+        for tier, spec in tier_spec_pairs:
+            rs = [r for r in all_runs if r["model"] == spec and r["condition"] == "baseline"]
+            if not rs:
+                continue
+            oneshot = 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs)
+            rows.append(
+                f'<tr><td class="task">{tier}</td>'
+                + bar_cell(solve_pct(rs), 100, "b", f"{solve_pct(rs):.0f}%")
+                + bar_cell(oneshot, 100, "b", f"{oneshot:.0f}%")
+                + f'<td class="num">{med([r["turns"] for r in rs]):.0f}</td>'
+                f'<td class="num">{med([model_time(r) for r in rs]):.0f}s</td>'
+                f'<td class="num">${med([r["cost_usd"] for r in rs]):.4f}</td>'
+                f'<td class="num">{med([r["completion_tokens"] for r in rs]):,.0f}</td></tr>'
+            )
+        return ('<div class="tablewrap"><table class="num"><tr><th>Thinking</th>'
+                '<th class="barcell">Solve rate</th><th class="barcell">One-shot</th>'
+                '<th>Med. turns</th><th>Med. model time</th><th>Med. cost</th>'
+                f'<th>Med. output toks</th></tr>{"".join(rows)}</table></div>')
+
     SONNET_TIERS = [
         ("off", "anthropic/claude-sonnet-5"),
         ("minimal", "anthropic/claude-sonnet-5@minimal"),
@@ -365,26 +386,36 @@ def build(all_runs):
         ("medium", "anthropic/claude-sonnet-5@medium"),
         ("high", "anthropic/claude-sonnet-5@high"),
     ]
-    sonnet_rows = []
-    for tier, spec in SONNET_TIERS:
-        rs = [r for r in all_runs if r["model"] == spec and r["condition"] == "baseline"]
-        if not rs:
-            continue
-        oneshot = 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs)
-        sonnet_rows.append(
-            f'<tr><td class="task">{tier}</td>'
-            + bar_cell(solve_pct(rs), 100, "b", f"{solve_pct(rs):.0f}%")
-            + bar_cell(oneshot, 100, "b", f"{oneshot:.0f}%")
-            + f'<td class="num">{med([model_time(r) for r in rs]):.0f}s</td>'
-            f'<td class="num">${med([r["cost_usd"] for r in rs]):.4f}</td>'
-            f'<td class="num">{med([r["completion_tokens"] for r in rs]):,.0f}</td></tr>'
-        )
+    MIMO_TIERS = [
+        ("off", "xiaomi/mimo-v2.5-pro@disabled"),
+        ("minimal", "xiaomi/mimo-v2.5-pro@minimal"),
+        ("low", "xiaomi/mimo-v2.5-pro@low"),
+        ("medium", "xiaomi/mimo-v2.5-pro@medium"),
+        ("high", "xiaomi/mimo-v2.5-pro@high"),
+        ("xhigh", "xiaomi/mimo-v2.5-pro@xhigh"),
+        ("max", "xiaomi/mimo-v2.5-pro@max"),
+    ]
+    effort_curve_takeaway = (
+        "<b>For both leaders the thinking knob buys nothing on this suite — including switching it off.</b> "
+        "Sonnet 5 solves 195/195 at identical cost (~$0.024) and output (~1,700 tokens) at every tier because "
+        "its thinking is adaptive: granted any budget, it declines to spend reasoning tokens on tasks it already "
+        "knows. MiMo-V2.5-Pro solves 273/273 across all seven tiers with equally flat cost (~$0.005) and output "
+        "(~1,500 tokens) — knowledge saturation again, this time in an open-weight model with a hard off switch. "
+        "MiMo's apparent latency spread (19s at xhigh vs ~45s at the tiers benchmarked in a later batch) is a "
+        "provider artifact, not an effort effect: the earlier batch was served at ~81 tok/s, the later at ~33 tok/s, "
+        "and within a batch the tiers are flat. One-shot rates wobble without a monotone trend (MiMo 18–41%, "
+        "Sonnet 46–67%) — binomial noise at n=39. The practical rule for saturated models: run the cheapest mode; "
+        "the thinking dial only matters where knowledge runs out (GLM, Hy3, Qwen)."
+    )
     sonnet_html = f"""
 <section>
-  <h2>The first closed-weight effort curve — Sonnet 5, thinking off → high</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline only (no MCP runs yet)</span><span>39 runs per tier</span></div>
-  <div class="tablewrap"><table class="num"><tr><th>Thinking</th><th class="barcell">Solve rate</th><th class="barcell">One-shot</th><th>Med. model time</th><th>Med. cost</th><th>Med. output toks</th></tr>{"".join(sonnet_rows)}</table></div>
-  <p class="takeaway"><b>The effort knob does nothing here — including switching thinking off entirely.</b> All five tiers solve 195/195 runs, at the same median cost (~$0.024) and the same ~1,700 output tokens, because Sonnet 5's thinking is adaptive: on tasks it already knows, it simply declines to spend reasoning tokens no matter how large the budget. This is the strongest form of the knowledge-saturation result — a frontier closed model needs neither extended thinking nor documentation to write correct Cairo for this suite. One-shot differences between tiers (46–67%) are within noise at n=39. Times here are model latency — the time spent waiting on the API, excluding this harness's local compile/test — so they are comparable across runs regardless of how many tasks the harness executed concurrently.</p>
+  <h2>Full effort curves — what does the thinking knob actually buy?</h2>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline only (no documentation tool)</span><span>39 runs per tier; times are model latency</span></div>
+  <h3 style="font-size:13px;margin-bottom:6px">Sonnet 5 (closed weights, adaptive thinking)</h3>
+  {tier_table(SONNET_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">MiMo-V2.5-Pro (open weights)</h3>
+  {tier_table(MIMO_TIERS)}
+  <p class="takeaway">{effort_curve_takeaway}</p>
 </section>"""
 
     # Lab roster: best open-weight coder per lab at max thinking
@@ -423,7 +454,7 @@ def build(all_runs):
   <h2>The lab roster — best open-weight coder per lab, max thinking</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>39 runs per condition per model</span></div>
   <div class="tablewrap"><table class="num"><tr><th>Lab · model</th><th>Cond.</th><th class="barcell">Solve rate</th><th>Med. model time</th><th>Med. cost</th><th>MCP lift</th><th>Assists/run</th></tr>{"".join(roster_rows)}</table></div>
-  <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +21pt for the weakest entrant (Qwen3.6-27B, 28%→49%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~19s and ~$0.004 per task — 14× cheaper and 5× faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
+  <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +8pt for Hy3, +18pt for the weakest entrant (Qwen3.6-27B, 23%→41%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~19s and ~$0.004 per task — 14× cheaper and 5× faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
 </section>"""
 
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
@@ -433,7 +464,7 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 39–130 runs per entry. The score blends five measurements:</p>
+  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a compile-and-repair budget of 10 turns and 15 minutes of model time — a run that needs more than 15 minutes of thinking is a failure, however its tests end up. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 39–130 runs per entry. The score blends five measurements:</p>
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
@@ -591,7 +622,7 @@ def build(all_runs):
         <li><b>Harness:</b> agentic repair loop, max 10 assistant turns. The model submits <code>src/lib.cairo</code> via a <code>submit</code> tool; the harness runs <code>scarb build</code> + <code>snforge test</code> against hidden tests and returns the output. Conditions are identical except the MCP condition also exposes <code>assist_with_cairo</code>, replicated exactly from <code>@kasarlabs/cairo-coder-mcp</code> v0.2.5.</li>
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
         <li><b>Model:</b> z-ai/glm-5.2 via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
-        <li><b>Solved</b> = every hidden test passes within the turn budget. 3 reps per cell.</li>
+        <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used — it depends on harness concurrency). 3 reps per cell.</li>
       </ul>
     </div>
     <div>

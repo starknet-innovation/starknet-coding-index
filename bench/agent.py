@@ -107,10 +107,17 @@ def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=Non
 
     llm_calls, assist_calls, submissions = [], [], []
     solved, final_eval, final_code, error = False, None, None, None
+    time_budget_exceeded = False
     start = time.monotonic()
 
     try:
         for turn in range(1, config.MAX_ASSISTANT_TURNS + 1):
+            model_time = sum(m["latency_s"] or 0 for m in llm_calls) + sum(
+                a["latency_s"] or 0 for a in assist_calls
+            )
+            if model_time >= config.MODEL_TIME_BUDGET_S:
+                time_budget_exceeded = True
+                break
             msg, meta = chat_fn(api_model, messages, tools, **llm_opts)
             meta["turn"] = turn
             llm_calls.append(meta)
@@ -206,6 +213,7 @@ def run_agent(task_id, model, condition, run_id, rep, chat_fn=None, llm_opts=Non
         "cost_usd": _sum(m["cost_usd"] for m in llm_calls),
         "assist_time_s": _sum(a["latency_s"] for a in assist_calls) or 0.0,
         "llm_time_s": _sum(m["latency_s"] for m in llm_calls) or 0.0,
+        "time_budget_exceeded": time_budget_exceeded,
         "error": error,
         "llm_calls": llm_calls,
         "assist_calls": assist_calls,

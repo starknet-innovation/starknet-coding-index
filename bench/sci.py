@@ -2,8 +2,8 @@
 
   uv run python -m bench.sci [runs.jsonl ...]
 
-SCI v2 = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost
-         + 0.05*TokenEfficiency        (0-100, higher is better)
+SCI v2.1 = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost
+           + 0.05*TokenEfficiency        (0-100, higher is better)
 
 - Correctness: mean over tasks of mean over reps of hidden-test pass fraction.
 - OneShot: % of runs solved on the first submission.
@@ -13,11 +13,15 @@ SCI v2 = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost
   and says nothing about the model. llm_time_s is concurrency-invariant.
 - Speed/Cost/Tokens: medians mapped to 0-100 on FIXED log anchors, so adding
   a model later never reshuffles existing scores.
-- Baseline condition, max-thinking config per model, 10-turn budget.
+- Baseline condition; per-run budget: 10 turns AND 15 min of model time.
 
 v1 -> v2 (2026-07-23): speed input wall_time_s -> llm_time_s; speed best
 anchor 20s -> 10s (two models clamped at the old ceiling). One-time break
 in score continuity; rankings unchanged.
+v2 -> v2.1 (2026-07-23): 15-min model-time budget joins the 10-turn budget
+in the run definition — a run over budget earns no correctness/solve credit
+(load_runs flips solved; compute_sci zeroes the test fraction). The runner
+also enforces it live (agent.py stops starting turns past the budget).
 
 Adding a model to the leaderboard = benchmark it with the standard runner,
 then add one MODEL_REGISTRY entry; the report picks it up on regeneration.
@@ -33,9 +37,10 @@ from . import config
 from .report import load_runs
 
 SCI_SPEC = {
-    "version": "v2",
+    "version": "v2.1",
     "condition": "baseline",
     "turn_budget": 10,
+    "model_time_budget_s": config.MODEL_TIME_BUDGET_S,  # over budget = failed
     "weights": {"correct": 0.50, "oneshot": 0.15, "speed": 0.15, "cost": 0.15, "tokens": 0.05},
     # (best, worst): score 100 at <= best, 0 at >= worst, log-interpolated
     # speed anchors apply to llm_time_s (model latency), not wall time
@@ -47,7 +52,10 @@ SCI_SPEC = {
 # the chart). The extension point for future models.
 MODEL_REGISTRY = [
     {"specs": ["moonshotai/kimi-k3"], "label": "Kimi K3", "lab": "Moonshot", "open_weight": True},
-    {"specs": ["xiaomi/mimo-v2.5-pro@xhigh", "xiaomi/mimo-v2.5-pro@low"],
+    {"specs": ["xiaomi/mimo-v2.5-pro@max", "xiaomi/mimo-v2.5-pro@xhigh",
+               "xiaomi/mimo-v2.5-pro@high", "xiaomi/mimo-v2.5-pro@medium",
+               "xiaomi/mimo-v2.5-pro@low", "xiaomi/mimo-v2.5-pro@minimal",
+               "xiaomi/mimo-v2.5-pro@disabled"],
      "label": "MiMo-V2.5-Pro", "lab": "Xiaomi", "open_weight": True},
     {"specs": ["deepseek/deepseek-v4-pro@xhigh", "deepseek/deepseek-v4-pro@low"],
      "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
@@ -95,6 +103,10 @@ def compute_sci(runs_for_model):
     w, anchors = SCI_SPEC["weights"], SCI_SPEC["anchors"]
     per_task = defaultdict(list)
     for r in runs_for_model:
+        if r.get("over_time_budget"):
+            # delivered outside the model-time budget: no correctness credit
+            per_task[r["task"]].append(0.0)
+            continue
         total = r["tests_passed"] + r["tests_failed"]
         per_task[r["task"]].append(r["tests_passed"] / total if total else 0.0)
     correct = 100 * statistics.mean(statistics.mean(v) for v in per_task.values())
