@@ -3,6 +3,7 @@
 import json
 import time
 
+import httpx
 from openai import OpenAI, APIStatusError, APIConnectionError, APITimeoutError
 
 from . import config
@@ -148,8 +149,11 @@ def chat(model, messages, tools, temperature=None, reasoning_effort=None,
                 time.sleep(min(60, 2 ** attempt))
                 continue
             raise
-        except (APIConnectionError, APITimeoutError, json.JSONDecodeError):
-            # JSONDecodeError: provider/proxy returned a malformed body
+        except (APIConnectionError, APITimeoutError, json.JSONDecodeError, httpx.HTTPError):
+            # JSONDecodeError: provider/proxy returned a malformed body.
+            # httpx.HTTPError covers mid-stream disconnects (RemoteProtocolError)
+            # raised while iterating a streamed response, outside the SDK's
+            # own exception mapping.
             if attempt < max_attempts:
                 retries += 1
                 time.sleep(min(60, 2 ** attempt))

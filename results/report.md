@@ -48,3 +48,16 @@ Runs aggregated: 962
 | Alibaba Qwen3.6-27B @xhigh | 28% | 49% | +21 | 852s/613s | $0.269/$0.188 | 1.3 |
 
 Findings: (1) the knowledge-gap law holds across labs — MCP lift is zero at saturation, largest for the weakest model; (2) MiMo-V2.5-Pro is the efficiency standout (100% at ~23s/$0.004 per task, ~15x cheaper than K3); (3) Qwen3.6-27B collapses on Cairo despite strong general-coding benchmarks — language-specific knowledge is what the MCP substitutes for; (4) Hy3 (released 2026-07-06, freshest data) hits 95% without needing the tool. Notes: 5 qwen/minimax baseline cells abandoned after repeated host-sleep/network stalls, counted as failures (consistent with sibling reps); roster ran with streaming + reasoning-history passthrough. Roster spend: ~$48.
+
+## Effort-pattern generalization (2026-07-23; +312 runs; 1664 total)
+
+| Model / tier | Baseline | MCP | Note |
+|---|---|---|---|
+| DeepSeek V4-Pro @low | 94.9% | 97.4% | ~2x faster/cheaper than xhigh |
+| DeepSeek V4-Pro @xhigh | 94.9% | 100% | |
+| Tencent Hy3 @low | 89.7% | 94.9% | MCP repays the effort gap |
+| Tencent Hy3 @high | 97.4% | 92.3% | bare default == high tier (~14k rtoks) |
+| MiMo-V2.5-Pro @low | 100% | 100% | knowledge-saturated, effort irrelevant |
+| MiMo-V2.5-Pro @xhigh | 100% | 97.4% | |
+
+Verdict: GLM's "extra thinking buys nothing" holds for DeepSeek and MiMo; Hy3 is the counterexample (high tier genuinely better at baseline, +7.7pt). The substitution law is universal: MCP lift appears exactly where reasoning/knowledge falls short (hy3@low +5pt), never at saturation. Probes: deepseek low=medium=high collapse to one tier (xhigh 5-10x more reasoning); hy3 has two real tiers; mimo's ladder is cosmetic. Two harness bugs found+fixed at 50-way concurrency: non-string codeSnippets from models crash-proofed (cairo_coder.py), mid-stream disconnects now retried (models.py httpx.HTTPError). Batch: 312 runs in 42 min at concurrency 50, ~$12.

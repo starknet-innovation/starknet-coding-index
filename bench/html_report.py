@@ -283,6 +283,32 @@ def build(all_runs):
 
     tier_chart = dumbbell_chart(tier_rows, 60, 100)
 
+    # Does the effort pattern generalize? Small-multiple curves per model.
+    FAMILIES = [
+        ("GLM 5.2", "z-ai/glm-5.2@", ["disabled", "low", "medium", "high", "xhigh"]),
+        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", ["low", "xhigh"]),
+        ("Tencent Hy3", "tencent/hy3@", ["low", "high"]),
+        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", ["low", "xhigh"]),
+    ]
+    multiples = []
+    for name, prefix, tiers in FAMILIES:
+        series = []
+        for cond, color in [("baseline", SLATE), ("mcp", CORAL)]:
+            vals = []
+            for t in tiers:
+                rs = [r for r in all_runs if r["model"] == prefix + t and r["condition"] == cond]
+                vals.append(solve_pct(rs) if rs else 0)
+            series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
+        chart = line_chart(tiers, series, annotations=[], w=380, h=230, y_min=60)
+        multiples.append(f'<div><h3 style="font-size:13px;margin-bottom:6px">{name}</h3>{chart}</div>')
+    generalize_html = f"""
+<section>
+  <h2>Does the effort pattern generalize? — four labs' effort curves</h2>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 39 runs per point</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}</div>
+  <p class="takeaway">Partially. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier is ~2× faster and cheaper) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 is the counterexample</b>: its high tier genuinely outperforms low at baseline (97.4% vs 89.7%), and — consistent with the substitution law — the MCP repays the difference at low effort (+5pt) while adding nothing at high. Hy3's bare default matches its high tier (reasoning-token volumes ~14k vs ~11k at low). The universal result across all four labs remains the substitution law: MCP lift appears exactly where reasoning or knowledge falls short, never where the model is already saturated.</p>
+</section>"""
+
     # Lab roster: best open-weight coder per lab at max thinking
     roster_rows, roster_stats = [], {}
     for label, spec in ROSTER:
@@ -422,6 +448,8 @@ def build(all_runs):
   {frontier_scatter}
   <p class="takeaway"><b>low + MCP is the efficient frontier</b>: {eff[("low", "mcp")]["solve"]:.0f}% of tasks solved at ~${eff[("low", "mcp")]["cost"]:.3f} and ~{eff[("low", "mcp")]["wall"]:.0f}s per task — statistically indistinguishable from the most expensive configuration (xhigh + MCP, {eff[("xhigh", "mcp")]["solve"]:.0f}% at n=39) at {eff[("xhigh", "mcp")]["cost"] / eff[("low", "mcp")]["cost"]:.1f}× the cost and {eff[("xhigh", "mcp")]["wall"] / eff[("low", "mcp")]["wall"]:.1f}× the time.</p>
 </section>
+
+{generalize_html}
 
 {k3_html}
 

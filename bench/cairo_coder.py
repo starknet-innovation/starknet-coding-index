@@ -60,6 +60,9 @@ def assist_with_cairo(query, code_snippets=None, history=None):
 
     Returns dict: text, latency_s, usage (Cairo Coder's internal token usage), error.
     """
+    # Models occasionally violate the schema and pass non-string items.
+    code_snippets = [s if isinstance(s, str) else json.dumps(s) for s in code_snippets or []]
+    history = [h if isinstance(h, str) else json.dumps(h) for h in history or []]
     contextual = f"As a Cairo code expert, help with the following technical question:\n\n{query}"
     if code_snippets:
         contextual += "\n\nCode snippets for context:\n" + "\n\n".join(code_snippets)
