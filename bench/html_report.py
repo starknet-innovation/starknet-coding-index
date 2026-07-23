@@ -478,6 +478,9 @@ def build(all_runs):
          r["open_weight"])
         for r in sci_rows
     ]
+    # order by the top of the stack (best-with-tool where it gains, baseline
+    # otherwise) so the with-MCP ranking reads left to right
+    lift_pairs.sort(key=lambda p: max(p[1], p[2] or p[1]), reverse=True)
     gains = [(l, m - b) for l, b, m, _ in lift_pairs if m is not None and m > b]
     flat = [l for l, b, m, _ in lift_pairs if m is not None and m <= b]
     unmeasured = [l for l, b, m, _ in lift_pairs if m is None]
