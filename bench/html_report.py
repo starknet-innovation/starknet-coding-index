@@ -423,6 +423,13 @@ def build(all_runs):
         ("max", "openai/gpt-5.6-luna@max"),
         ("pro", "openai/gpt-5.6-luna-pro"),
     ]
+    OPUS_TIERS = [
+        ("off", "anthropic/claude-opus-4.8@disabled"),
+        ("low", "anthropic/claude-opus-4.8@low"),
+        ("high", "anthropic/claude-opus-4.8@high"),
+        ("xhigh", "anthropic/claude-opus-4.8@xhigh"),
+        ("max", "anthropic/claude-opus-4.8@max"),
+    ]
     HAIKU_TIERS = [
         ("off", "anthropic/claude-haiku-4.5"),
         ("low", "anthropic/claude-haiku-4.5@low"),
@@ -496,7 +503,11 @@ def build(all_runs):
         "curve</b>: thinking off solves 88.9% at 29s/$0.05, while <code>high</code> collapses to 65.6% at "
         "102s/$0.17, burning ~18k output tokens spiraling through full 10-turn slogs. Granting the small model a "
         "big budget makes it strictly worse on every axis; per the bracket protocol its ladder was not extended "
-        "further upward."
+        "further upward. <b>Opus 4.8 completes the Anthropic ladder at the opposite extreme</b>: all three bracket "
+        "tiers are indistinguishable at 100% solve, ~15s, ~1,400 tokens — its adaptive thinking simply doesn't "
+        "engage on tasks it has mastered — and at <code>high</code> it one-shots the entire suite, 26 for 26. "
+        "One family, three fates for the same dial: the small model overthinks itself into failure, the mid model "
+        "ignores the dial, the big model transcends it."
     )
     sonnet_html = f"""
 <section>
@@ -510,6 +521,8 @@ def build(all_runs):
   {tier_table(GEMINI_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Luna (closed weights; <code>pro</code> is the same model in reasoning.mode=pro)</h3>
   {tier_table(LUNA_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">Opus 4.8 (closed weights; Anthropic's top tier — bracket tiers, bare spec skipped as adaptive/unnameable)</h3>
+  {tier_table(OPUS_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">Haiku 4.5 (closed weights; Sonnet 5's small sibling — bracket tiers, extended only if an edge wins)</h3>
   {tier_table(HAIKU_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Terra (closed weights; Luna's mid-tier sibling, <code>pro</code> = reasoning.mode=pro)</h3>
@@ -579,7 +592,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is often the cheapest one — GLM 5.2 and Hy3 score highest at <code>@low</code>, and Sonnet 5 and DeepSeek V4-Pro score highest with thinking <code>off</code> (DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money — worth +7.6 points and three places). <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task. <b>The GPT-5.6 pair breaks the closed-model pattern</b>: OpenAI's Luna (#7, <code>xhigh</code>) and Terra (#6, <code>off</code>) are the first closed entrants below the saturation club — neither ever one-shots, both ship <code>pro</code> modes that cost 2–3× their <code>max</code> tiers for less correctness, and Terra's 2.5× price premium over Luna buys just +0.6 index points. On Cairo, OpenAI's scale ladder is a knowledge ladder with flat habits. <b>Anthropic's ladder tells the same story more sharply</b>: Haiku 4.5 (#9, <code>off</code>) keeps the family trait — thinking off is its best mode — but sheds 20 points of correctness against Sonnet 5 and adds a failure mode Sonnet doesn't have: give it a big thinking budget and it overthinks its way from 89% down to 66%.</p>
+  <p class="takeaway"><b>Opus 4.8 leads</b> — the first model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). Perfect correctness, ~15s and ~1,400 output tokens per task, and its five-fold price disadvantage against MiMo (cost score 49 vs 93) is fully paid for by the one-shot and token-efficiency components. <b>MiMo-V2.5-Pro remains the open-weight champion at #2</b> — still 10× cheaper per task than the leader. <b>Sonnet 5 (#3)</b> matches everyone's correctness at the field's best latency, held back only by pricing. Notably, the best variant is often the cheapest one — GLM 5.2 and Hy3 score highest at <code>@low</code>, and Sonnet 5 and DeepSeek V4-Pro score highest with thinking <code>off</code> (DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money — worth +7.6 points and three places). <b>Gemini 3.6 Flash, the second closed-weight entrant, debuts at #4</b> (best variant <code>low</code>): perfect correctness and the fastest per-task latency after Sonnet, but it thinks in volume — 2–5× MiMo's output tokens per task — so flash pricing still lands it at ~6× MiMo's cost per task. <b>The GPT-5.6 pair breaks the closed-model pattern</b>: OpenAI's Luna (#7, <code>xhigh</code>) and Terra (#6, <code>off</code>) are the first closed entrants below the saturation club — neither ever one-shots, both ship <code>pro</code> modes that cost 2–3× their <code>max</code> tiers for less correctness, and Terra's 2.5× price premium over Luna buys just +0.6 index points. On Cairo, OpenAI's scale ladder is a knowledge ladder with flat habits. <b>Anthropic's ladder tells the same story more sharply</b>: Haiku 4.5 (#9, <code>off</code>) keeps the family trait — thinking off is its best mode — but sheds 20 points of correctness against Sonnet 5 and adds a failure mode Sonnet doesn't have: give it a big thinking budget and it overthinks its way from 89% down to 66%.</p>
 </section>"""
 
     n_runs = len(runs)

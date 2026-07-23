@@ -91,6 +91,11 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
+    {"specs": ["anthropic/claude-opus-4.8@max", "anthropic/claude-opus-4.8@xhigh",
+               "anthropic/claude-opus-4.8@high", "anthropic/claude-opus-4.8@low",
+               "anthropic/claude-opus-4.8@disabled"],
+     # bare skipped: adaptive thinking at an unnameable level (probe 2026-07-24)
+     "label": "Opus 4.8", "lab": "Anthropic", "open_weight": False},
     {"specs": ["anthropic/claude-haiku-4.5@max", "anthropic/claude-haiku-4.5@xhigh",
                "anthropic/claude-haiku-4.5@high", "anthropic/claude-haiku-4.5@low",
                "anthropic/claude-haiku-4.5"],
