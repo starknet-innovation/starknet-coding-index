@@ -91,6 +91,11 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
+    {"specs": ["anthropic/claude-fable-5@max", "anthropic/claude-fable-5@xhigh",
+               "anthropic/claude-fable-5@high", "anthropic/claude-fable-5@low",
+               "anthropic/claude-fable-5@minimal"],
+     # thinking mandatory (no off tier); bare = adaptive/unnameable, skipped
+     "label": "Fable 5", "lab": "Anthropic", "open_weight": False},
     {"specs": ["anthropic/claude-opus-4.8@max", "anthropic/claude-opus-4.8@xhigh",
                "anthropic/claude-opus-4.8@high", "anthropic/claude-opus-4.8@low",
                "anthropic/claude-opus-4.8@disabled"],
