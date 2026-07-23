@@ -52,9 +52,19 @@ MODEL_REGISTRY = [
 ]
 
 
+# Bare specs (no @effort) map to a model-specific fixed thinking level —
+# label that level explicitly; "default" means nothing to a reader.
+BARE_VARIANT_LABELS = {
+    "moonshotai/kimi-k3": "max",   # always-thinking; Moonshot maps default to max
+    "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
+}
+
+
 def variant_label(spec):
-    """Human label for the thinking variant encoded in a spec."""
-    return "@" + spec.rsplit("@", 1)[1] if "@" in spec else "default"
+    """Human label for the thinking level encoded in a spec."""
+    if "@" in spec:
+        return spec.rsplit("@", 1)[1]
+    return BARE_VARIANT_LABELS.get(spec, "unspecified")
 
 
 def log_anchor(value, best, worst):

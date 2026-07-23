@@ -179,10 +179,10 @@ def sci_bar_chart(rows, w=760, h=380):
         parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
         parts.append(f'<text x="{cx:.0f}" y="{h - 46}" font-size="11" fill="{INK}" text-anchor="middle">{r["label"]}</text>')
-        if r.get("lab"):
-            parts.append(f'<text x="{cx:.0f}" y="{h - 31}" font-size="10" fill="{MUTED}" text-anchor="middle">{r["lab"]}</text>')
         if r.get("variant"):
-            parts.append(f'<text x="{cx:.0f}" y="{h - 15}" font-size="10" fill="{MUTED}" text-anchor="middle" font-family="var(--mono)">{r["variant"]}</text>')
+            parts.append(f'<text x="{cx:.0f}" y="{h - 31}" font-size="10" fill="{MUTED}" text-anchor="middle" font-family="var(--mono)">{r["variant"]}</text>')
+        if r.get("lab"):
+            parts.append(f'<text x="{cx:.0f}" y="{h - 15}" font-size="10" fill="{MUTED}" text-anchor="middle">{r["lab"]}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -396,7 +396,7 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b> — labeled under each bar (e.g. <code>@low</code>, <code>@xhigh</code>, or <code>default</code> for models with a single fixed mode). 39–130 runs per entry. The score blends five measurements:</p>
+  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 39–130 runs per entry. The score blends five measurements:</p>
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
