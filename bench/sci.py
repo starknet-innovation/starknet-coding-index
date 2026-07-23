@@ -22,6 +22,10 @@ v2 -> v2.1 (2026-07-23): 15-min model-time budget joins the 10-turn budget
 in the run definition — a run over budget earns no correctness/solve credit
 (load_runs flips solved; compute_sci zeroes the test fraction). The runner
 also enforces it live (agent.py stops starting turns past the budget).
+Sampling note (2026-07-24, no version bump — formula unchanged): new sweeps
+use adaptive reps (2 + tiebreaker third on solved-disagreement) instead of
+a fixed 3. Slight majority-vote bias (<~1 SCI point, mid-band models only)
+accepted for ~30% cost savings; earlier entries keep their fixed-3 data.
 
 Adding a model to the leaderboard = benchmark it with the standard runner,
 then add one MODEL_REGISTRY entry; the report picks it up on regeneration.

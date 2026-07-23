@@ -75,10 +75,25 @@ currently v2). Speed scores median **model latency** (`llm_time_s`, anchors
 runner concurrency and says nothing about the model. Print the leaderboard with
 `uv run python -m bench.sci`.
 
-**Adding a model**: benchmark it (`uv run python -m bench.runner --models <spec>
---provider-sort throughput --conditions baseline,mcp --reps 3`), add one entry to
-`MODEL_REGISTRY` in `bench/sci.py` (spec, label, lab, open_weight), regenerate the
-report. Fixed anchors guarantee existing scores don't move.
+**Adding a model** (budget-aware protocol):
+
+1. **Bracket sweep** — probe the effort ladder, then benchmark only the bracket
+   tiers first: the lowest real mode (`@disabled` if honored, else `@minimal`),
+   `@low`, and `@high`, with `--adaptive-reps` (2 reps per cell + a tiebreaker
+   third only where they disagree on solved — ~30% cheaper than `--reps 3`,
+   no uninterpretable 1–1 ties):
+   `uv run python -m bench.runner --models <spec@tiers> --provider-sort throughput
+   --conditions baseline --adaptive-reps`
+2. **Extend toward the winner only** — if `@high` wins the bracket, add
+   `@xhigh`/`@max`; if the bottom wins, stop. Pro-style serving modes only on
+   explicit request (strictly dominated in every measurement so far).
+3. Add one entry to `MODEL_REGISTRY` in `bench/sci.py` (specs, label, lab,
+   open_weight), regenerate the report. Fixed anchors guarantee existing
+   scores don't move.
+
+Beware effort-ladder lies: probe before benchmarking (some models accept
+`disabled` and think anyway; some bare specs map to an unnameable dynamic
+level — never label a variant "default").
 
 ## Self-hosted Cairo Coder (hosted API sunset 2026-07-31)
 
