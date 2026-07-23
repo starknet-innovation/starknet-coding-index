@@ -227,13 +227,17 @@ def mcp_lift_chart(pairs, w=760, h=404):
         color = SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR
         top_b = sy(base)
         parts.append(f'<rect x="{x:.1f}" y="{top_b:.1f}" width="{bar_w:.1f}" height="{sy(0) - top_b:.1f}" fill="{color}"/>')
-        gain = mcp is not None and mcp > base
-        if gain:
+        if mcp is not None and mcp > base:
             top_m = sy(mcp)
             parts.append(f'<rect x="{x:.1f}" y="{top_m:.1f}" width="{bar_w:.1f}" height="{top_b - top_m:.1f}" rx="3" fill="{CORAL}"/>')
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="13.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
-        else:
+        elif mcp is not None:
+            # measured, no gain: plain value — the absent segment is the verdict
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+        else:
+            # not yet measured with the tool: shown for scale, flagged as such
+            parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+            parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
         parts.append(
             f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
@@ -651,23 +655,27 @@ def build(all_runs):
     lift_pairs = [
         (r["label"], r["sci"], mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None,
          r["open_weight"])
-        for r in sci_rows if r["label"] in mcp_rows
+        for r in sci_rows
     ]
-    n_no_mcp = len(sci_rows) - len(lift_pairs)
     gains = [(l, m - b) for l, b, m, _ in lift_pairs if m is not None and m > b]
-    flat = [l for l, b, m, _ in lift_pairs if m is None or m <= b]
+    flat = [l for l, b, m, _ in lift_pairs if m is not None and m <= b]
+    unmeasured = [l for l, b, m, _ in lift_pairs if m is None]
     gains_txt = ", ".join(f"<b>{l} +{g:.1f}</b>" for l, g in sorted(gains, key=lambda x: -x[1]))
     lift_takeaway = (
-        f"<b>The tool moves the bottom of the field, not the top.</b> Gains: {gains_txt}. "
-        f"No improvement for {', '.join(flat)} — their best configurations already saturate the suite, "
-        "so documentation lookups only add latency. This is the knowledge-gap law in index form: "
-        "the MCP substitutes for missing Cairo knowledge and is worth the most exactly where a model "
-        "ranks lowest without it."
+        f"<b>The tool pays where knowledge runs out — in either weight class.</b> Gains: {gains_txt}. "
+        f"No improvement for {', '.join(flat)}: for the saturated ones documentation lookups only add "
+        "latency, and GPT-5.6 Luna marks the law's boundary — it knows Cairo (97.4% correct) but never "
+        "one-shots, and a documentation lookup cannot fix a habit. Two nuances the closed models added: "
+        "a gain doesn't require missing knowledge (Gemini is 100% correct both ways but docs shorten its "
+        "repair loops enough to win on efficiency), and the law applies per <i>variant</i>, not per model "
+        "(Terra's best tier is its unsaturated <code>off</code> mode, where docs buy real solves)."
+        + (f" Not yet measured with the tool: {', '.join(unmeasured)} — shown for scale."
+           if unmeasured else "")
     )
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; <b>no segment means the tool doesn't improve that model's best configuration</b>. MCP-condition scoring counts documentation-lookup wait as latency; {n_no_mcp} models (all closed-weight) have no MCP runs yet and join this chart as they're measured.</p>
+  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; <b>no segment means the tool doesn't improve that model's best configuration</b>. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   {mcp_lift_chart(lift_pairs)}
   <p class="takeaway">{lift_takeaway}</p>
