@@ -3,10 +3,15 @@
 import re
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
 from . import config
+
+# Runner threads block here while their turn to compile comes up; LLM waits
+# elsewhere stay fully parallel. See config.MAX_CONCURRENT_BUILDS.
+_build_slots = threading.Semaphore(config.MAX_CONCURRENT_BUILDS)
 
 
 def create_workspace(task_id, run_id):
@@ -46,16 +51,17 @@ def evaluate(workspace, code):
     """
     (workspace / "src" / "lib.cairo").write_text(code)
 
-    rc, build_out, build_t = _run(["scarb", "build"], workspace, config.BUILD_TIMEOUT_S)
-    build_out = _ANSI.sub("", build_out)
-    if rc != 0:
-        return {
-            "compiled": False, "tests_passed": 0, "tests_failed": 0, "all_passed": False,
-            "output": f"BUILD FAILED (scarb build):\n{build_out}",
-            "build_time_s": build_t, "test_time_s": 0.0,
-        }
+    with _build_slots:
+        rc, build_out, build_t = _run(["scarb", "build"], workspace, config.BUILD_TIMEOUT_S)
+        build_out = _ANSI.sub("", build_out)
+        if rc != 0:
+            return {
+                "compiled": False, "tests_passed": 0, "tests_failed": 0, "all_passed": False,
+                "output": f"BUILD FAILED (scarb build):\n{build_out}",
+                "build_time_s": build_t, "test_time_s": 0.0,
+            }
 
-    rc, test_out, test_t = _run(["snforge", "test"], workspace, config.TEST_TIMEOUT_S)
+        rc, test_out, test_t = _run(["snforge", "test"], workspace, config.TEST_TIMEOUT_S)
     test_out = _ANSI.sub("", test_out)
     m = _SUMMARY.search(test_out)
     if m:

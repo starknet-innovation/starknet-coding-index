@@ -32,6 +32,11 @@ MAX_ASSISTANT_TURNS = 10
 # turns past the budget; scoring applies the same cap retroactively.
 MODEL_TIME_BUDGET_S = 900
 LLM_CALL_TIMEOUT_S = 600
+# Cap concurrent scarb/snforge invocations near core count so a wide runner
+# (--concurrency 50) parallelizes LLM waits without oversubscribing the CPU:
+# compiles queue here instead of thrashing, and stream consumption never
+# starves. Queue wait lands in wall_time_s only — never in llm_time_s.
+MAX_CONCURRENT_BUILDS = max(2, (os.cpu_count() or 8) - 2)
 CAIRO_CODER_TIMEOUT_S = 300
 BUILD_TIMEOUT_S = 300
 TEST_TIMEOUT_S = 300
