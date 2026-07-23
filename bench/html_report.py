@@ -38,6 +38,13 @@ def solve_pct(rs):
     return 100 * sum(r["solved"] for r in rs) / len(rs)
 
 
+def model_time(r):
+    """Seconds spent waiting on remote services (LLM + doc tool). Wall time
+    additionally includes local compile/test, which scales with runner
+    concurrency and says nothing about the model."""
+    return r["llm_time_s"] + (r.get("assist_time_s") or 0)
+
+
 def group(runs, key):
     out = {}
     for r in runs:
@@ -249,7 +256,7 @@ def build(all_runs):
             eff[(e, c)] = {
                 "n": len(rs),
                 "solve": solve_pct(rs),
-                "wall": med([r["wall_time_s"] for r in rs]),
+                "wall": med([model_time(r) for r in rs]),
                 "cost": med([r["cost_usd"] for r in rs]),
                 "assists": sum(r["n_assist_calls"] for r in rs) / len(rs),
             }
@@ -300,7 +307,7 @@ def build(all_runs):
     max_wall = max(eff[k]["wall"] for k in eff)
     max_cost = max(eff[k]["cost"] for k in eff)
     et = ['<table class="num"><tr><th>Effort</th><th>Cond.</th><th class="barcell">Solve rate</th>'
-          '<th class="barcell">Median time</th><th class="barcell">Median cost</th><th>Assists/run</th></tr>']
+          '<th class="barcell">Median model time</th><th class="barcell">Median cost</th><th>Assists/run</th></tr>']
     for e in EFFORT_ORDER:
         for j, (c, cls) in enumerate([("baseline", "b"), ("mcp", "m")]):
             d = eff[(e, c)]
@@ -347,7 +354,7 @@ def build(all_runs):
   <h2>Does the effort pattern generalize? — four labs' effort curves</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 39 runs per point</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}</div>
-  <p class="takeaway">Partially. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier is ~2× faster and cheaper) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 is the counterexample</b>: its high tier genuinely outperforms low at baseline (97.4% vs 89.7%), and — consistent with the substitution law — the MCP repays the difference at low effort (+5pt) while adding nothing at high. Hy3's bare default matches its high tier (reasoning-token volumes ~14k vs ~11k at low). The universal result across all four labs remains the substitution law: MCP lift appears exactly where reasoning or knowledge falls short, never where the model is already saturated.</p>
+  <p class="takeaway">Partially. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier answers ~2.2× faster for ~25% less money) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 is the counterexample</b>: its high tier genuinely outperforms low at baseline (97.4% vs 89.7%), and — consistent with the substitution law — the MCP repays the difference at low effort (+5pt) while adding nothing at high. Hy3's bare default matches its high tier (reasoning-token volumes ~14k vs ~11k at low). The universal result across all four labs remains the substitution law: MCP lift appears exactly where reasoning or knowledge falls short, never where the model is already saturated.</p>
 </section>"""
 
     # Sonnet 5: the first closed-weight effort curve (baseline only, no MCP runs)
@@ -368,7 +375,7 @@ def build(all_runs):
             f'<tr><td class="task">{tier}</td>'
             + bar_cell(solve_pct(rs), 100, "b", f"{solve_pct(rs):.0f}%")
             + bar_cell(oneshot, 100, "b", f"{oneshot:.0f}%")
-            + f'<td class="num">{med([r["wall_time_s"] for r in rs]):.0f}s</td>'
+            + f'<td class="num">{med([model_time(r) for r in rs]):.0f}s</td>'
             f'<td class="num">${med([r["cost_usd"] for r in rs]):.4f}</td>'
             f'<td class="num">{med([r["completion_tokens"] for r in rs]):,.0f}</td></tr>'
         )
@@ -376,8 +383,8 @@ def build(all_runs):
 <section>
   <h2>The first closed-weight effort curve — Sonnet 5, thinking off → high</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline only (no MCP runs yet)</span><span>39 runs per tier</span></div>
-  <div class="tablewrap"><table class="num"><tr><th>Thinking</th><th class="barcell">Solve rate</th><th class="barcell">One-shot</th><th>Med. wall</th><th>Med. cost</th><th>Med. output toks</th></tr>{"".join(sonnet_rows)}</table></div>
-  <p class="takeaway"><b>The effort knob does nothing here — including switching thinking off entirely.</b> All five tiers solve 195/195 runs, at the same median cost (~$0.024) and the same ~1,700 output tokens, because Sonnet 5's thinking is adaptive: on tasks it already knows, it simply declines to spend reasoning tokens no matter how large the budget. This is the strongest form of the knowledge-saturation result — a frontier closed model needs neither extended thinking nor documentation to write correct Cairo for this suite. One-shot differences between tiers (46–67%) are within noise at n=39, and <code>high</code>'s faster median wall is a harness artifact, not an API effect: 13 of its runs came from an earlier batch that ran 13 tasks concurrently, while this sweep ran 50 — and 50 parallel <code>scarb</code>/<code>snforge</code> processes contend for local CPU. Median per-LLM-call latency is identical (~10–13s) in both batches; the extra ~25s per run is local compile/test queueing.</p>
+  <div class="tablewrap"><table class="num"><tr><th>Thinking</th><th class="barcell">Solve rate</th><th class="barcell">One-shot</th><th>Med. model time</th><th>Med. cost</th><th>Med. output toks</th></tr>{"".join(sonnet_rows)}</table></div>
+  <p class="takeaway"><b>The effort knob does nothing here — including switching thinking off entirely.</b> All five tiers solve 195/195 runs, at the same median cost (~$0.024) and the same ~1,700 output tokens, because Sonnet 5's thinking is adaptive: on tasks it already knows, it simply declines to spend reasoning tokens no matter how large the budget. This is the strongest form of the knowledge-saturation result — a frontier closed model needs neither extended thinking nor documentation to write correct Cairo for this suite. One-shot differences between tiers (46–67%) are within noise at n=39. Times here are model latency — the time spent waiting on the API, excluding this harness's local compile/test — so they are comparable across runs regardless of how many tasks the harness executed concurrently.</p>
 </section>"""
 
     # Lab roster: best open-weight coder per lab at max thinking
@@ -392,7 +399,7 @@ def build(all_runs):
             st[c] = {
                 "n": len(crs),
                 "solve": solve_pct(crs),
-                "wall": med([r["wall_time_s"] for r in crs]),
+                "wall": med([model_time(r) for r in crs]),
                 "cost": med([r["cost_usd"] for r in crs]),
                 "assists": sum(r["n_assist_calls"] for r in crs) / len(crs),
             }
@@ -415,8 +422,8 @@ def build(all_runs):
 <section>
   <h2>The lab roster — best open-weight coder per lab, max thinking</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>39 runs per condition per model</span></div>
-  <div class="tablewrap"><table class="num"><tr><th>Lab · model</th><th>Cond.</th><th class="barcell">Solve rate</th><th>Med. wall</th><th>Med. cost</th><th>MCP lift</th><th>Assists/run</th></tr>{"".join(roster_rows)}</table></div>
-  <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +21pt for the weakest entrant (Qwen3.6-27B, 28%→49%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~23s and ~$0.004 per task — an order of magnitude cheaper and faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
+  <div class="tablewrap"><table class="num"><tr><th>Lab · model</th><th>Cond.</th><th class="barcell">Solve rate</th><th>Med. model time</th><th>Med. cost</th><th>MCP lift</th><th>Assists/run</th></tr>{"".join(roster_rows)}</table></div>
+  <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +21pt for the weakest entrant (Qwen3.6-27B, 28%→49%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~19s and ~$0.004 per task — 14× cheaper and 5× faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
 </section>"""
 
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
@@ -430,13 +437,13 @@ def build(all_runs):
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
-    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%})</b> — median wall time and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
+    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%})</b> — median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
     <li><b>Token efficiency ({w_["tokens"]:.0%})</b> — median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
   </ul>
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, lands at #2</b> — it matches MiMo's perfect correctness at every thinking tier it was tested on, but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it behind. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, where correctness is unchanged but runs are 2–3× faster and cheaper, and Sonnet 5's five tiers from thinking-off to <code>high</code> are statistically indistinguishable on this suite.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite by a hair</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, sits within a point of the lead</b> — it matches MiMo's perfect correctness and is the fastest model in the field (~14s median), but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it just behind. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, and Sonnet 5 scores highest with thinking <code>off</code>: its five tiers from off to <code>high</code> are statistically indistinguishable here, so the cheapest-latency mode wins.</p>
 </section>"""
 
     n_runs = len(runs)
@@ -532,7 +539,7 @@ def build(all_runs):
   <h2>Documentation substitutes for thinking — the effort curve</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate; n per point ranges {n_note}</span></div>
   {effort_line}
-  <p class="takeaway">The less the model is allowed to think, the more the tool helps — and the more the model reaches for it (documentation lookups per run: <span class="assists" style="display:inline-flex">{assists_row}</span>). Extra thinking buys no solve-rate gain: after enlarging low/medium/high baselines to n=130, low and medium are statistically identical (p=0.83) and high trails by a suggestive-but-not-significant ~7pt (p=0.09) — while costing 2–3× the time and money.</p>
+  <p class="takeaway">The less the model is allowed to think, the more the tool helps — and the more the model reaches for it (documentation lookups per run: <span class="assists" style="display:inline-flex">{assists_row}</span>). Extra thinking buys no solve-rate gain: after enlarging low/medium/high baselines to n=130, low and medium are statistically identical (p=0.83) and high trails by a suggestive-but-not-significant ~7pt (p=0.09) at roughly the same cost — while the xhigh tier spends ~2.4× the time and ~1.9× the money of low for a statistically indistinguishable solve rate.</p>
 </section>
 
 <section>
@@ -591,7 +598,7 @@ def build(all_runs):
       <h2>Caveats</h2>
       <ul class="meta">
         <li><b>Model dependence, demonstrated:</b> the GLM sections characterize GLM 5.2 (884 runs); the roster (78 runs per model) spans full saturation (K3, MiMo) to collapse (Qwen3.6-27B). Roster runs round-trip reasoning history and stream responses; GLM runs predate those harness fixes, which GLM's own data shows it did not need.</li>
-        <li><b>Five roster cells abandoned:</b> repeated host-sleep/network stalls made 5 qwen/minimax baseline cells (of 390) unrecoverable within budget; they are counted as failures, consistent with their completed sibling reps (which failed in 10-turn slogs). Wall/cost medians exclude them.</li>
+        <li><b>Five roster cells abandoned:</b> repeated host-sleep/network stalls made 5 qwen/minimax baseline cells (of 390) unrecoverable within budget; they are counted as failures, consistent with their completed sibling reps (which failed in 10-turn slogs). Time/cost medians exclude them.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>

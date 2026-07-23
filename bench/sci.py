@@ -2,14 +2,22 @@
 
   uv run python -m bench.sci [runs.jsonl ...]
 
-SCI v1 = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost
+SCI v2 = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost
          + 0.05*TokenEfficiency        (0-100, higher is better)
 
 - Correctness: mean over tasks of mean over reps of hidden-test pass fraction.
 - OneShot: % of runs solved on the first submission.
+- Speed: median MODEL latency (llm_time_s: time spent streaming from the API).
+  Deliberately not wall time — wall includes local scarb/snforge compile+test,
+  which scales with runner concurrency (~3s/run at <=20 concurrent, ~25s at 50)
+  and says nothing about the model. llm_time_s is concurrency-invariant.
 - Speed/Cost/Tokens: medians mapped to 0-100 on FIXED log anchors, so adding
   a model later never reshuffles existing scores.
 - Baseline condition, max-thinking config per model, 10-turn budget.
+
+v1 -> v2 (2026-07-23): speed input wall_time_s -> llm_time_s; speed best
+anchor 20s -> 10s (two models clamped at the old ceiling). One-time break
+in score continuity; rankings unchanged.
 
 Adding a model to the leaderboard = benchmark it with the standard runner,
 then add one MODEL_REGISTRY entry; the report picks it up on regeneration.
@@ -25,12 +33,13 @@ from . import config
 from .report import load_runs
 
 SCI_SPEC = {
-    "version": "v1",
+    "version": "v2",
     "condition": "baseline",
     "turn_budget": 10,
     "weights": {"correct": 0.50, "oneshot": 0.15, "speed": 0.15, "cost": 0.15, "tokens": 0.05},
     # (best, worst): score 100 at <= best, 0 at >= worst, log-interpolated
-    "anchors": {"speed": (20, 1200), "cost": (0.003, 0.60), "tokens": (1000, 40000)},
+    # speed anchors apply to llm_time_s (model latency), not wall time
+    "anchors": {"speed": (10, 1200), "cost": (0.003, 0.60), "tokens": (1000, 40000)},
 }
 
 # Candidate variants per model; the leaderboard scores every candidate with
@@ -97,12 +106,12 @@ def compute_sci(runs_for_model):
         vals = [r[key] for r in runs_for_model if r.get(key) is not None]
         return statistics.median(vals) if vals else None
 
-    raw = {"med_wall": med("wall_time_s"), "med_cost": med("cost_usd"),
+    raw = {"med_llm": med("llm_time_s"), "med_cost": med("cost_usd"),
            "med_ctok": med("completion_tokens"), "n_runs": len(runs_for_model)}
     components = {
         "correct": correct,
         "oneshot": oneshot,
-        "speed": log_anchor(raw["med_wall"], *anchors["speed"]),
+        "speed": log_anchor(raw["med_llm"], *anchors["speed"]),
         "cost": log_anchor(raw["med_cost"], *anchors["cost"]),
         "tokens": log_anchor(raw["med_ctok"], *anchors["tokens"]),
     }

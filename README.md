@@ -66,8 +66,11 @@ resume, results, and report grouping.
 
 One composite score per model for "how good is this LLM at Starknet contracts":
 `SCI = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost + 0.05*TokenEff`,
-computed by `bench/sci.py` (weights + fixed log anchors versioned in `SCI_SPEC`).
-Print the leaderboard with `uv run python -m bench.sci`.
+computed by `bench/sci.py` (weights + fixed log anchors versioned in `SCI_SPEC`,
+currently v2). Speed scores median **model latency** (`llm_time_s`, anchors
+10s→1200s) — not wall time, which includes local compile/test that scales with
+runner concurrency and says nothing about the model. Print the leaderboard with
+`uv run python -m bench.sci`.
 
 **Adding a model**: benchmark it (`uv run python -m bench.runner --models <spec>
 --provider-sort throughput --conditions baseline,mcp --reps 3`), add one entry to

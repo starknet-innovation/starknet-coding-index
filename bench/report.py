@@ -59,7 +59,11 @@ def aggregate(runs):
             "solve_rate": sum(r["solved"] for r in rs) / n,
             "compile_rate": sum(r["compiled"] for r in rs) / n,
             "mean_pct_tests": statistics.mean(pct_tests) if pct_tests else 0.0,
-            "med_wall_s": _med([r["wall_time_s"] for r in rs]),
+            # model time = LLM streaming + doc-tool wait; excludes local
+            # compile/test, which scales with runner concurrency (noise)
+            "med_model_s": _med([
+                r["llm_time_s"] + (r.get("assist_time_s") or 0) for r in rs
+            ]),
             "med_turns": _med([r["turns"] for r in rs]),
             "med_tokens": _med([
                 (r["prompt_tokens"] or 0) + (r["completion_tokens"] or 0) for r in rs
@@ -77,14 +81,14 @@ def markdown(rows, runs):
         "",
         f"Runs aggregated: {len(runs)}",
         "",
-        "| Model | Condition | n | Solve rate | Compile rate | Mean % tests passed | Med. wall time (s) | Med. turns | Med. tokens | Med. cost ($) | Total cost ($) | Mean assist calls |",
+        "| Model | Condition | n | Solve rate | Compile rate | Mean % tests passed | Med. model time (s) | Med. turns | Med. tokens | Med. cost ($) | Total cost ($) | Mean assist calls |",
         "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
     ]
     for r in rows:
         lines.append(
             f"| {r['model']} | {r['condition']} | {r['n']} "
             f"| {r['solve_rate']:.0%} | {r['compile_rate']:.0%} | {r['mean_pct_tests']:.0%} "
-            f"| {_fmt(r['med_wall_s'], '.0f')} | {_fmt(r['med_turns'], '.0f')} "
+            f"| {_fmt(r['med_model_s'], '.0f')} | {_fmt(r['med_turns'], '.0f')} "
             f"| {_fmt(r['med_tokens'], '.0f')} | {_fmt(r['med_cost'], '.4f')} "
             f"| {r['total_cost']:.2f} | {r['mean_assist_calls']:.1f} |"
         )
