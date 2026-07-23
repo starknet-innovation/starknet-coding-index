@@ -666,9 +666,10 @@ def build(all_runs):
         f"No improvement for {', '.join(flat)}: for the saturated ones documentation lookups only add "
         "latency, and GPT-5.6 Luna marks the law's boundary — it knows Cairo (97.4% correct) but never "
         "one-shots, and a documentation lookup cannot fix a habit. Two nuances the closed models added: "
-        "a gain doesn't require missing knowledge (Gemini is 100% correct both ways but docs shorten its "
-        "repair loops enough to win on efficiency), and the law applies per <i>variant</i>, not per model "
-        "(Terra's best tier is its unsaturated <code>off</code> mode, where docs buy real solves)."
+        "a gain doesn't require missing knowledge (Gemini and Sol are 100% correct with or without the tool, "
+        "but docs shorten their repair loops enough to win on efficiency), and the law applies per "
+        "<i>variant</i>, not per model (Terra's best tier is its unsaturated <code>off</code> mode, where "
+        "docs buy real solves)."
         + (f" Not yet measured with the tool: {', '.join(unmeasured)} — shown for scale."
            if unmeasured else "")
     )
