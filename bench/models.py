@@ -66,15 +66,21 @@ def _stream_completion(kwargs):
         if rds is None and getattr(d, "model_extra", None):
             rds = d.model_extra.get("reasoning_details")
         for rd in rds or []:
-            idx = rd.get("index", 0) if isinstance(rd, dict) else 0
-            slot = rd_by_index.setdefault(idx, dict(rd) if isinstance(rd, dict) else {})
-            if isinstance(rd, dict):
-                for key in ("text", "summary", "data"):
-                    if rd.get(key) and slot.get(key) != rd[key]:
-                        if key in slot and slot[key] and not rd[key].startswith(slot[key]):
-                            slot[key] = (slot[key] or "") + rd[key]
-                        else:
-                            slot[key] = rd[key]
+            if not isinstance(rd, dict):
+                continue
+            idx = rd.get("index", 0)
+            slot = rd_by_index.setdefault(idx, {})
+            for k, v in rd.items():
+                if v is None:
+                    continue
+                if k in ("text", "summary", "data") and isinstance(v, str):
+                    # incremental chunks — append in arrival order
+                    slot[k] = slot.get(k, "") + v
+                else:
+                    # metadata (type, format, index) and the trailing
+                    # signature delta — keep the latest value; Anthropic
+                    # validates the signature over the exact assembled text
+                    slot[k] = v
     msg = SimpleNamespace(
         content="".join(content) or None,
         tool_calls=[

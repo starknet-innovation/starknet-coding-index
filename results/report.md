@@ -88,3 +88,13 @@ The leaderboard now scores each model at its best-performing benchmarked variant
 No rank flips except DeepSeek/GLM tightening behind Hy3. MiMo's best remains @xhigh
 (89.1); its @low scores 83.4. Rationale: SCI includes efficiency, and for GLM/DeepSeek
 max thinking buys no correctness at 2-3x the time/cost.
+
+## Sonnet 5 @high, baseline only (2026-07-23; 13 runs, single rep)
+
+First closed-weight entry. 13/13 solved (100%), 7/13 one-shot, median 16s / $0.024 per task,
+total spend $0.44. SCI 86.3 -> #2, between MiMo (89.1) and K3 (82.3). Fastest model in the
+field (speed score 100). n=13 caveat: single rep; reps 2-3 (~$1 total) would firm it up.
+MCP condition not yet run. Harness fix shipped during the run: streamed Anthropic thinking
+blocks carry a trailing signature delta that the reasoning_details merge dropped -> providers
+rejected multi-turn thinking loops ("Invalid signature in thinking block"); merge now appends
+text chunks in order and keeps latest metadata/signature per index (bench/models.py).

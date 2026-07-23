@@ -49,6 +49,7 @@ MODEL_REGISTRY = [
      "label": "GLM 5.2", "lab": "Z.ai", "open_weight": True},
     {"specs": ["minimax/minimax-m3@xhigh"], "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
     {"specs": ["qwen/qwen3.6-27b@xhigh"], "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
+    {"specs": ["anthropic/claude-sonnet-5@high"], "label": "Sonnet 5", "lab": "Anthropic", "open_weight": False},
 ]
 
 

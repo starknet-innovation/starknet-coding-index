@@ -396,7 +396,7 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 39–130 runs per entry. The score blends five measurements:</p>
+  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 13–130 runs per entry (Sonnet 5 is a single-rep entry so far). The score blends five measurements:</p>
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
