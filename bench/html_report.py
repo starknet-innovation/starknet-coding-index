@@ -158,7 +158,7 @@ SCI_OPEN_COLOR = "#3D5A96"    # open-weight models
 SCI_CLOSED_COLOR = "#9AA3B2"  # closed-weight models
 
 
-def sci_bar_chart(rows, w=760, h=396):
+def sci_bar_chart(rows, w=760, h=404):
     """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
     One solid column per model, colored by open- vs closed-weight; SCI value
@@ -166,7 +166,10 @@ def sci_bar_chart(rows, w=760, h=396):
     — so the roster can grow without neighbors colliding; the lab is omitted
     (it lives in the leaderboard prose). Reusable: pass any number of rows.
     """
-    pad_l, pad_r, pad_t, pad_b = 48, 12, 26, 122
+    # pad_l sized for the leftmost column's angled label, not just the y-axis
+    # ticks — rendered label widths run ~15% over naive char-count estimates
+    # (mono parenthetical + sans fallback), which clipped "Opus" at pad_l=48
+    pad_l, pad_r, pad_t, pad_b = 64, 12, 26, 130
     cw = w - pad_l - pad_r
     ch = h - pad_t - pad_b
     n = len(rows)
