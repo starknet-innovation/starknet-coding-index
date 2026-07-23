@@ -49,7 +49,10 @@ MODEL_REGISTRY = [
      "label": "GLM 5.2", "lab": "Z.ai", "open_weight": True},
     {"specs": ["minimax/minimax-m3@xhigh"], "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
     {"specs": ["qwen/qwen3.6-27b@xhigh"], "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
-    {"specs": ["anthropic/claude-sonnet-5@high"], "label": "Sonnet 5", "lab": "Anthropic", "open_weight": False},
+    {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
+               "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
+               "anthropic/claude-sonnet-5"],
+     "label": "Sonnet 5", "lab": "Anthropic", "open_weight": False},
 ]
 
 
@@ -58,6 +61,7 @@ MODEL_REGISTRY = [
 BARE_VARIANT_LABELS = {
     "moonshotai/kimi-k3": "max",   # always-thinking; Moonshot maps default to max
     "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
+    "anthropic/claude-sonnet-5": "off",  # no reasoning param = thinking fully off
 }
 
 

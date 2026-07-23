@@ -1,15 +1,40 @@
 # Cairo Coder MCP benchmark — results
 
-Runs aggregated: 962
+Runs aggregated: 1891
 
 | Model | Condition | n | Solve rate | Compile rate | Mean % tests passed | Med. wall time (s) | Med. turns | Med. tokens | Med. cost ($) | Total cost ($) | Mean assist calls |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| anthropic/claude-sonnet-5 | baseline | 39 | 100% | 100% | 100% | 44 | 1 | 4225 | 0.0236 | 1.02 | 0.0 |
+| anthropic/claude-sonnet-5@high | baseline | 39 | 100% | 100% | 100% | 31 | 1 | 4508 | 0.0248 | 1.06 | 0.0 |
+| anthropic/claude-sonnet-5@low | baseline | 39 | 100% | 100% | 100% | 45 | 1 | 5408 | 0.0246 | 1.09 | 0.0 |
+| anthropic/claude-sonnet-5@medium | baseline | 39 | 100% | 100% | 100% | 43 | 1 | 4478 | 0.0238 | 1.00 | 0.0 |
+| anthropic/claude-sonnet-5@minimal | baseline | 39 | 100% | 100% | 100% | 45 | 2 | 6100 | 0.0253 | 1.15 | 0.0 |
+| deepseek/deepseek-v4-pro@low | baseline | 39 | 95% | 97% | 99% | 102 | 3 | 40059 | 0.0585 | 3.43 | 0.0 |
+| deepseek/deepseek-v4-pro@low | mcp | 39 | 97% | 97% | 100% | 95 | 3 | 36742 | 0.0590 | 2.51 | 0.7 |
+| deepseek/deepseek-v4-pro@xhigh | baseline | 39 | 95% | 95% | 100% | 225 | 3 | 52847 | 0.0744 | 5.36 | 0.0 |
+| deepseek/deepseek-v4-pro@xhigh | mcp | 39 | 100% | 100% | 100% | 211 | 4 | 53324 | 0.0712 | 4.12 | 1.3 |
+| fake/model | baseline | 2 | 100% | 100% | 100% | 4 | 2 | 300 | 0.0000 | 0.00 | 0.0 |
+| fake/model | mcp | 2 | 100% | 100% | 100% | 38 | 3 | 450 | 0.0000 | 0.00 | 1.0 |
+| minimax/minimax-m3@xhigh | baseline | 39 | 87% | 92% | 99% | 85 | 2 | 20659 | 0.0170 | 2.24 | 0.0 |
+| minimax/minimax-m3@xhigh | mcp | 39 | 90% | 97% | 98% | 104 | 2 | 28423 | 0.0196 | 2.96 | 0.5 |
 | moonshotai/kimi-k3 | baseline | 39 | 100% | 100% | 100% | 100 | 1 | 5578 | 0.0614 | 2.72 | 0.0 |
 | moonshotai/kimi-k3 | mcp | 39 | 100% | 100% | 100% | 102 | 1 | 6096 | 0.0627 | 2.50 | 0.0 |
+| qwen/qwen3.6-27b@xhigh | baseline | 39 | 28% | 28% | 100% | 852 | 10 | 266332 | 0.2685 | 10.36 | 0.0 |
+| qwen/qwen3.6-27b@xhigh | mcp | 39 | 49% | 59% | 94% | 613 | 10 | 221453 | 0.1879 | 8.80 | 1.3 |
+| tencent/hy3 | baseline | 39 | 95% | 95% | 100% | 148 | 3 | 41071 | 0.0154 | 1.01 | 0.0 |
+| tencent/hy3 | mcp | 39 | 95% | 97% | 100% | 159 | 4 | 61559 | 0.0154 | 0.86 | 0.5 |
+| tencent/hy3@high | baseline | 39 | 97% | 97% | 100% | 211 | 3 | 45641 | 0.0122 | 0.97 | 0.0 |
+| tencent/hy3@high | mcp | 39 | 92% | 97% | 99% | 179 | 4 | 51563 | 0.0102 | 1.02 | 0.3 |
+| tencent/hy3@low | baseline | 39 | 90% | 90% | 100% | 159 | 3 | 39109 | 0.0091 | 0.91 | 0.0 |
+| tencent/hy3@low | mcp | 39 | 95% | 97% | 100% | 177 | 3 | 42702 | 0.0116 | 0.66 | 0.3 |
+| xiaomi/mimo-v2.5-pro@low | baseline | 39 | 100% | 100% | 100% | 28 | 2 | 6815 | 0.0065 | 0.39 | 0.0 |
+| xiaomi/mimo-v2.5-pro@low | mcp | 39 | 100% | 100% | 100% | 32 | 2 | 7672 | 0.0079 | 0.64 | 0.3 |
+| xiaomi/mimo-v2.5-pro@xhigh | baseline | 39 | 100% | 100% | 100% | 23 | 2 | 4398 | 0.0044 | 0.34 | 0.0 |
+| xiaomi/mimo-v2.5-pro@xhigh | mcp | 39 | 97% | 97% | 100% | 20 | 2 | 4982 | 0.0049 | 0.29 | 0.0 |
 | z-ai/glm-5.2@disabled | baseline | 39 | 74% | 79% | 98% | 42 | 5 | 32562 | 0.0520 | 3.03 | 0.0 |
 | z-ai/glm-5.2@disabled | mcp | 39 | 95% | 95% | 100% | 53 | 5 | 32984 | 0.0413 | 1.74 | 1.8 |
-| z-ai/glm-5.2@high | baseline | 130 | 84% | 86% | 100% | 87 | 5 | 41802 | 0.0803 | 14.47 | 0.0 |
-| z-ai/glm-5.2@high | mcp | 78 | 97% | 97% | 100% | 80 | 4 | 29064 | 0.0549 | 5.39 | 0.7 |
+| z-ai/glm-5.2@high | baseline | 144 | 85% | 87% | 100% | 96 | 5 | 41302 | 0.0747 | 15.19 | 0.0 |
+| z-ai/glm-5.2@high | mcp | 92 | 98% | 98% | 100% | 82 | 4 | 30222 | 0.0531 | 5.93 | 0.7 |
 | z-ai/glm-5.2@low | baseline | 130 | 91% | 92% | 100% | 81 | 5 | 40776 | 0.0780 | 15.26 | 0.0 |
 | z-ai/glm-5.2@low | mcp | 130 | 98% | 98% | 100% | 57 | 5 | 33200 | 0.0556 | 8.90 | 0.9 |
 | z-ai/glm-5.2@medium | baseline | 130 | 90% | 91% | 100% | 75 | 5 | 35371 | 0.0831 | 12.95 | 0.0 |
@@ -19,82 +44,18 @@ Runs aggregated: 962
 
 ## Per-task solve rate (fraction of runs solved)
 
-| Task | moonshotai/kimi-k3<br>baseline | moonshotai/kimi-k3<br>mcp | z-ai/glm-5.2@disabled<br>baseline | z-ai/glm-5.2@disabled<br>mcp | z-ai/glm-5.2@high<br>baseline | z-ai/glm-5.2@high<br>mcp | z-ai/glm-5.2@low<br>baseline | z-ai/glm-5.2@low<br>mcp | z-ai/glm-5.2@medium<br>baseline | z-ai/glm-5.2@medium<br>mcp | z-ai/glm-5.2@xhigh<br>baseline | z-ai/glm-5.2@xhigh<br>mcp |
-|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| e1_counter | 3/3 | 3/3 | 3/3 | 3/3 | 10/10 | 6/6 | 10/10 | 10/10 | 10/10 | 9/10 | 3/3 | 3/3 |
-| e2_ownable | 3/3 | 3/3 | 3/3 | 3/3 | 10/10 | 6/6 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |
-| e3_registry | 3/3 | 3/3 | 2/3 | 3/3 | 8/10 | 6/6 | 10/10 | 10/10 | 9/10 | 8/10 | 3/3 | 3/3 |
-| e4_structs | 3/3 | 3/3 | 3/3 | 3/3 | 10/10 | 6/6 | 10/10 | 10/10 | 10/10 | 10/10 | 3/3 | 3/3 |
-| h1_component | 3/3 | 3/3 | 2/3 | 3/3 | 10/10 | 5/6 | 10/10 | 10/10 | 9/10 | 10/10 | 3/3 | 3/3 |
-| h2_erc721 | 3/3 | 3/3 | 2/3 | 2/3 | 9/10 | 6/6 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |
-| h3_vault | 3/3 | 3/3 | 2/3 | 3/3 | 9/10 | 6/6 | 9/10 | 9/10 | 10/10 | 9/10 | 3/3 | 3/3 |
-| h4_account | 3/3 | 3/3 | 2/3 | 2/3 | 4/10 | 5/6 | 8/10 | 10/10 | 9/10 | 10/10 | 1/3 | 3/3 |
-| m1_erc20_capped | 3/3 | 3/3 | 2/3 | 3/3 | 7/10 | 6/6 | 8/10 | 9/10 | 10/10 | 10/10 | 3/3 | 3/3 |
-| m2_voting | 3/3 | 3/3 | 1/3 | 3/3 | 9/10 | 6/6 | 8/10 | 10/10 | 9/10 | 10/10 | 3/3 | 3/3 |
-| m3_escrow | 3/3 | 3/3 | 2/3 | 3/3 | 4/10 | 6/6 | 9/10 | 9/10 | 7/10 | 9/10 | 3/3 | 3/3 |
-| m4_crud | 3/3 | 3/3 | 2/3 | 3/3 | 9/10 | 6/6 | 9/10 | 10/10 | 10/10 | 9/10 | 3/3 | 3/3 |
-| m5_dispatcher | 3/3 | 3/3 | 3/3 | 3/3 | 10/10 | 6/6 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |
-
-## Lab roster (2026-07-23): best open-weight coder per top Chinese lab, max thinking (78 runs each)
-
-| Lab / model | Baseline | MCP | Lift | Med wall b/m | Med cost b/m | Assists/run |
-|---|---|---|---|---|---|---|
-| Moonshot Kimi K3 | 100% | 100% | 0 | 100s/102s | $0.061/$0.063 | 0.0 |
-| Xiaomi MiMo-V2.5-Pro @xhigh | 100% | 97% | -3 | 23s/20s | $0.004/$0.005 | 0.0 |
-| DeepSeek V4-Pro @xhigh | 95% | 100% | +5 | 225s/211s | $0.074/$0.071 | 1.3 |
-| Tencent Hy3 | 95% | 95% | 0 | 148s/159s | $0.015/$0.015 | 0.5 |
-| Z.ai GLM 5.2 @xhigh | 95% | 100% | +5 | 194s/185s | $0.147/$0.128 | 1.2 |
-| MiniMax M3 @xhigh | 87% | 90% | +3 | 86s/104s | $0.018/$0.020 | 0.5 |
-| Alibaba Qwen3.6-27B @xhigh | 28% | 49% | +21 | 852s/613s | $0.269/$0.188 | 1.3 |
-
-Findings: (1) the knowledge-gap law holds across labs — MCP lift is zero at saturation, largest for the weakest model; (2) MiMo-V2.5-Pro is the efficiency standout (100% at ~23s/$0.004 per task, ~15x cheaper than K3); (3) Qwen3.6-27B collapses on Cairo despite strong general-coding benchmarks — language-specific knowledge is what the MCP substitutes for; (4) Hy3 (released 2026-07-06, freshest data) hits 95% without needing the tool. Notes: 5 qwen/minimax baseline cells abandoned after repeated host-sleep/network stalls, counted as failures (consistent with sibling reps); roster ran with streaming + reasoning-history passthrough. Roster spend: ~$48.
-
-## Effort-pattern generalization (2026-07-23; +312 runs; 1664 total)
-
-| Model / tier | Baseline | MCP | Note |
-|---|---|---|---|
-| DeepSeek V4-Pro @low | 94.9% | 97.4% | ~2x faster/cheaper than xhigh |
-| DeepSeek V4-Pro @xhigh | 94.9% | 100% | |
-| Tencent Hy3 @low | 89.7% | 94.9% | MCP repays the effort gap |
-| Tencent Hy3 @high | 97.4% | 92.3% | bare default == high tier (~14k rtoks) |
-| MiMo-V2.5-Pro @low | 100% | 100% | knowledge-saturated, effort irrelevant |
-| MiMo-V2.5-Pro @xhigh | 100% | 97.4% | |
-
-Verdict: GLM's "extra thinking buys nothing" holds for DeepSeek and MiMo; Hy3 is the counterexample (high tier genuinely better at baseline, +7.7pt). The substitution law is universal: MCP lift appears exactly where reasoning/knowledge falls short (hy3@low +5pt), never at saturation. Probes: deepseek low=medium=high collapse to one tier (xhigh 5-10x more reasoning); hy3 has two real tiers; mimo's ladder is cosmetic. Two harness bugs found+fixed at 50-way concurrency: non-string codeSnippets from models crash-proofed (cairo_coder.py), mid-stream disconnects now retried (models.py httpx.HTTPError). Batch: 312 runs in 42 min at concurrency 50, ~$12.
-
-## Starknet Coding Index — SCI v1 (2026-07-23, baseline condition)
-
-SCI = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost + 0.05*TokenEfficiency (0-100).
-Correctness = mean hidden-test pass fraction; resource scores use fixed log anchors
-(speed 20s->1200s, cost $0.003->$0.60, tokens 1k->40k) so future models never reshuffle
-existing scores. Max-thinking config, 39 baseline runs/model, 10-turn budget. All current
-entrants are open-weight; the chart distinguishes open vs closed for future additions.
-
-| # | Model | SCI | Correct | 1-shot | Speed | Cost | Tokens |
-|--:|---|--:|--:|--:|--:|--:|--:|
-| 1 | MiMo-V2.5-Pro | 89.1 | 100.0 | 41 | 97 | 93 | 90 |
-| 2 | Kimi K3 | 82.3 | 100.0 | 90 | 61 | 43 | 65 |
-| 3 | MiniMax M3 | 71.4 | 91.0 | 31 | 65 | 67 | 31 |
-| 4 | Hy3 | 67.7 | 94.9 | 5 | 51 | 69 | 29 |
-| 5 | DeepSeek V4-Pro | 60.7 | 94.9 | 0 | 41 | 39 | 24 |
-| 6 | GLM 5.2 | 59.5 | 96.8 | 0 | 45 | 27 | 8 |
-| 7 | Qwen3.6-27B | 17.6 | 28.2 | 0 | 8 | 15 | 0 |
-
-## SCI policy update (2026-07-23): best variant per model, labeled
-
-The leaderboard now scores each model at its best-performing benchmarked variant
-(was: max thinking), with the variant labeled per bar. Changes: Hy3 default->@high
-(67.7->69.1), DeepSeek @xhigh->@low (60.7->65.6), GLM @xhigh->@low (59.5->63.5).
-No rank flips except DeepSeek/GLM tightening behind Hy3. MiMo's best remains @xhigh
-(89.1); its @low scores 83.4. Rationale: SCI includes efficiency, and for GLM/DeepSeek
-max thinking buys no correctness at 2-3x the time/cost.
-
-## Sonnet 5 @high, baseline only (2026-07-23; 13 runs, single rep)
-
-First closed-weight entry. 13/13 solved (100%), 7/13 one-shot, median 16s / $0.024 per task,
-total spend $0.44. SCI 86.3 -> #2, between MiMo (89.1) and K3 (82.3). Fastest model in the
-field (speed score 100). n=13 caveat: single rep; reps 2-3 (~$1 total) would firm it up.
-MCP condition not yet run. Harness fix shipped during the run: streamed Anthropic thinking
-blocks carry a trailing signature delta that the reasoning_details merge dropped -> providers
-rejected multi-turn thinking loops ("Invalid signature in thinking block"); merge now appends
-text chunks in order and keeps latest metadata/signature per index (bench/models.py).
+| Task | anthropic/claude-sonnet-5<br>baseline | anthropic/claude-sonnet-5@high<br>baseline | anthropic/claude-sonnet-5@low<br>baseline | anthropic/claude-sonnet-5@medium<br>baseline | anthropic/claude-sonnet-5@minimal<br>baseline | deepseek/deepseek-v4-pro@low<br>baseline | deepseek/deepseek-v4-pro@low<br>mcp | deepseek/deepseek-v4-pro@xhigh<br>baseline | deepseek/deepseek-v4-pro@xhigh<br>mcp | fake/model<br>baseline | fake/model<br>mcp | minimax/minimax-m3@xhigh<br>baseline | minimax/minimax-m3@xhigh<br>mcp | moonshotai/kimi-k3<br>baseline | moonshotai/kimi-k3<br>mcp | qwen/qwen3.6-27b@xhigh<br>baseline | qwen/qwen3.6-27b@xhigh<br>mcp | tencent/hy3<br>baseline | tencent/hy3<br>mcp | tencent/hy3@high<br>baseline | tencent/hy3@high<br>mcp | tencent/hy3@low<br>baseline | tencent/hy3@low<br>mcp | xiaomi/mimo-v2.5-pro@low<br>baseline | xiaomi/mimo-v2.5-pro@low<br>mcp | xiaomi/mimo-v2.5-pro@xhigh<br>baseline | xiaomi/mimo-v2.5-pro@xhigh<br>mcp | z-ai/glm-5.2@disabled<br>baseline | z-ai/glm-5.2@disabled<br>mcp | z-ai/glm-5.2@high<br>baseline | z-ai/glm-5.2@high<br>mcp | z-ai/glm-5.2@low<br>baseline | z-ai/glm-5.2@low<br>mcp | z-ai/glm-5.2@medium<br>baseline | z-ai/glm-5.2@medium<br>mcp | z-ai/glm-5.2@xhigh<br>baseline | z-ai/glm-5.2@xhigh<br>mcp |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| e1_counter | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 1/1 | 1/1 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 11/11 | 7/7 | 10/10 | 10/10 | 10/10 | 9/10 | 3/3 | 3/3 |
+| e2_ownable | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 12/12 | 8/8 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |
+| e3_registry | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 9/11 | 7/7 | 10/10 | 10/10 | 9/10 | 8/10 | 3/3 | 3/3 |
+| e4_structs | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 11/11 | 7/7 | 10/10 | 10/10 | 10/10 | 10/10 | 3/3 | 3/3 |
+| h1_component | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | — | — | 1/3 | 1/3 | 3/3 | 3/3 | 0/3 | 0/3 | 1/3 | 2/3 | 3/3 | 2/3 | 1/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 11/11 | 6/7 | 10/10 | 10/10 | 9/10 | 10/10 | 3/3 | 3/3 |
+| h2_erc721 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 2/3 | 10/11 | 7/7 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |
+| h3_vault | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 10/11 | 7/7 | 9/10 | 9/10 | 10/10 | 9/10 | 3/3 | 3/3 |
+| h4_account | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | — | — | 1/3 | 3/3 | 3/3 | 3/3 | 1/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 2/3 | 5/11 | 6/7 | 8/10 | 10/10 | 9/10 | 10/10 | 1/3 | 3/3 |
+| m1_erc20_capped | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | — | — | 3/3 | 2/3 | 3/3 | 3/3 | 0/3 | 1/3 | 3/3 | 2/3 | 3/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 8/11 | 7/7 | 8/10 | 9/10 | 10/10 | 10/10 | 3/3 | 3/3 |
+| m2_voting | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 1/1 | 1/1 | 3/3 | 3/3 | 3/3 | 3/3 | 1/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 1/3 | 3/3 | 10/11 | 7/7 | 8/10 | 10/10 | 9/10 | 10/10 | 3/3 | 3/3 |
+| m3_escrow | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | — | — | 2/3 | 2/3 | 3/3 | 3/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 2/3 | 3/3 | 5/11 | 7/7 | 9/10 | 9/10 | 7/10 | 9/10 | 3/3 | 3/3 |
+| m4_crud | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 0/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 10/11 | 7/7 | 9/10 | 10/10 | 10/10 | 9/10 | 3/3 | 3/3 |
+| m5_dispatcher | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 3/3 | 3/3 | 3/3 | — | — | 3/3 | 3/3 | 3/3 | 3/3 | 2/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 10/11 | 7/7 | 9/10 | 10/10 | 8/10 | 10/10 | 3/3 | 3/3 |

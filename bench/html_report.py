@@ -350,6 +350,36 @@ def build(all_runs):
   <p class="takeaway">Partially. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier is ~2× faster and cheaper) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 is the counterexample</b>: its high tier genuinely outperforms low at baseline (97.4% vs 89.7%), and — consistent with the substitution law — the MCP repays the difference at low effort (+5pt) while adding nothing at high. Hy3's bare default matches its high tier (reasoning-token volumes ~14k vs ~11k at low). The universal result across all four labs remains the substitution law: MCP lift appears exactly where reasoning or knowledge falls short, never where the model is already saturated.</p>
 </section>"""
 
+    # Sonnet 5: the first closed-weight effort curve (baseline only, no MCP runs)
+    SONNET_TIERS = [
+        ("off", "anthropic/claude-sonnet-5"),
+        ("minimal", "anthropic/claude-sonnet-5@minimal"),
+        ("low", "anthropic/claude-sonnet-5@low"),
+        ("medium", "anthropic/claude-sonnet-5@medium"),
+        ("high", "anthropic/claude-sonnet-5@high"),
+    ]
+    sonnet_rows = []
+    for tier, spec in SONNET_TIERS:
+        rs = [r for r in all_runs if r["model"] == spec and r["condition"] == "baseline"]
+        if not rs:
+            continue
+        oneshot = 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs)
+        sonnet_rows.append(
+            f'<tr><td class="task">{tier}</td>'
+            + bar_cell(solve_pct(rs), 100, "b", f"{solve_pct(rs):.0f}%")
+            + bar_cell(oneshot, 100, "b", f"{oneshot:.0f}%")
+            + f'<td class="num">{med([r["wall_time_s"] for r in rs]):.0f}s</td>'
+            f'<td class="num">${med([r["cost_usd"] for r in rs]):.4f}</td>'
+            f'<td class="num">{med([r["completion_tokens"] for r in rs]):,.0f}</td></tr>'
+        )
+    sonnet_html = f"""
+<section>
+  <h2>The first closed-weight effort curve — Sonnet 5, thinking off → high</h2>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline only (no MCP runs yet)</span><span>39 runs per tier</span></div>
+  <div class="tablewrap"><table class="num"><tr><th>Thinking</th><th class="barcell">Solve rate</th><th class="barcell">One-shot</th><th>Med. wall</th><th>Med. cost</th><th>Med. output toks</th></tr>{"".join(sonnet_rows)}</table></div>
+  <p class="takeaway"><b>The effort knob does nothing here — including switching thinking off entirely.</b> All five tiers solve 195/195 runs, at the same median cost (~$0.024) and the same ~1,700 output tokens, because Sonnet 5's thinking is adaptive: on tasks it already knows, it simply declines to spend reasoning tokens no matter how large the budget. This is the strongest form of the knowledge-saturation result — a frontier closed model needs neither extended thinking nor documentation to write correct Cairo for this suite. One-shot differences between tiers (46–67%) are within noise at n=39, and <code>high</code>'s faster median wall is a measurement artifact: 13 of its runs predate this sweep and ran under lighter API load.</p>
+</section>"""
+
     # Lab roster: best open-weight coder per lab at max thinking
     roster_rows, roster_stats = [], {}
     for label, spec in ROSTER:
@@ -396,7 +426,7 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 13–130 runs per entry (Sonnet 5 is a single-rep entry so far). The score blends five measurements:</p>
+  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a 10-turn compile-and-repair budget. Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, with the thinking level labeled under each bar (e.g. <code>low</code>, <code>xhigh</code>; models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 39–130 runs per entry. The score blends five measurements:</p>
   <ul class="meta" style="margin-bottom:14px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
@@ -406,7 +436,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, where correctness is unchanged but runs are 2–3× faster and cheaper. All current entrants are open-weight models from Chinese labs; closed-weight models join the same chart as they're benchmarked.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. <b>Sonnet 5, the first closed-weight entrant, lands at #2</b> — it matches MiMo's perfect correctness at every thinking tier it was tested on, but its API pricing (~$0.024 vs ~$0.004 median per task) caps its cost score and keeps it behind. Notably, the best variant is not always max thinking — GLM 5.2 and DeepSeek V4-Pro score highest at <code>@low</code>, where correctness is unchanged but runs are 2–3× faster and cheaper, and Sonnet 5's five tiers from thinking-off to <code>high</code> are statistically indistinguishable on this suite.</p>
 </section>"""
 
     n_runs = len(runs)
@@ -513,6 +543,8 @@ def build(all_runs):
 </section>
 
 {generalize_html}
+
+{sonnet_html}
 
 {k3_html}
 
