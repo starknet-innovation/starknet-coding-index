@@ -74,6 +74,11 @@ MODEL_REGISTRY = [
                "google/gemini-3.6-flash@high", "google/gemini-3.6-flash@medium",
                "google/gemini-3.6-flash@low", "google/gemini-3.6-flash@minimal"],
      "label": "Gemini 3.6 Flash", "lab": "Google", "open_weight": False},
+    {"specs": ["openai/gpt-5.6-luna-pro", "openai/gpt-5.6-luna@max",
+               "openai/gpt-5.6-luna@xhigh", "openai/gpt-5.6-luna@high",
+               "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
+               "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
+     "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
 ]
 
 
@@ -83,6 +88,7 @@ BARE_VARIANT_LABELS = {
     "moonshotai/kimi-k3": "max",   # always-thinking; Moonshot maps default to max
     "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
     "anthropic/claude-sonnet-5": "off",  # no reasoning param = thinking fully off
+    "openai/gpt-5.6-luna-pro": "pro",    # same model as luna, reasoning.mode=pro
 }
 
 
