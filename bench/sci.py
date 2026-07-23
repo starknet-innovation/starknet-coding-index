@@ -91,6 +91,10 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
+    {"specs": ["anthropic/claude-haiku-4.5@max", "anthropic/claude-haiku-4.5@xhigh",
+               "anthropic/claude-haiku-4.5@high", "anthropic/claude-haiku-4.5@low",
+               "anthropic/claude-haiku-4.5"],
+     "label": "Haiku 4.5", "lab": "Anthropic", "open_weight": False},
     {"specs": ["openai/gpt-5.6-terra-pro", "openai/gpt-5.6-terra@max",
                "openai/gpt-5.6-terra@xhigh", "openai/gpt-5.6-terra@high",
                "openai/gpt-5.6-terra@medium", "openai/gpt-5.6-terra@low",
@@ -105,6 +109,7 @@ BARE_VARIANT_LABELS = {
     "moonshotai/kimi-k3": "max",   # always-thinking; Moonshot maps default to max
     "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
     "anthropic/claude-sonnet-5": "off",  # no reasoning param = thinking fully off
+    "anthropic/claude-haiku-4.5": "off",  # same: bare = thinking off (probe-confirmed)
     "openai/gpt-5.6-luna-pro": "pro",    # same model as luna, reasoning.mode=pro
     "openai/gpt-5.6-terra-pro": "pro",   # same model as terra, reasoning.mode=pro
 }
