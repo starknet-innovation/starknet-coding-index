@@ -162,11 +162,11 @@ def sci_bar_chart(rows, w=760, h=380):
     """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
     One solid column per model, colored by open- vs closed-weight; SCI value
-    above each column; model, lab, and variant stacked on separate lines
-    below so they stay readable in narrow columns. Reusable: pass any number
-    of rows (columns share the width).
+    above each column. Labels are two angled lines per column (model name,
+    then "variant · lab") so long names clear their neighbors as the roster
+    grows. Reusable: pass any number of rows (columns share the width).
     """
-    pad_l, pad_r, pad_t, pad_b = 40, 12, 26, 64
+    pad_l, pad_r, pad_t, pad_b = 40, 12, 26, 88
     cw = w - pad_l - pad_r
     ch = h - pad_t - pad_b
     n = len(rows)
@@ -185,11 +185,21 @@ def sci_bar_chart(rows, w=760, h=380):
         color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
         parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
-        parts.append(f'<text x="{cx:.0f}" y="{h - 46}" font-size="11" fill="{INK}" text-anchor="middle">{r["label"]}</text>')
+        ly = sy(0) + 12
+        sub_bits = []
         if r.get("variant"):
-            parts.append(f'<text x="{cx:.0f}" y="{h - 31}" font-size="10" fill="{MUTED}" text-anchor="middle" font-family="var(--mono)">{r["variant"]}</text>')
+            sub_bits.append(f'<tspan font-family="var(--mono)">{r["variant"]}</tspan>')
         if r.get("lab"):
-            parts.append(f'<text x="{cx:.0f}" y="{h - 15}" font-size="10" fill="{MUTED}" text-anchor="middle">{r["lab"]}</text>')
+            sub_bits.append(r["lab"])
+        sub = " · ".join(sub_bits)
+        sub_line = (
+            f'<tspan x="{cx:.0f}" dy="13" font-size="10" fill="{MUTED}">{sub}</tspan>'
+            if sub else ""
+        )
+        parts.append(
+            f'<text transform="rotate(-35 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{sub_line}</text>'
+        )
     parts.append("</svg>")
     return "".join(parts)
 
