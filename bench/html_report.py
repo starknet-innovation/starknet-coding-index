@@ -147,57 +147,38 @@ def scatter_chart(points, ring, w=760, h=320, x_max=0.16, y_min=68, y_max=102):
     return "".join(parts)
 
 
-SCI_COLORS = {
-    "correct": "#3D5A96",  # deep blue — the dominant component
-    "oneshot": "#3E9B8F",  # teal
-    "speed": "#7FAE5C",    # green
-    "cost": "#C99A3C",     # amber
-    "tokens": "#9A8FB8",   # grey-violet
-}
-SCI_COMPONENT_LABELS = {
-    "correct": "correctness ×0.50", "oneshot": "one-shot ×0.15",
-    "speed": "speed ×0.15", "cost": "cost ×0.15", "tokens": "token-eff ×0.05",
-}
+SCI_OPEN_COLOR = "#3D5A96"    # open-weight models
+SCI_CLOSED_COLOR = "#9AA3B2"  # closed-weight models
 
 
-def sci_bar_chart(rows, w=760, row_h=46, label_w=200):
-    """Ranked horizontal stacked-bar chart of SCI rows (from bench.sci.leaderboard).
+def sci_bar_chart(rows, w=760, h=360):
+    """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
-    Each bar is the weighted sum of its components (segments); open-weight
-    models get a green 'open' chip, closed-weight a grey 'closed' chip and a
-    dashed bar outline. Reusable: pass any number of rows.
+    One solid column per model, colored by open- vs closed-weight; SCI value
+    above each column, model + lab labels below. Reusable: pass any number
+    of rows (columns share the width).
     """
-    weights = SCI_SPEC["weights"]
-    pad_r, top = 56, 8
-    h = top + row_h * len(rows) + 30
-    cw = w - label_w - pad_r
-    sx = lambda v: label_w + v / 100 * cw
+    pad_l, pad_r, pad_t, pad_b = 40, 12, 26, 46
+    cw = w - pad_l - pad_r
+    ch = h - pad_t - pad_b
+    n = len(rows)
+    col_w = cw / n
+    bar_w = col_w * 0.62
+    sy = lambda v: pad_t + (100 - v) / 100 * ch
     parts = [svg_open(w, h)]
     for gv in range(0, 101, 20):
-        x = sx(gv)
-        parts.append(f'<line x1="{x:.0f}" y1="{top}" x2="{x:.0f}" y2="{h - 26}" stroke="{LINE}"/>')
-        parts.append(f'<text x="{x:.0f}" y="{h - 10}" font-size="11" fill="{MUTED}" text-anchor="middle">{gv}</text>')
+        y = sy(gv)
+        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
+        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}</text>')
     for i, r in enumerate(rows):
-        y = top + row_h * i + 8
-        bar_h = row_h - 18
-        # label + open/closed chip
-        parts.append(f'<text x="0" y="{y + bar_h / 2:.0f}" font-size="13" fill="{INK}" dominant-baseline="middle">{r["label"]}</text>')
-        chip_x, chip_y = 0, y + bar_h / 2 + 12
-        chip_text = "open" if r["open_weight"] else "closed"
-        chip_fill = "#E7F4EE" if r["open_weight"] else "#ECEEF2"
-        chip_ink = GOOD if r["open_weight"] else MUTED
-        parts.append(f'<rect x="{chip_x}" y="{chip_y - 8}" width="{len(chip_text) * 7 + 10}" height="14" rx="3" fill="{chip_fill}"/>')
-        parts.append(f'<text x="{chip_x + 5}" y="{chip_y - 1}" font-size="10" fill="{chip_ink}" font-family="var(--mono)">{chip_text}</text>')
-        # stacked segments
-        x = label_w
-        for key in ["correct", "oneshot", "speed", "cost", "tokens"]:
-            seg = weights[key] * r["components"][key] / 100 * cw
-            if seg > 0.5:
-                parts.append(f'<rect x="{x:.1f}" y="{y}" width="{seg:.1f}" height="{bar_h}" fill="{SCI_COLORS[key]}"/>')
-            x += seg
-        if not r["open_weight"]:
-            parts.append(f'<rect x="{label_w}" y="{y - 1.5}" width="{x - label_w + 1.5:.1f}" height="{bar_h + 3}" fill="none" stroke="{MUTED}" stroke-width="1.2" stroke-dasharray="4 3"/>')
-        parts.append(f'<text x="{x + 8:.0f}" y="{y + bar_h / 2:.0f}" font-size="14" font-weight="600" fill="{INK}" dominant-baseline="middle">{r["sci"]:.1f}</text>')
+        cx = pad_l + col_w * i + col_w / 2
+        x = cx - bar_w / 2
+        top = sy(r["sci"])
+        color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
+        parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
+        parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
+        parts.append(f'<text x="{cx:.0f}" y="{h - 30}" font-size="11" fill="{INK}" text-anchor="middle">{r["label"]}</text>')
+        parts.append(f'<text x="{cx:.0f}" y="{h - 16}" font-size="10" fill="{MUTED}" text-anchor="middle">{r.get("lab", "")}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -406,17 +387,22 @@ def build(all_runs):
 
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
     sci_rows = leaderboard(all_runs)
-    sci_legend = "".join(
-        f'<span><span class="key" style="background:{SCI_COLORS[k]};border-radius:2px"></span>{SCI_COMPONENT_LABELS[k]}</span>'
-        for k in ["correct", "oneshot", "speed", "cost", "tokens"]
-    )
     a = SCI_SPEC["anchors"]
+    w_ = SCI_SPEC["weights"]
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index — SCI {SCI_SPEC['version']} <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <div class="legend">{sci_legend}<span><span class="key" style="background:#E7F4EE;border-radius:2px"></span>open weights</span><span><span class="key" style="border:1.2px dashed {MUTED};border-radius:2px"></span>closed weights</span></div>
+  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool), at its strongest thinking configuration, with a 10-turn compile-and-repair budget — 39 runs per model. The score blends five measurements:</p>
+  <ul class="meta" style="margin-bottom:14px">
+    <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
+    <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
+    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%})</b> — median wall time and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
+    <li><b>Token efficiency ({w_["tokens"]:.0%})</b> — median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
+  </ul>
+  <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
+  <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway">One number per model for "how good is this LLM at writing Starknet contracts today": half the score is hidden-test correctness, the rest rewards one-shot solves, speed, price, and token efficiency (fixed log anchors: {a["speed"][0]}s–{a["speed"][1]}s, ${a["cost"][0]}–${a["cost"][1]}, {a["tokens"][0] // 1000}k–{a["tokens"][1] // 1000}k tokens — so future additions never reshuffle existing scores). Max-thinking config, 39 runs per model, 10-turn budget. <b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-anchor speed and cost outweighs Kimi K3's unmatched 90% one-shot rate.</p>
+  <p class="takeaway"><b>MiMo-V2.5-Pro leads the composite</b>: perfect correctness at near-best speed and cost outweighs Kimi K3's unmatched 90% one-shot rate. All current entrants are open-weight models from Chinese labs; closed-weight models join the same chart as they're benchmarked.</p>
 </section>"""
 
     n_runs = len(runs)
