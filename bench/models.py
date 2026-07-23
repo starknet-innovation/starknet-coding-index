@@ -25,6 +25,71 @@ def client():
 RETRIABLE_STATUS = {408, 429, 500, 502, 503, 504}
 
 
+def _stream_completion(kwargs):
+    """Consume a streamed completion into (message, usage, finish_reason).
+
+    The message mimics the SDK's non-streaming shape used by agent.py:
+    .content, .tool_calls[].id/.function.name/.arguments, .reasoning_details.
+    """
+    from types import SimpleNamespace
+
+    stream = client().chat.completions.create(
+        **kwargs, stream=True, stream_options={"include_usage": True}
+    )
+    content, tool_slots, usage, finish = [], {}, None, None
+    rd_by_index = {}
+    for chunk in stream:
+        if getattr(chunk, "usage", None) is not None:
+            usage = chunk.usage
+        if not chunk.choices:
+            continue
+        ch = chunk.choices[0]
+        if ch.finish_reason:
+            finish = ch.finish_reason
+        d = ch.delta
+        if d is None:
+            continue
+        if d.content:
+            content.append(d.content)
+        if d.tool_calls:
+            for tc in d.tool_calls:
+                slot = tool_slots.setdefault(tc.index, {"id": None, "name": "", "arguments": ""})
+                if tc.id:
+                    slot["id"] = tc.id
+                if tc.function:
+                    if tc.function.name:
+                        slot["name"] = tc.function.name
+                    if tc.function.arguments:
+                        slot["arguments"] += tc.function.arguments
+        rds = getattr(d, "reasoning_details", None)
+        if rds is None and getattr(d, "model_extra", None):
+            rds = d.model_extra.get("reasoning_details")
+        for rd in rds or []:
+            idx = rd.get("index", 0) if isinstance(rd, dict) else 0
+            slot = rd_by_index.setdefault(idx, dict(rd) if isinstance(rd, dict) else {})
+            if isinstance(rd, dict):
+                for key in ("text", "summary", "data"):
+                    if rd.get(key) and slot.get(key) != rd[key]:
+                        if key in slot and slot[key] and not rd[key].startswith(slot[key]):
+                            slot[key] = (slot[key] or "") + rd[key]
+                        else:
+                            slot[key] = rd[key]
+    msg = SimpleNamespace(
+        content="".join(content) or None,
+        tool_calls=[
+            SimpleNamespace(
+                id=slot["id"] or f"call_{i}",
+                function=SimpleNamespace(name=slot["name"], arguments=slot["arguments"]),
+            )
+            for i, slot in sorted(tool_slots.items())
+        ]
+        or None,
+        reasoning_details=[rd_by_index[k] for k in sorted(rd_by_index)] or None,
+        model_extra=None,
+    )
+    return msg, usage, finish
+
+
 def chat(model, messages, tools, temperature=None, reasoning_effort=None,
          provider_sort=None, max_attempts=5):
     """One chat completion. Returns (message_dict, meta) where meta has
@@ -53,12 +118,11 @@ def chat(model, messages, tools, temperature=None, reasoning_effort=None,
             )
             if use_temperature:
                 kwargs["temperature"] = temperature
-            resp = client().chat.completions.create(**kwargs)
+            # Streaming keeps bytes flowing during long reasoning phases;
+            # non-streaming requests idle for minutes and get killed by
+            # network intermediaries (observed with xhigh-effort calls).
+            msg, usage, finish_reason = _stream_completion(kwargs)
             latency = time.monotonic() - start
-            if not resp.choices:
-                raise RuntimeError(f"empty choices from provider: {resp}")
-            msg = resp.choices[0].message
-            usage = resp.usage
             cost = None
             if usage is not None:
                 # OpenRouter returns cost when usage.include=true
@@ -71,7 +135,7 @@ def chat(model, messages, tools, temperature=None, reasoning_effort=None,
                 "cost_usd": cost,
                 "latency_s": latency,
                 "retries": retries,
-                "finish_reason": resp.choices[0].finish_reason,
+                "finish_reason": finish_reason,
             }
             return msg, meta
         except APIStatusError as e:
