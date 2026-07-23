@@ -531,7 +531,7 @@ def build(all_runs):
         "<b>For both leaders the thinking knob buys nothing on this suite — including switching it off.</b> "
         "Sonnet 5 solves 195/195 at identical cost (~$0.024) and output (~1,700 tokens) at every tier because "
         "its thinking is adaptive: granted any budget, it declines to spend reasoning tokens on tasks it already "
-        "knows. MiMo-V2.5-Pro solves 273/273 across all seven tiers with equally flat cost (~$0.005) and output "
+        "knows. </p><p class='takeaway'>MiMo-V2.5-Pro solves 273/273 across all seven tiers with equally flat cost (~$0.005) and output "
         "(~1,500 tokens) — knowledge saturation again, this time in an open-weight model with a hard off switch. "
         "MiMo's apparent latency spread (19s at xhigh vs ~45s at the tiers benchmarked in a later batch) is a "
         "provider artifact, not an effort effect: the earlier batch was served at ~81 tok/s, the later at ~33 tok/s, "
@@ -539,39 +539,37 @@ def build(all_runs):
         "Sonnet 46–67%) — binomial noise at n=39. <b>Gemini 3.6 Flash is the third pattern: an obedient thinker.</b> "
         "It spends whatever budget it is granted (2k→7.7k output tokens, $0.023→$0.061 per task, minimal→max) and "
         "the spend does buy something — one-shot rate climbs steadily from 10% to 46% — but not solves: it is at "
-        "100% from <code>low</code> upward regardless. <b>GPT-5.6 Luna is the fourth pattern — and the first "
+        "100% from <code>low</code> upward regardless. </p><p class='takeaway'><b>GPT-5.6 Luna is the fourth pattern — and the first "
         "closed model that is NOT Cairo-saturated</b>: its solve rate genuinely climbs with the dial (79.5% with "
         "thinking off → 100% at <code>max</code>), it never one-shots at any tier (median 3–4 compiler round-trips), "
         "and its <code>pro</code> serving mode burns 14.5k output tokens and ~$0.11 per task to score <i>below</i> "
-        "<code>max</code>. <b>Terra, Luna's 2.5×-price sibling, shows what that money buys: knowledge, not habits.</b> "
+        "<code>max</code>. </p><p class='takeaway'><b>Terra, Luna's 2.5×-price sibling, shows what that money buys: knowledge, not habits.</b> "
         "Its thinking-off correctness jumps to 89.7% (Luna: 79.5%) and its curve flattens to noise (only "
         "<code>medium</code> reaches 100%), but it still never one-shots and its <code>pro</code> mode is again "
         "strictly dominated ($0.21/task for less than <code>max</code>). Net effect on the index: +0.6 points over "
-        "Luna. Completing the open-model ladders sharpened the split. <b>DeepSeek V4-Pro turns out "
+        "Luna. </p><p class='takeaway'>Completing the open-model ladders sharpened the split. <b>DeepSeek V4-Pro turns out "
         "not to need its thinking at all</b>: ~95–97% at every tier including off, where it runs 2–4× faster and "
         "cheaper — the off tier jumps it to #5 on the index. <b>Hy3's ladder is erratic</b>: thinking off "
         "collapses it (87%→67%, the GLM pattern), but the dial isn't even monotone — <code>minimal</code> reasons "
         "longer than <code>medium</code> (303s vs 242s median) and both drown in over-budget grinds; "
         "<code>low</code> stays its sweet spot. <b>MiniMax M3 genuinely needs its thinking</b> (87%→74% descending "
         "the ladder) and its off switch is fake — the API accepts <code>disabled</code> and reasons anyway, so "
-        "that pseudo-variant is excluded. The practical rule survives every pattern: run the cheapest tier that "
-        "holds correctness; the thinking dial buys solve rate only where knowledge runs out (GLM, Hy3, MiniMax, "
-        "Qwen — and Luna). <b>Haiku 4.5 adds a fifth pattern — the overthinker — and the dataset's first inverted "
+        "that pseudo-variant is excluded. </p><p class='takeaway'><b>Haiku 4.5 adds a fifth pattern — the overthinker — and the dataset's first inverted "
         "curve</b>: thinking off solves 88.9% at 29s/$0.05, while <code>high</code> collapses to 65.6% at "
         "102s/$0.17, burning ~18k output tokens spiraling through full 10-turn slogs. Granting the small model a "
         "big budget makes it strictly worse on every axis; per the bracket protocol its ladder was not extended "
-        "further upward. <b>Opus 4.8 completes the Anthropic ladder at the opposite extreme</b>: all three bracket "
+        "further upward. </p><p class='takeaway'><b>Opus 4.8 completes the Anthropic ladder at the opposite extreme</b>: all three bracket "
         "tiers are indistinguishable at 100% solve, ~15s, ~1,400 tokens — its adaptive thinking simply doesn't "
         "engage on tasks it has mastered — and at <code>high</code> it one-shots the entire suite, 26 for 26. "
         "One family, four fates for the same dial: the small model overthinks itself into failure, the mid model "
         "ignores the dial, the big models transcend it — <b>Fable 5's dial is inert until <code>max</code></b> "
         "(<code>minimal</code> and <code>high</code> return byte-identical cost/token medians at the adaptive "
         "floor; <code>max</code> finally engages real thinking for +4pt one-shot at 3× the cost), and its 78-run "
-        "bracket produced zero errors, zero tiebreaks, and zero refusals. <b>GPT-5.6 Sol completes the rival "
+        "bracket produced zero errors, zero tiebreaks, and zero refusals.</p><p class='takeaway'><b>GPT-5.6 Sol completes the rival "
         "ladder</b>: full "
         "correctness saturation at flagship scale (100% at every bracket tier), a one-shot habit that finally "
         "cracks but only to 12–23%, and an interior best tier (<code>low</code>) — the first bracket where "
-        "neither edge won, so the ladder was not extended in either direction."
+        "neither edge won, so the ladder was not extended in either direction.</p><p class='takeaway'>The practical rule survives every pattern: run the cheapest tier that holds correctness; the thinking dial buys solve rate only where knowledge runs out (GLM, Hy3, MiniMax, Qwen — and Luna)."
     )
     sonnet_html = f"""
 <section>
@@ -704,8 +702,26 @@ def build(all_runs):
     n_runs = len(runs)
     hero_lift = pooled_m - pooled_b
 
-    return f"""<title>Cairo Coder MCP — Benchmark Report</title>
-<meta name="description" content="Does the Cairo Coder MCP help LLMs write Starknet contracts? {n_runs} agentic runs across 5 reasoning efforts: solve rate {pooled_b:.0f}%→{pooled_m:.0f}%, biggest impact on mid-difficulty tasks.">
+    findings_html = """
+<section class="findings">
+  <h2>Findings</h2>
+  <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap — in any weight class</h3>
+  <p>Documentation lift lines up with baseline weakness across all thirteen measured models: +12.1 for the weakest entrant (Qwen3.6-27B), +4.3 for Haiku 4.5 (the first closed-model gain), fading to zero at the saturated top (MiMo, K3, Opus-class models).</p>
+  <p>Two refinements from the closed models: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier), and saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6).</p></div>
+  <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness — run the cheapest tier that holds it</h3>
+  <p>Five patterns across fifteen models: adaptive thinkers that ignore the dial (Sonnet 5, Opus 4.8, Fable 5), an indifferent one (MiMo — 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). In twelve of fifteen models the index-best variant is the cheapest tier that holds correctness.</p></div>
+  <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural — documentation can't buy it</h3>
+  <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs — a habit is not a knowledge gap.</p></div>
+  <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
+  <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>
+  <div class="finding"><h3><span class="tag win">effectiveness</span>In the GLM study, baseline failures are training-data lag — and the tool fixes exactly that</h3>
+  <p>GLM 5.2's failed baseline runs get stuck on <em>current</em> Cairo idioms — most often the storage API, writing pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code> — and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it; net effect was lower median cost at 4 of 5 effort settings, with lookups rising as thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off).</p></div>
+  <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
+  <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
+</section>"""
+
+    return f"""<title>Starknet Coding Index — Cairo Coder Benchmark</title>
+<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs, 15 models: Opus 4.8 leads the index at 90.5; the Cairo Coder MCP pays exactly where a model's Cairo knowledge runs out.">
 <style>
   :root{{
     --ground:#F6F7F9; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
@@ -762,20 +778,34 @@ def build(all_runs):
 </style>
 <main>
 <header>
-  <h1>Does documentation access make an LLM a better Starknet developer?</h1>
-  <p class="lede">We gave models the same {len({r["task"] for r in runs})} smart-contract tasks, with and without the <b>Cairo Coder</b> documentation tool: GLM 5.2 across five reasoning-effort settings, plus the best open-weight coder from each of seven Chinese labs at max thinking. One law explains all of it — <b>the tool's value tracks the model's Cairo knowledge gap</b>: zero for frontier models that saturate the suite, decisive for models that don't.</p>
+  <h1>The Starknet Coding Index — and what documentation access adds</h1>
+  <p class="lede">Fifteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, and OpenAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} hidden-test smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Two headlines: <b>Opus 4.8 leads the index at 90.5</b>, the first model to one-shot the whole suite; and <b>the tool's value tracks the model's Cairo knowledge gap</b> — from +12 index points for the weakest entrant to nothing at the saturated top.</p>
   <div class="chips">
-    <span class="chip">labs <b>7</b></span>
+    <span class="chip">models <b>15</b></span>
+    <span class="chip">labs <b>10</b></span>
     <span class="chip">runs <b>{len(all_runs)}</b></span>
     <span class="chip">hidden tests <b>106</b></span>
     <span class="chip">total LLM spend <b>${sum(r["cost_usd"] or 0 for r in all_runs):.0f}</b></span>
-    <span class="chip">2026-07-22/23</span>
+    <span class="chip">2026-07-22 → 24</span>
   </div>
 </header>
 
 {sci_html}
 
 {lift_html}
+
+{findings_html}
+
+{sonnet_html}
+
+{generalize_html}
+
+{k3_html}
+
+<section>
+  <h2>Deep dive — the original GLM 5.2 effort study</h2>
+  <p class="takeaway">Everything below this line is a single model — <b>GLM 5.2</b> — measured across five reasoning-effort settings with and without the tool ({n_runs} runs, up to n=130 per baseline cell). It is where the substitution law was first established and remains the deepest per-effort dataset in the study.</p>
+</section>
 
 <section>
   <div class="cards num">
@@ -786,42 +816,24 @@ def build(all_runs):
 </section>
 
 <section>
-  <h2>Where the tool matters — task difficulty</h2>
+  <h2>GLM 5.2 · where the tool matters — task difficulty</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span></div>
   {tier_chart}
   <p class="takeaway">Easy tasks don't need help. <b>Mid-difficulty contracts — token variants, escrow, voting — are where documentation pays: failures disappear entirely (+{tier_rows[1][2] - tier_rows[1][1]:.0f}pt).</b> The hardest tasks (account abstraction, components) improve but still fail sometimes: knowing the docs isn't the same as getting the architecture right.</p>
 </section>
 
 <section>
-  <h2>Documentation substitutes for thinking — the effort curve</h2>
+  <h2>GLM 5.2 · documentation substitutes for thinking — the effort curve</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate; n per point ranges {n_note}</span></div>
   {effort_line}
   <p class="takeaway">The less the model is allowed to think, the more the tool helps — and the more the model reaches for it (documentation lookups per run: <span class="assists" style="display:inline-flex">{assists_row}</span>). Extra thinking buys no solve-rate gain: after enlarging low/medium/high baselines to n=130, low and medium are statistically identical (p=0.83) and high trails by a suggestive-but-not-significant ~7pt (p=0.09) at roughly the same cost — while the xhigh tier spends ~2.4× the time and ~1.9× the money of low for a statistically indistinguishable solve rate.</p>
 </section>
 
 <section>
-  <h2>What should you actually run? — the efficiency frontier</h2>
+  <h2>GLM 5.2 · what should you run? — the efficiency frontier</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>each point = one effort setting</span></div>
   {frontier_scatter}
   <p class="takeaway"><b>low + MCP is the efficient frontier</b>: {eff[("low", "mcp")]["solve"]:.0f}% of tasks solved at ~${eff[("low", "mcp")]["cost"]:.3f} and ~{eff[("low", "mcp")]["wall"]:.0f}s per task — statistically indistinguishable from the most expensive configuration (xhigh + MCP, {eff[("xhigh", "mcp")]["solve"]:.0f}% at n=39) at {eff[("xhigh", "mcp")]["cost"] / eff[("low", "mcp")]["cost"]:.1f}× the cost and {eff[("xhigh", "mcp")]["wall"] / eff[("low", "mcp")]["wall"]:.1f}× the time.</p>
-</section>
-
-{generalize_html}
-
-{sonnet_html}
-
-{k3_html}
-
-<section class="findings">
-  <h2>Findings</h2>
-  <div class="finding"><h3><span class="tag win">effectiveness</span>Baseline failures are training-data lag, and the tool fixes exactly that</h3>
-  <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms — most often the storage API, writing pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code> — and burn the whole 10-turn budget against the compiler. In the MCP condition one documentation lookup resolves it. This is the precise gap a RAG tool over current docs should close, and it does.</p></div>
-  <div class="finding"><h3><span class="tag cost">economics</span>The tool pays for itself by preventing failures, not by speeding up wins</h3>
-  <p>Each lookup takes ~15–30s, so on tasks the model can already do the MCP condition is sometimes slower. But a failed run costs ~10 turns of reasoning tokens — several times the lookup overhead. Net across the study: lower median cost at 4 of 5 effort settings.</p></div>
-  <div class="finding"><h3><span class="tag cost">behavior</span>Tool use is selective and rises when reasoning is scarce</h3>
-  <p>The model consults the docs roughly once every other run at high effort, and ~1.8 times per run with thinking disabled — typically after the first compiler error, not up front. Availability doesn't degrade into dependence.</p></div>
-  <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
-  <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>
 
 <section>
