@@ -230,10 +230,9 @@ def build(all_runs):
         multiples.append(f'<div><h3 style="font-size:13px;margin-bottom:6px">{name}</h3>{chart}</div>')
     generalize_html = f"""
 <section>
-  <h2>Does the effort pattern generalize? — six labs' effort curves</h2>
+  <h2>Does the effort pattern generalize?</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 26–147 runs per point</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}</div>
-  <p class="takeaway">Yes — six labs, three archetypes. <b>Saturated (MiMo, DeepSeek): extra thinking buys no solve-rate gain</b> — DeepSeek holds 95–97% even with thinking off (where it answers 2–4× faster and cheaper), MiMo sits at ~100% everywhere, and the documentation tool has nothing left to add. <b>Real curves (GLM, Hy3, MiniMax): thinking does buy solves, but documentation buys more.</b> MiniMax climbs 74%→90% up its ladder yet with docs its <code>low</code> tier (93%) already beats its best baseline tier; Hy3's noisy dial (67–90% baseline, non-monotone) flattens to 93–96% with docs at every setting except <code>high</code> (85%) — the one tier where baseline itself peaks, and even that peak sits one solve above <code>low</code> once the 15-minute budget counts its 40-minute marathons as the failures they are. <b>Knowledge floor (Qwen3.6-27B): the substitution law at its extreme.</b> Docs double-to-triple every tier (19→58, 23→41, 12→58) while more thinking makes baseline <i>worse</i> — no reasoning budget can derive idioms the model never learned. MCP lift appears where reasoning or knowledge falls short, never where the model is already saturated.</p>
 </section>"""
 
 
