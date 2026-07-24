@@ -182,8 +182,13 @@ def mcp_lift_chart(pairs, w=760, h=404):
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{mcp:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
         elif mcp is not None:
-            # measured, no gain: plain value — the absent segment is the verdict
-            parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+            # measured, no gain: bar stays at the (better) baseline; the red
+            # sub-line quantifies what the tool would cost this model
+            if mcp < base:
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="10.5" font-weight="600" fill="#B03A3A" text-anchor="middle">−{base - mcp:.1f}</text>')
+            else:
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
         else:
             # not yet measured with the tool: shown for scale, flagged as such
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
@@ -534,7 +539,7 @@ def build(all_runs):
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; <b>no segment means the tool doesn't improve that model's best configuration</b>. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only.</p>
+  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   {mcp_lift_chart(lift_pairs)}
   <p class="takeaway">{lift_takeaway}</p>
