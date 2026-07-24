@@ -314,6 +314,13 @@ def build(all_runs):
         ("max", "openai/gpt-5.6-luna@max"),
         ("pro", "openai/gpt-5.6-luna-pro"),
     ]
+    GROK_TIERS = [
+        ("minimal", "x-ai/grok-4.5@minimal"),
+        ("low", "x-ai/grok-4.5@low"),
+        ("high", "x-ai/grok-4.5@high"),
+        ("xhigh", "x-ai/grok-4.5@xhigh"),
+        ("max", "x-ai/grok-4.5@max"),
+    ]
     FABLE_TIERS = [
         ("minimal", "anthropic/claude-fable-5@minimal"),
         ("low", "anthropic/claude-fable-5@low"),
@@ -447,6 +454,8 @@ def build(all_runs):
   {tier_table(GEMINI_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Luna (closed weights; <code>pro</code> is the same model in reasoning.mode=pro)</h3>
   {tier_table(LUNA_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">Grok 4.5 (closed weights; thinking mandatory — no off tier)</h3>
+  {tier_table(GROK_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">Fable 5 (closed weights; thinking mandatory — no off tier. Disclosure: this model also operates the harness; measurement is submissions + hidden tests only)</h3>
   {tier_table(FABLE_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">Opus 4.8 (closed weights; Anthropic's top tier — bracket tiers, bare spec skipped as adaptive/unnameable)</h3>
@@ -570,7 +579,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {sci_bar_chart(sci_rows)}
-  <p class="takeaway"><b>Opus 4.8 leads</b> — the first model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). <b>Fable 5 (#2) ties it on every component except the bill</b>: same correctness, speed, and token profile, but at 2× the price its cost score decides the race — Anthropic's two flagships are separated by pricing alone. <b>MiMo-V2.5-Pro (#3) remains the open-weight champion</b>, ~20× cheaper per task than the leaders, and <b>Sonnet 5 (#4)</b> matches everyone's correctness at the field's best latency.</p>
+  <p class="takeaway"><b>Grok 4.5 leads at 90.8</b> — a statistical tie with Opus 4.8 (90.5) decided by economics: identical perfect correctness, but under a cent per task against Opus's ~$0.045 (cost score 78 vs 49). <b>Opus keeps the record that money can't buy</b>: the only model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). <b>Fable 5 (#2) ties it on every component except the bill</b>: same correctness, speed, and token profile, but at 2× the price its cost score decides the race — Anthropic's two flagships are separated by pricing alone. <b>MiMo-V2.5-Pro (#3) remains the open-weight champion</b>, ~20× cheaper per task than the leaders, and <b>Sonnet 5 (#4)</b> matches everyone's correctness at the field's best latency.</p>
   <p class="takeaway">The best variant is usually the cheapest one: GLM 5.2 and Hy3 peak at <code>@low</code>; Sonnet 5 and DeepSeek V4-Pro peak with thinking <code>off</code> — DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money.</p>
   <p class="takeaway"><b>OpenAI's ladder — Luna (#10), Terra (#9), Sol (#7) — is a knowledge ladder with sticky habits.</b> Off-tier correctness climbs 79.5% → 89.7% → 100% with scale, but the iterate-against-the-compiler habit barely bends: the smaller two never one-shot and Sol manages only 12–23%, so perfect correctness at flagship pricing still can't crack the top five. The family's <code>pro</code> serving modes remain strictly dominated. Google's <b>Gemini 3.6 Flash (#6)</b> pairs perfect correctness with near-best latency but thinks in volume — 2–5× MiMo's output tokens per task.</p>
   <p class="takeaway"><b>Anthropic's ladder tells the opposite story.</b> Haiku 4.5 (#12) keeps the family trait — thinking off is its best mode — but sheds 20 correctness points against Sonnet and adds a failure mode its siblings lack: given a big thinking budget it overthinks its way from 89% down to 66%.</p>
@@ -585,7 +594,8 @@ def build(all_runs):
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness — run the cheapest tier that holds it</h3>
   <p>Five patterns across fifteen models: adaptive thinkers that ignore the dial (Sonnet 5, Opus 4.8, Fable 5), an indifferent one (MiMo — 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). In twelve of fifteen models the index-best variant is the cheapest tier that holds correctness.</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural — documentation can't buy it</h3>
-  <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs — a habit is not a knowledge gap.</p></div>
+  <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs — a habit is not a knowledge gap.</p>
+  <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−1.2 to −1.9, pure schema overhead) while Grok 4.5 dutifully consulted them about once per run it didn't need — worth −13.1, the largest penalty in the study.</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>
   <div class="finding"><h3><span class="tag win">effectiveness</span>In the GLM study, baseline failures are training-data lag — and the tool fixes exactly that</h3>
@@ -655,8 +665,8 @@ def build(all_runs):
   <h1>The Starknet Coding Index — and what documentation access adds</h1>
   <p class="lede">Fifteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, and OpenAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} hidden-test smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Two headlines: <b>Opus 4.8 leads the index at 90.5</b>, the first model to one-shot the whole suite; and <b>the tool's value tracks the model's Cairo knowledge gap</b> — from +12 index points for the weakest entrant to nothing at the saturated top.</p>
   <div class="chips">
-    <span class="chip">models <b>15</b></span>
-    <span class="chip">labs <b>10</b></span>
+    <span class="chip">models <b>16</b></span>
+    <span class="chip">labs <b>11</b></span>
     <span class="chip">runs <b>{len(all_runs)}</b></span>
     <span class="chip">hidden tests <b>106</b></span>
     <span class="chip">total LLM spend <b>${sum(r["cost_usd"] or 0 for r in all_runs):.0f}</b></span>

@@ -93,6 +93,10 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
+    {"specs": ["x-ai/grok-4.5@max", "x-ai/grok-4.5@xhigh", "x-ai/grok-4.5@high",
+               "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
+     # thinking mandatory (@disabled rejected); bare = dynamic, skipped
+     "label": "Grok 4.5", "lab": "xAI", "open_weight": False},
     {"specs": ["anthropic/claude-fable-5@max", "anthropic/claude-fable-5@xhigh",
                "anthropic/claude-fable-5@high", "anthropic/claude-fable-5@low",
                "anthropic/claude-fable-5@minimal"],
