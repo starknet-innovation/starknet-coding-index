@@ -286,6 +286,21 @@
    "type": null,
    "params_total": null,
    "params_active": null
+  },
+  "thinkingmachines/inkling": {
+   "name": "Thinking Machines: Inkling",
+   "context_length": 1048576,
+   "hugging_face_id": "thinkingmachines/Inkling",
+   "price_per_m": {
+    "input": 1.0,
+    "output": 4.05,
+    "cache_read": 0.16999999999999998,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE",
+   "params_total": "975B",
+   "params_active": "41B"
   }
  },
  "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T lab-stated, repo gated; Hy3 295B/21B and Qwen 27B dense lab-stated."

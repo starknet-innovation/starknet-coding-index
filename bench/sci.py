@@ -81,6 +81,11 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high"],
      # small: rendered in the report's small-models section, not the main charts
      "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
+    # Probe 2026-07-24: full surface honored incl. @disabled; real curve with
+    # overshoot (correct 79 off -> 99 low -> 88 high); low = interior winner.
+    {"specs": ["thinkingmachines/inkling@disabled", "thinkingmachines/inkling@low",
+               "thinkingmachines/inkling@high"],
+     "label": "Inkling", "lab": "Thinking Machines", "open_weight": True},
     # Probe 2026-07-24: adaptive-Anthropic signature (all variants identical on
     # the probe, @disabled honored). Bracket: 78/78 solved, 0 tiebreaks; low =
     # interior winner (91.5, 100% one-shot, speed 96). -fast serving tier
