@@ -115,8 +115,8 @@ def sci_bar_chart(rows, w=760, h=389):
         color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
         tip = r.get("tip", {})
         tip_attrs = (
-            f' class="scibar" data-name="{r["label"]} ({r["variant"]})" data-passes="{tip["passes"]}"'
-            f' data-oneshot="{tip["oneshot"]:.0f}%" data-cost="${tip["cost"]:.2f}" data-time="{tip["time"]}"'
+            f' class="scibar" data-oneshot="{tip["oneshot"]:.0f}%"'
+            f' data-cost="${tip["cost"]:.2f}" data-time="{tip["time"]}"'
         ) if tip else ""
         parts.append(f'<rect{tip_attrs} x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
@@ -358,8 +358,7 @@ def build(all_runs):
   var tip = document.getElementById("tip");
   document.querySelectorAll(".scibar").forEach(function (bar) {
     bar.addEventListener("mousemove", function (e) {
-      tip.innerHTML = "<b>" + bar.dataset.name + " \\u00b7 median of " + bar.dataset.passes + " passes</b>"
-        + "one-shot " + bar.dataset.oneshot + "<br>cost " + bar.dataset.cost
+      tip.innerHTML = "one-shot " + bar.dataset.oneshot + "<br>cost " + bar.dataset.cost
         + "<br>model time " + bar.dataset.time;
       tip.hidden = false;
       var x = e.clientX + 14, y = e.clientY + 14;
