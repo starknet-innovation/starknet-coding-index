@@ -195,9 +195,10 @@ def mcp_lift_chart(pairs, w=760, h=404):
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
+        # only upward moves are annotated — downward is mostly being overtaken
         move = (
-            f' <tspan fill="{MUTED}">{"▲" if rank_delta > 0 else "▼"}{abs(rank_delta)}</tspan>'
-            if rank_delta else ""
+            f' <tspan fill="{GOOD}" font-weight="600">▲{rank_delta}</tspan>'
+            if rank_delta > 0 else ""
         )
         parts.append(
             f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
@@ -550,7 +551,7 @@ def build(all_runs):
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only. Label arrows (▲/▼) show places moved versus the baseline-only ranking — competitive standing, not tool effect: a model can gain points yet drop places when others gain more.</p>
+  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only. Green label arrows (▲) mark models that climb the ranking once the tool is in play, versus their baseline-only position.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   {mcp_lift_chart(lift_pairs)}
   <p class="takeaway">{lift_takeaway}</p>
