@@ -235,6 +235,34 @@ def head_to_head_chart(metrics, w=760):
 
 
 
+def attempts_chart(groups, w=760, h=210):
+    """Grouped columns: median attempts per task difficulty, one pair of
+    columns (closed grey, open blue) per tier. Y axis in whole attempts.
+
+    groups: [(tier_label, val_closed, val_open)]
+    """
+    pad_l, pad_r, pad_t, pad_b = 64, 40, 18, 30
+    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    y_max = max(3, max(max(a, b) for _, a, b in groups) + 1)
+    sy = lambda v: pad_t + (y_max - v) / y_max * ch
+    group_w = cw / len(groups)
+    bar_w, bar_gap = 46, 10
+    parts = [svg_open(w, h)]
+    for gv in range(0, int(y_max) + 1):
+        y = sy(gv)
+        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
+        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}</text>')
+    for gi, (label, va, vb) in enumerate(groups):
+        cx = pad_l + group_w * gi + group_w / 2
+        for k, (v, color) in enumerate([(va, SCI_CLOSED_COLOR), (vb, SCI_OPEN_COLOR)]):
+            x = cx - bar_w - bar_gap / 2 + k * (bar_w + bar_gap)
+            parts.append(f'<rect x="{x:.1f}" y="{sy(v):.1f}" width="{bar_w}" height="{sy(0) - sy(v):.1f}" rx="3" fill="{color}"/>')
+            parts.append(f'<text x="{x + bar_w / 2:.0f}" y="{sy(v) - 7:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{v:g}</text>')
+        parts.append(f'<text x="{cx:.0f}" y="{h - 8}" font-size="12" fill="{INK}" text-anchor="middle">{label}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def build(all_runs):
     # Does the effort pattern generalize? Small-multiple curves — every model
     # with at least two thinking tiers measured in BOTH conditions qualifies;
@@ -326,22 +354,24 @@ def build(all_runs):
 
     sa, sb = h2h_stats(best_closed["spec"]), h2h_stats(best_open["spec"])
     pct = lambda v: f"{v:.0f}%"
-    attempts = lambda v: f"{v:g}"
     h2h_metrics = [
         ("solve rate", sa["solve"], sb["solve"], pct),
         ("one-shot rate", sa["oneshot"], sb["oneshot"], pct),
-        ("med. attempts — easy", sa["turns_e"], sb["turns_e"], attempts),
-        ("med. attempts — medium", sa["turns_m"], sb["turns_m"], attempts),
-        ("med. attempts — hard", sa["turns_h"], sb["turns_h"], attempts),
         ("med. model time", sa["time"], sb["time"], lambda v: f"{v:.0f}s"),
         ("med. cost / task", sa["cost"], sb["cost"], lambda v: f"${v:.4f}"),
         ("med. output tokens", sa["tokens"], sb["tokens"], lambda v: f"{v:,.0f}"),
+    ]
+    h2h_attempts = [
+        (name, sa[f"turns_{t}"], sb[f"turns_{t}"])
+        for t, name in (("e", "easy"), ("m", "medium"), ("h", "hard"))
     ]
     h2h_html = f"""
 <section>
   <h2>Head to head — best closed vs best open weights</h2>
   <p class="takeaway" style="margin:0 0 14px">The ranking's two champions — <b>{best_closed["label"]} ({best_closed["variant"]})</b>, {best_closed["lab"]}, and <b>{best_open["label"]} ({best_open["variant"]})</b>, {best_open["lab"]} — both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
   {head_to_head_chart(h2h_metrics)}
+  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">Median attempts by task difficulty</h3>
+  {attempts_chart(h2h_attempts)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}) — closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}) — open</span><span>bars scaled per row; all but solve &amp; one-shot: lower is better</span></div>
 </section>"""
 
