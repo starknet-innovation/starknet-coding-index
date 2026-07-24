@@ -150,7 +150,9 @@ def mcp_lift_chart(pairs, w=760, h=359):
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
     n = len(pairs)
     col_w = cw / n
-    bar_w = col_w * 0.62
+    # cap so a sparse chart (the small-models section) doesn't render slabs;
+    # never binds at the main chart's column count
+    bar_w = min(col_w * 0.62, 80)
     sy = lambda v: pad_t + (100 - v) / 100 * ch
     parts = [svg_open(w, h)]
     for gv in range(0, 101, 20):
@@ -328,30 +330,46 @@ def build(all_runs):
     a = SCI_SPEC["anchors"]
     w_ = SCI_SPEC["weights"]
 
+    # Small models (registry small: True) get their own section; the main
+    # charts show the regular-size field only
+    big_rows = [r for r in sci_rows if not r.get("small")]
+    small_rows = [r for r in sci_rows if r.get("small")]
+
     # Chart 2: best-without vs best-with the MCP, per model. Each condition
     # picks its own best thinking variant (deployment framing), so labels
     # carry no effort. Models without MCP runs are omitted, not shown empty.
     mcp_rows = {r["label"]: r for r in leaderboard(all_runs, condition="mcp")}
-    lift_pairs = [
-        (r["label"], r["sci"], mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None,
-         r["open_weight"])
-        for r in sci_rows
-    ]
-    # order by the top of the stack (best-with-tool where it gains, baseline
-    # otherwise) so the with-MCP ranking reads left to right; annotate each
-    # bar with how many places it moved vs the baseline-only ranking
-    base_rank = {r["label"]: i for i, r in enumerate(sci_rows)}
-    lift_pairs.sort(key=lambda p: max(p[1], p[2] or p[1]), reverse=True)
-    lift_pairs = [
-        (label, base, mcp, open_w, base_rank[label] - i)
-        for i, (label, base, mcp, open_w) in enumerate(lift_pairs)
-    ]
+
+    def build_lift_pairs(rows):
+        """(label, base, mcp, open_weight, rank_delta) per row, ordered by the
+        top of the stack so the with-MCP ranking reads left to right; the
+        delta is places moved vs the subset's baseline-only ranking."""
+        pairs = [
+            (r["label"], r["sci"], mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None,
+             r["open_weight"])
+            for r in rows
+        ]
+        rank = {r["label"]: i for i, r in enumerate(rows)}
+        pairs.sort(key=lambda p: max(p[1], p[2] or p[1]), reverse=True)
+        return [
+            (label, base, mcp, open_w, rank[label] - i)
+            for i, (label, base, mcp, open_w) in enumerate(pairs)
+        ]
+
+    lift_legend = f'<div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>'
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. The best thinking level may differ per condition, so bars carry no effort label.</p>
-  {mcp_lift_chart(lift_pairs)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
+  {mcp_lift_chart(build_lift_pairs(big_rows))}
+  {lift_legend}
+</section>"""
+    small_html = f"""
+<section>
+  <h2>Small models</h2>
+  <p class="takeaway" style="margin:0 0 10px">Models an order of magnitude smaller than the rest of the field trade differently with the MCP: the tool substitutes for knowledge they never had the capacity to learn, so the gains are large where the big-model chart shows noise. Same chart as above, small models only. This section grows as more small models are benchmarked.</p>
+  {mcp_lift_chart(build_lift_pairs(small_rows))}
+  {lift_legend}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
 (function () {
@@ -373,7 +391,7 @@ def build(all_runs):
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
-  {sci_bar_chart(sci_rows)}
+  {sci_bar_chart(big_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {tip_js}
 </section>"""
@@ -389,9 +407,9 @@ def build(all_runs):
         ("Best result with thinking off?", "+0 solves",
          "That is what thinking buys a saturated model, while still billing time and money. "
          "One model even inverts: Haiku drops from 89% to 66% with a big budget."),
-        ("Why is Qwen so far behind?", "27B",
-         "Smallest model here by 10×, and it never learned Cairo: 23% correct, zero one-shots. "
-         "Docs nearly triple it (+23.1), the signature of a knowledge floor."),
+        ("Why isn't Qwen in the chart?", "27B",
+         "Smaller than every other entrant by 10×, and it never learned Cairo: 23% correct, "
+         "zero one-shots. Docs nearly triple it (+23.1), so small models get their own section below."),
         ("Sol mid-pack? It rivals Fable elsewhere", "19% one-shot",
          "Knowledge is perfect (100% correct); habits are not. Sol pays 3 to 4 compiler "
          "round-trips per task at flagship pricing, and the index prices the whole workflow."),
@@ -659,6 +677,8 @@ def build(all_runs):
 {h2h_html}
 
 {lift_html}
+
+{small_html}
 
 {generalize_html}
 

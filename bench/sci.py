@@ -79,7 +79,8 @@ MODEL_REGISTRY = [
      # @disabled deliberately absent: MiniMax accepts the param but thinks anyway
      "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high"],
-     "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
+     # small: rendered in the report's small-models section, not the main charts
+     "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
     {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
                "anthropic/claude-sonnet-5"],
