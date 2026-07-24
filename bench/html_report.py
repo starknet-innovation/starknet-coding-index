@@ -3,8 +3,9 @@
   uv run python -m bench.html_report [runs.jsonl ...]
 
 Writes results/report.html: a self-contained page (inline CSS + SVG charts,
-no JS, no external assets). Publishing to an Artifact is a separate, manual
-step — this module never publishes anything.
+no external assets; the only JS is a small inline sorter for the models
+table). Publishing to an Artifact is a separate, manual step — this module
+never publishes anything.
 """
 
 import json
@@ -394,8 +395,19 @@ def build(all_runs):
     meta = json.loads((config.REPO_ROOT / "results" / "model_meta.json").read_text())
     fmt_price = lambda v: "n/a" if v is None else (f"${v:,.2f}" if v >= 0.01 else f"${v:.4f}")
     fmt_ctx = lambda v: "1M" if v >= 10**6 else f"{v // 1000}k"
+
+    def param_num(s):
+        """'1.02T' / '753B' / '~40B' -> absolute count, for the sort key."""
+        if not s:
+            return None
+        return float(s.lstrip("~").rstrip("TB")) * (1e12 if s.endswith("T") else 1e9)
+
+    # numeric cells carry their raw value in data-s so the sorter never has
+    # to parse display strings; n/a cells carry none and always sort last
+    num_td = lambda v, txt: (f'<td class="r" data-s="{v}">{txt}</td>' if v is not None
+                             else '<td class="r">n/a</td>')
     model_rows = []
-    for r in sci_rows:
+    for rank, r in enumerate(sci_rows, 1):
         api_id = r["spec"].partition("@")[0]
         mm = meta["models"][api_id]
         pm = mm["price_per_m"]
@@ -406,24 +418,62 @@ def build(all_runs):
         wcls = "ow" if r["open_weight"] else "cw"
         wtxt = "open" if r["open_weight"] else "closed"
         model_rows.append(
-            f'<tr><td>{r["label"]}</td><td>{r["lab"]}</td>'
+            f'<tr>{num_td(rank, rank)}<td>{r["label"]}</td>'
+            + num_td(r["sci"], f'{r["sci"]:.1f}')
+            + f'<td>{r["lab"]}</td>'
             f'<td><span class="wchip {wcls}">{wtxt}</span></td>'
             f'<td>{mm["type"] or "n/a"}</td>'
-            f'<td class="r">{mm["params_total"] or "n/a"}</td>'
-            f'<td class="r">{mm["params_active"] or "n/a"}</td>'
-            f'<td class="r">{fmt_ctx(mm["context_length"])}</td>'
-            f'<td class="r">{fmt_price(pm["input"])}</td>'
-            f'<td class="r">{fmt_price(pm["output"])}</td>'
-            f'<td class="r">{fmt_price(pm["cache_read"])}</td>'
-            f'<td class="r">{tps_med:.0f}</td></tr>'
+            + num_td(param_num(mm["params_total"]), mm["params_total"] or "n/a")
+            + num_td(param_num(mm["params_active"]), mm["params_active"] or "n/a")
+            + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
+            + num_td(pm["input"], fmt_price(pm["input"]))
+            + num_td(pm["output"], fmt_price(pm["output"]))
+            + num_td(pm["cache_read"], fmt_price(pm["cache_read"]))
+            + num_td(tps_med and round(tps_med, 1), f"{tps_med:.0f}")
+            + "</tr>"
         )
+    sorter_js = """<script>
+(function () {
+  var table = document.getElementById("modeltable");
+  var headers = table.querySelectorAll("th");
+  headers.forEach(function (th, col) {
+    th.tabIndex = 0;
+    function activate() {
+      var dir = th.classList.contains("asc") ? -1 : 1;
+      headers.forEach(function (h) { h.classList.remove("asc", "desc"); h.removeAttribute("aria-sort"); });
+      th.classList.add(dir === 1 ? "asc" : "desc");
+      th.setAttribute("aria-sort", dir === 1 ? "ascending" : "descending");
+      var rows = Array.prototype.slice.call(table.querySelectorAll("tr")).slice(1);
+      var numeric = th.hasAttribute("data-num");
+      rows.sort(function (a, b) {
+        var ca = a.cells[col], cb = b.cells[col];
+        if (numeric) {
+          var va = ca.hasAttribute("data-s") ? parseFloat(ca.getAttribute("data-s")) : null;
+          var vb = cb.hasAttribute("data-s") ? parseFloat(cb.getAttribute("data-s")) : null;
+          if (va === null && vb === null) return 0;
+          if (va === null) return 1;   /* n/a last in both directions */
+          if (vb === null) return -1;
+          return (va - vb) * dir;
+        }
+        return ca.textContent.trim().localeCompare(cb.textContent.trim()) * dir;
+      });
+      rows.forEach(function (row) { table.tBodies[0].appendChild(row); });
+    }
+    th.addEventListener("click", activate);
+    th.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); }
+    });
+  });
+})();
+</script>"""
     models_html = f"""
 <section>
   <h2>The models</h2>
-  <div class="tablewrap"><table>
-    <tr><th>Model</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r">Params</th><th class="r">Active</th><th class="r">Context</th><th class="r">$/M in</th><th class="r">$/M out</th><th class="r">$/M cache</th><th class="r">Obs. tok/s</th></tr>
+  <div class="tablewrap"><table id="modeltable">
+    <tr><th class="r" data-num>#</th><th>Model</th><th class="r" data-num>SCI</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>$/M cache</th><th class="r" data-num>Obs. tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
+  {sorter_js}
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens; cache is the cache-read price (Grok's prices double above 200k prompt tokens; Anthropic and OpenAI also bill cache writes). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Obs. tok/s is measured in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
@@ -481,6 +531,10 @@ def build(all_runs):
   .tablewrap{{overflow-x:auto}}
   table{{border-collapse:collapse;width:100%;min-width:900px;font-variant-numeric:tabular-nums}}
   th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
+  #modeltable th{{cursor:pointer;user-select:none;white-space:nowrap}}
+  #modeltable th:hover,#modeltable th:focus-visible{{color:var(--ink)}}
+  #modeltable th.asc::after{{content:" \\25B2";font-size:9px}}
+  #modeltable th.desc::after{{content:" \\25BC";font-size:9px}}
   td{{padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
