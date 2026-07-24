@@ -7,3 +7,4 @@ target/
 results/workspaces/
 .env
 vendor/
+results/shots/

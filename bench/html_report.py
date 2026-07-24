@@ -1,4 +1,4 @@
-"""Generate the visual HTML report from benchmark runs.
+"""Generate the visual HTML report from benchmark runs (visual-QA gated).
 
   uv run python -m bench.html_report [runs.jsonl ...]
 
