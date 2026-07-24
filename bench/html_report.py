@@ -144,7 +144,8 @@ def mcp_lift_chart(pairs, w=760, h=404):
     downward marks by design). Each condition uses its own best thinking
     variant, so labels carry the model name only.
 
-    pairs: (label, sci_base, sci_mcp_or_None, open_weight), pre-sorted.
+    pairs: (label, sci_base, sci_mcp_or_None, open_weight, rank_delta) where
+    rank_delta is places moved vs the baseline-only ranking (+ = up).
     """
     pad_l, pad_r, pad_t, pad_b = 64, 12, 26, 130
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
@@ -164,7 +165,7 @@ def mcp_lift_chart(pairs, w=760, h=404):
                 f'L{x + bw - r:.1f},{y1:.1f} Q{x + bw:.1f},{y1:.1f} {x + bw:.1f},{y1 + r:.1f} '
                 f'L{x + bw:.1f},{y2:.1f} Z" fill="{fill}"/>')
 
-    for i, (label, base, mcp, open_w) in enumerate(pairs):
+    for i, (label, base, mcp, open_w, rank_delta) in enumerate(pairs):
         cx = pad_l + col_w * i + col_w / 2
         x = cx - bar_w / 2
         color = SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR
@@ -194,9 +195,13 @@ def mcp_lift_chart(pairs, w=760, h=404):
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
+        move = (
+            f' <tspan fill="{MUTED}">{"▲" if rank_delta > 0 else "▼"}{abs(rank_delta)}</tspan>'
+            if rank_delta else ""
+        )
         parts.append(
             f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
-            f'font-size="11" fill="{INK}" text-anchor="end">{label}</text>'
+            f'font-size="11" fill="{INK}" text-anchor="end">{label}{move}</text>'
         )
     parts.append("</svg>")
     return "".join(parts)
@@ -518,11 +523,17 @@ def build(all_runs):
         for r in sci_rows
     ]
     # order by the top of the stack (best-with-tool where it gains, baseline
-    # otherwise) so the with-MCP ranking reads left to right
+    # otherwise) so the with-MCP ranking reads left to right; annotate each
+    # bar with how many places it moved vs the baseline-only ranking
+    base_rank = {r["label"]: i for i, r in enumerate(sci_rows)}
     lift_pairs.sort(key=lambda p: max(p[1], p[2] or p[1]), reverse=True)
-    gains = [(l, m - b) for l, b, m, _ in lift_pairs if m is not None and m > b]
-    flat = [l for l, b, m, _ in lift_pairs if m is not None and m <= b]
-    unmeasured = [l for l, b, m, _ in lift_pairs if m is None]
+    lift_pairs = [
+        (label, base, mcp, open_w, base_rank[label] - i)
+        for i, (label, base, mcp, open_w) in enumerate(lift_pairs)
+    ]
+    gains = [(l, m - b) for l, b, m, _, _ in lift_pairs if m is not None and m > b]
+    flat = [l for l, b, m, _, _ in lift_pairs if m is not None and m <= b]
+    unmeasured = [l for l, b, m, _, _ in lift_pairs if m is None]
     gains_txt = ", ".join(f"<b>{l} +{g:.1f}</b>" for l, g in sorted(gains, key=lambda x: -x[1]))
     lift_takeaway = (
         f"<b>The tool pays where knowledge runs out — in either weight class.</b> Gains: {gains_txt}. "
@@ -539,7 +550,7 @@ def build(all_runs):
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only.</p>
+  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Bars tagged <i>no MCP</i> haven't been measured with the tool and appear for scale only. Label arrows (▲/▼) show places moved versus the baseline-only ranking — competitive standing, not tool effect: a model can gain points yet drop places when others gain more.</p>
   <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   {mcp_lift_chart(lift_pairs)}
   <p class="takeaway">{lift_takeaway}</p>
