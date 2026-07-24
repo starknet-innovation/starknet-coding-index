@@ -572,10 +572,10 @@ def build(all_runs):
 <section class="findings">
   <h2>Findings</h2>
   <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness across all sixteen models: +23.1 for the weakest entrant (Qwen3.6-27B), +10.1 for Hy3, +6.4 for GLM 5.2, +5.1 for MiniMax, +4.3 for Haiku 4.5 (the largest closed-model gain), fading to zero and below at the saturated top (Grok, the Opus-class models, MiMo, K3).</p>
+  <p>Documentation lift lines up with baseline weakness across all eighteen models: +23.1 for the weakest entrant (Qwen3.6-27B), +10.1 for Hy3, +6.4 for GLM 5.2, +5.1 for MiniMax, +4.3 for Haiku 4.5 (the largest closed-model gain), fading to zero and below at the saturated top (Grok, the Opus-class models, MiMo, K3).</p>
   <p>Two refinements from the closed models: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier), and saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6).</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness: run the cheapest tier that holds it</h3>
-  <p>Five patterns across sixteen models: thinkers whose dial never moves correctness (Sonnet 5, Opus 4.8, Fable 5, and Grok 4.5, where it only nudges one-shot rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). Almost everywhere the index-best variant is the cheapest tier that holds correctness; Grok is the exception, where <code>max</code> pays for itself in one-shots.</p></div>
+  <p>Five patterns across eighteen models: thinkers whose dial never moves correctness (Sonnet 5, Opus 4.8, Fable 5, Qwen3.7 Max, and Grok 4.5, where it only nudges one-shot rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax, Qwen3.7 Plus, whose curve also overshoots: 92% correctness at <code>high</code> falls to 77% at <code>xhigh</code>), and one inverted curve (Haiku overthinks itself from 89% to 66%). Almost everywhere the index-best variant is the cheapest tier that holds correctness; Grok is the exception, where <code>max</code> pays for itself in one-shots.</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
   <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs. A habit is not a knowledge gap.</p>
   <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−1.2 to −1.9, pure schema overhead) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
@@ -588,7 +588,7 @@ def build(all_runs):
 </section>"""
 
     return f"""<title>Starknet Coding Index | Cairo Coder Benchmark</title>
-<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across 16 models from 11 labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
+<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across {len(sci_rows)} models from {len({r["lab"] for r in sci_rows})} labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
 <style>
   :root{{
     --ground:#F6F7F9; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
@@ -655,12 +655,12 @@ def build(all_runs):
 <main>
 <header>
   <h1>The Starknet Coding Index (SCI)</h1>
-  <p class="lede">Sixteen models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the best open-weight coders from seven labs, plus the current closed models from Anthropic, Google, OpenAI, and xAI. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
+  <p class="lede">{len(sci_rows)} models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the best open-weight coders from seven labs, plus current closed models from Anthropic, Google, OpenAI, xAI, and Alibaba. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
   <p class="lede">Each run is a bare agentic loop. The model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool: <b><code>submit</code></b>. Every submission is compiled with <code>scarb build</code> and run against hidden <code>snforge</code> tests. On failure the model sees the raw compiler errors and failing-test output (never the test code itself) and can resubmit, within a budget of 10 turns and 15 minutes of model time.</p>
   <p class="lede">In the MCP condition the model gets one extra tool, <b><code>assist_with_cairo</code></b>, which searches the Cairo and Starknet documentation corpus.</p>
   <div class="chips">
-    <span class="chip">models <b>16</b></span>
-    <span class="chip">labs <b>11</b></span>
+    <span class="chip">models <b>{len(sci_rows)}</b></span>
+    <span class="chip">labs <b>{len({r["lab"] for r in sci_rows})}</b></span>
     <span class="chip">runs <b>{len(all_runs)}</b></span>
     <span class="chip">hidden tests <b>106</b></span>
     <span class="chip">total LLM spend <b>${sum(r["cost_usd"] or 0 for r in all_runs):.0f}</b></span>

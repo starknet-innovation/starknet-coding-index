@@ -241,6 +241,36 @@
    "type": null,
    "params_total": null,
    "params_active": null
+  },
+  "qwen/qwen3.7-max": {
+   "name": "Qwen: Qwen3.7 Max",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 1.475,
+    "output": 4.425,
+    "cache_read": 0.295,
+    "cache_write": 1.84375
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "qwen/qwen3.7-plus": {
+   "name": "Qwen: Qwen3.7 Plus",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 0.32,
+    "output": 1.28,
+    "cache_read": 0.064,
+    "cache_write": 0.39999999999999997
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
   }
  },
  "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T lab-stated, repo gated; Hy3 295B/21B and Qwen 27B dense lab-stated."

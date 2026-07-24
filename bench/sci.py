@@ -81,6 +81,15 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high"],
      # small: rendered in the report's small-models section, not the main charts
      "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
+    # Probe 2026-07-24: full reasoning surface accepted incl. @disabled; output
+    # and latency scale with the dial. Max: flat correctness, off wins on SCI
+    # (edge = floor, ladder closed). Plus: real curve, high interior winner
+    # (xhigh collapsed 92 -> 77 correctness).
+    {"specs": ["qwen/qwen3.7-max@disabled", "qwen/qwen3.7-max@low", "qwen/qwen3.7-max@high"],
+     "label": "Qwen3.7 Max", "lab": "Alibaba", "open_weight": False},
+    {"specs": ["qwen/qwen3.7-plus@disabled", "qwen/qwen3.7-plus@low", "qwen/qwen3.7-plus@high",
+               "qwen/qwen3.7-plus@xhigh"],
+     "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False},
     {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
                "anthropic/claude-sonnet-5"],
