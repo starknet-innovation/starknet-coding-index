@@ -208,7 +208,7 @@ def head_to_head_chart(metrics, w=760):
 
     metrics: [(label, val_closed, val_open, fmt)] with fmt a callable.
     """
-    pad_l, pad_r, pad_t = 150, 76, 10
+    pad_l, pad_r, pad_t = 170, 76, 10
     bar_h, pair_gap, group_gap = 13, 4, 22
     group_h = bar_h * 2 + pair_gap
     h = pad_t * 2 + len(metrics) * group_h + (len(metrics) - 1) * group_gap
@@ -228,6 +228,57 @@ def head_to_head_chart(metrics, w=760):
             parts.append(
                 f'<text x="{pad_l + bw + 7:.0f}" y="{y + bar_h / 2:.0f}" font-size="11" fill="{INK}" '
                 f'font-family="var(--mono)" dominant-baseline="middle">{fmt(v)}</text>'
+            )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def latency_strip_chart(rows, w=760):
+    """One row per model: every run's model time as a dot on a shared log
+    axis, with median and p90 tick marks. Shows tail behavior directly —
+    the reason this exists instead of a smoothed density is that n=26–39
+    latencies are skewed and clustered, and smoothing would invent shape.
+
+    rows: [(label, color, [times_s])]
+    """
+    import math
+    pad_l, pad_r, pad_t = 170, 24, 12
+    row_h, row_gap, band = 66, 10, 22
+    h = pad_t + len(rows) * row_h + (len(rows) - 1) * row_gap + 30
+    all_t = [t for _, _, ts in rows for t in ts]
+    lo, hi = min(all_t) * 0.85, max(all_t) * 1.2
+    span = math.log(hi) - math.log(lo)
+    sx = lambda t: pad_l + (math.log(t) - math.log(lo)) / span * (w - pad_l - pad_r)
+    parts = [svg_open(w, h)]
+    axis_y = h - 26
+    for tick in (5, 10, 30, 60, 180):
+        if lo <= tick <= hi:
+            x = sx(tick)
+            parts.append(f'<line x1="{x:.0f}" y1="{pad_t}" x2="{x:.0f}" y2="{axis_y}" stroke="{LINE}"/>')
+            parts.append(f'<text x="{x:.0f}" y="{h - 8}" font-size="11" fill="{MUTED}" text-anchor="middle">{tick}s</text>')
+    jitter = [0, -6, 6, -10, 10, -3, 3, -8, 8]
+    for ri, (label, color, ts) in enumerate(rows):
+        cy = pad_t + ri * (row_h + row_gap) + row_h / 2
+        parts.append(
+            f'<text x="{pad_l - 12}" y="{cy:.0f}" font-size="11.5" fill="{INK}" '
+            f'text-anchor="end" dominant-baseline="middle">{label}</text>'
+        )
+        for i, t in enumerate(sorted(ts)):
+            parts.append(
+                f'<circle cx="{sx(t):.1f}" cy="{cy + jitter[i % len(jitter)]:.0f}" r="3.5" '
+                f'fill="{color}" fill-opacity="0.65"/>'
+            )
+        ts_sorted = sorted(ts)
+        n = len(ts_sorted)
+        median = ts_sorted[n // 2] if n % 2 else (ts_sorted[n // 2 - 1] + ts_sorted[n // 2]) / 2
+        p90 = ts_sorted[int(0.9 * (n - 1))]
+        for value, name, dy in ((median, "med", -1), (p90, "p90", 1)):
+            x = sx(value)
+            parts.append(f'<line x1="{x:.0f}" y1="{cy - band:.0f}" x2="{x:.0f}" y2="{cy + band:.0f}" stroke="{INK}" stroke-width="1.5"/>')
+            ly = cy - band - 5 if dy < 0 else cy + band + 13
+            parts.append(
+                f'<text x="{x:.0f}" y="{ly:.0f}" font-size="10.5" fill="{INK}" font-weight="600" '
+                f'text-anchor="middle">{name} {value:.0f}s</text>'
             )
     parts.append("</svg>")
     return "".join(parts)
@@ -312,7 +363,6 @@ def build(all_runs):
 
     def h2h_stats(spec):
         rs = [r for r in all_runs if r["model"] == spec and r["condition"] == "baseline"]
-        times = sorted(r["llm_time_s"] + (r.get("assist_time_s") or 0) for r in rs)
         costs = sorted(r["cost_usd"] for r in rs if r["cost_usd"] is not None)
         toks = sorted(r["completion_tokens"] for r in rs if r["completion_tokens"])
         med = lambda v: v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2
@@ -320,27 +370,32 @@ def build(all_runs):
             "n": len(rs),
             "solve": solve_pct(rs),
             "oneshot": 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs),
-            "time": med(times), "time_p90": times[int(0.9 * (len(times) - 1))],
             "cost": med(costs), "tokens": med(toks),
         }
 
     sa, sb = h2h_stats(best_closed["spec"]), h2h_stats(best_open["spec"])
     pct = lambda v: f"{v:.0f}%"
-    secs = lambda v: f"{v:.0f}s"
     h2h_metrics = [
         ("solve rate", sa["solve"], sb["solve"], pct),
         ("one-shot rate", sa["oneshot"], sb["oneshot"], pct),
-        ("med. model time", sa["time"], sb["time"], secs),
-        ("p90 model time", sa["time_p90"], sb["time_p90"], secs),
         ("med. cost / task", sa["cost"], sb["cost"], lambda v: f"${v:.4f}"),
         ("med. output tokens", sa["tokens"], sb["tokens"], lambda v: f"{v:,.0f}"),
+    ]
+    h2h_times = [
+        (f'{r["label"]} ({r["variant"]})',
+         SCI_CLOSED_COLOR if not r["open_weight"] else SCI_OPEN_COLOR,
+         [run["llm_time_s"] + (run.get("assist_time_s") or 0)
+          for run in all_runs if run["model"] == r["spec"] and run["condition"] == "baseline"])
+        for r in (best_closed, best_open)
     ]
     h2h_html = f"""
 <section>
   <h2>Head to head — best closed vs best open weights</h2>
   <p class="takeaway" style="margin:0 0 14px">The ranking's two champions — <b>{best_closed["label"]} ({best_closed["variant"]})</b>, {best_closed["lab"]}, and <b>{best_open["label"]} ({best_open["variant"]})</b>, {best_open["lab"]} — both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
   {head_to_head_chart(h2h_metrics)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}) — closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}) — open</span><span>bars scaled per row; time, cost, tokens: lower is better</span></div>
+  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">Model time — every run</h3>
+  {latency_strip_chart(h2h_times)}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}) — closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}) — open</span><span>bars scaled per row (cost, tokens: lower is better); dots on a log time axis</span></div>
 </section>"""
 
     # score definition applies to both charts above, so it gets its own section
