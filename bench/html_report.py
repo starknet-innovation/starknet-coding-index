@@ -321,14 +321,14 @@ def build(all_runs):
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b> — possibly a different thinking level, so bars carry no effort label.</p>
+  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. The best thinking level may differ per condition, so bars carry no effort label.</p>
   {mcp_lift_chart(lift_pairs)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
 </section>"""
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today" — each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
+  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
@@ -367,12 +367,12 @@ def build(all_runs):
     ]
     h2h_html = f"""
 <section>
-  <h2>Head to head — best closed vs best open weights</h2>
-  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions — <b>{best_closed["label"]} ({best_closed["variant"]})</b>, {best_closed["lab"]}, and <b>{best_open["label"]} ({best_open["variant"]})</b>, {best_open["lab"]} — both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
+  <h2>Head to head: best closed vs best open weights</h2>
+  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
   {head_to_head_chart(h2h_metrics)}
   <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">Median attempts by task difficulty</h3>
   {attempts_chart(h2h_attempts)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}) — closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}) — open</span><span>bars scaled per row; all but solve &amp; one-shot: lower is better</span></div>
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>bars scaled per row; all but solve &amp; one-shot: lower is better</span></div>
 </section>"""
 
     # score definition applies to both charts above, so it gets its own section
@@ -380,35 +380,35 @@ def build(all_runs):
 <section>
   <h2>How the score is built</h2>
   <ul class="meta" style="margin-bottom:8px">
-    <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
-    <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
-    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%})</b> — median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
-    <li><b>Token efficiency ({w_["tokens"]:.0%})</b> — median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
+    <li><b>Correctness ({w_["correct"]:.0%}):</b> average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
+    <li><b>One-shot rate ({w_["oneshot"]:.0%}):</b> share of runs solved on the very first submission, no compiler feedback needed.</li>
+    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%}):</b> median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
+    <li><b>Token efficiency ({w_["tokens"]:.0%}):</b> median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
   </ul>
-  <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
+  <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
 </section>"""
 
     findings_html = """
 <section class="findings">
   <h2>Findings</h2>
-  <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap — in any weight class</h3>
+  <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
   <p>Documentation lift lines up with baseline weakness across all thirteen measured models: +12.1 for the weakest entrant (Qwen3.6-27B), +4.3 for Haiku 4.5 (the first closed-model gain), fading to zero at the saturated top (MiMo, K3, Opus-class models).</p>
   <p>Two refinements from the closed models: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier), and saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6).</p></div>
-  <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness — run the cheapest tier that holds it</h3>
-  <p>Five patterns across fifteen models: adaptive thinkers that ignore the dial (Sonnet 5, Opus 4.8, Fable 5), an indifferent one (MiMo — 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). In twelve of fifteen models the index-best variant is the cheapest tier that holds correctness.</p></div>
-  <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural — documentation can't buy it</h3>
-  <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs — a habit is not a knowledge gap.</p>
-  <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−1.2 to −1.9, pure schema overhead) while Grok 4.5 dutifully consulted them about once per run it didn't need — worth −13.1, the largest penalty in the study.</p></div>
+  <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness: run the cheapest tier that holds it</h3>
+  <p>Five patterns across fifteen models: adaptive thinkers that ignore the dial (Sonnet 5, Opus 4.8, Fable 5), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). In twelve of fifteen models the index-best variant is the cheapest tier that holds correctness.</p></div>
+  <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
+  <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs. A habit is not a knowledge gap.</p>
+  <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−1.2 to −1.9, pure schema overhead) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>
-  <div class="finding"><h3><span class="tag win">effectiveness</span>In the GLM study, baseline failures are training-data lag — and the tool fixes exactly that</h3>
-  <p>GLM 5.2's failed baseline runs get stuck on <em>current</em> Cairo idioms — most often the storage API, writing pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code> — and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it; net effect was lower median cost at 4 of 5 effort settings, with lookups rising as thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off).</p></div>
+  <div class="finding"><h3><span class="tag win">effectiveness</span>In the GLM study, baseline failures are training-data lag, and the tool fixes exactly that</h3>
+  <p>GLM 5.2's failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it; net effect was lower median cost at 4 of 5 effort settings, with lookups rising as thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off).</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
 
-    return f"""<title>Starknet Coding Index — Cairo Coder Benchmark</title>
-<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across 16 models from 11 labs, on 13 hidden-test Cairo tasks — with and without the Cairo Coder documentation tool.">
+    return f"""<title>Starknet Coding Index | Cairo Coder Benchmark</title>
+<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across 16 models from 11 labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
 <style>
   :root{{
     --ground:#F6F7F9; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
@@ -454,7 +454,9 @@ def build(all_runs):
 <main>
 <header>
   <h1>The Starknet Coding Index</h1>
-  <p class="lede">Sixteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, OpenAI, and xAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Each run is a bare agentic loop: the model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool — <b><code>submit</code></b>. Every submission is compiled (<code>scarb build</code>) and run against hidden <code>snforge</code> tests, and the model sees the raw compiler errors and failing-test output — never the test code — then may resubmit, within 10 turns and 15 minutes of model time. In the MCP condition a second tool, <b><code>assist_with_cairo</code></b>, adds documentation search over the Cairo/Starknet corpus.</p>
+  <p class="lede">Sixteen models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the best open-weight coders from seven labs, plus the current closed models from Anthropic, Google, OpenAI, and xAI. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
+  <p class="lede">Each run is a bare agentic loop. The model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool: <b><code>submit</code></b>. Every submission is compiled with <code>scarb build</code> and run against hidden <code>snforge</code> tests. On failure the model sees the raw compiler errors and failing-test output (never the test code itself) and can resubmit, within a budget of 10 turns and 15 minutes of model time.</p>
+  <p class="lede">In the MCP condition the model gets one extra tool, <b><code>assist_with_cairo</code></b>, which searches the Cairo and Starknet documentation corpus.</p>
   <div class="chips">
     <span class="chip">models <b>16</b></span>
     <span class="chip">labs <b>11</b></span>
@@ -485,15 +487,15 @@ def build(all_runs):
         <li><b>Harness:</b> agentic repair loop, max 10 assistant turns. The model submits <code>src/lib.cairo</code> via a <code>submit</code> tool; the harness runs <code>scarb build</code> + <code>snforge test</code> against hidden tests and returns the output. Conditions are identical except the MCP condition also exposes <code>assist_with_cairo</code>, replicated exactly from <code>@kasarlabs/cairo-coder-mcp</code> v0.2.5.</li>
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
         <li><b>Model:</b> z-ai/glm-5.2 via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
-        <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used — it depends on harness concurrency). 2–3 reps per cell: a third rep breaks 1–1 ties (entries benchmarked before 2026-07-24 used a fixed 3).</li>
+        <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). 2–3 reps per cell: a third rep breaks 1–1 ties (entries benchmarked before 2026-07-24 used a fixed 3).</li>
       </ul>
     </div>
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study) — it anchors the substitution-law finding and the n=130 statistics; newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
+        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
         <li><b>Six cells abandoned, one batch truncated:</b> host-sleep/network stalls made 5 qwen/minimax baseline cells unrecoverable, and 1 qwen@high cell was cut when its batch was stopped manually; all are counted as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time/cost medians exclude abandoned cells.</li>
-        <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
+        <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> (38/39 solved on both, same turn counts), so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>
       </ul>
