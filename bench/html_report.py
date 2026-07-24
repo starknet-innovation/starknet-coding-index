@@ -384,7 +384,8 @@ def build(all_runs):
   <ul class="meta" style="margin-bottom:8px">
     <li><b>Correctness ({w_["correct"]:.0%}):</b> average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%}):</b> share of runs solved on the very first submission, no compiler feedback needed.</li>
-    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%}):</b> median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
+    <li><b>Speed ({w_["speed"]:.0%}):</b> median model latency per task (time spent waiting on the model's API, excluding this harness's local compile/test), scored 100→0 on a fixed log scale ({a["speed"][0]}s→{a["speed"][1]}s).</li>
+    <li><b>Cost ({w_["cost"]:.0%}):</b> median $ per task, scored 100→0 on a fixed log scale (${a["cost"][0]}→${a["cost"][1]}).</li>
     <li><b>Token efficiency ({w_["tokens"]:.0%}):</b> median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
   </ul>
   <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>

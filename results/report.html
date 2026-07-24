@@ -76,7 +76,8 @@
   <ul class="meta" style="margin-bottom:8px">
     <li><b>Correctness (50%):</b> average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate (15%):</b> share of runs solved on the very first submission, no compiler feedback needed.</li>
-    <li><b>Speed (15%)</b> and <b>cost (15%):</b> median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales (10s→1200s, $0.003→$0.6).</li>
+    <li><b>Speed (15%):</b> median model latency per task (time spent waiting on the model's API, excluding this harness's local compile/test), scored 100→0 on a fixed log scale (10s→1200s).</li>
+    <li><b>Cost (15%):</b> median $ per task, scored 100→0 on a fixed log scale ($0.003→$0.6).</li>
     <li><b>Token efficiency (5%):</b> median output tokens per task (1k→40k), penalizing verbosity independent of price.</li>
   </ul>
   <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
