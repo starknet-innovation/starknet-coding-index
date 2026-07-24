@@ -113,7 +113,12 @@ def sci_bar_chart(rows, w=760, h=389):
         x = cx - bar_w / 2
         top = sy(r["sci"])
         color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
-        parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
+        tip = r.get("tip", {})
+        tip_attrs = (
+            f' class="scibar" data-name="{r["label"]} ({r["variant"]})" data-passes="{tip["passes"]}"'
+            f' data-oneshot="{tip["oneshot"]:.0f}%" data-cost="${tip["cost"]:.2f}" data-time="{tip["time"]}"'
+        ) if tip else ""
+        parts.append(f'<rect{tip_attrs} x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
         parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
         ly = sy(0) + 12
         variant = (
@@ -299,6 +304,27 @@ def build(all_runs):
 
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
     sci_rows = leaderboard(all_runs)
+
+    # Chart-1 tooltips: the median complete benchmark pass (one rep = all 13
+    # tasks) of the winning variant, baseline condition. Adaptive tiebreaker
+    # reps rerun only the disagreeing task, so partial passes are excluded.
+    n_tasks = len({r["task"] for r in all_runs if r["task"] != "fake"})
+    med_of = lambda v: (lambda s: s[len(s) // 2] if len(s) % 2 else (s[len(s) // 2 - 1] + s[len(s) // 2]) / 2)(sorted(v))
+    for r in sci_rows:
+        by_rep = {}
+        for x in all_runs:
+            if x["model"] == r["spec"] and x["condition"] == "baseline":
+                by_rep.setdefault(x["rep"], []).append(x)
+        passes = [rs for rs in by_rep.values() if len(rs) == n_tasks]
+        if not passes:
+            continue
+        secs = med_of([sum(x["llm_time_s"] + (x.get("assist_time_s") or 0) for x in rs) for rs in passes])
+        r["tip"] = {
+            "passes": len(passes),
+            "oneshot": med_of([100 * sum(1 for x in rs if x["solved"] and x["turns"] == 1) / n_tasks for rs in passes]),
+            "cost": med_of([sum(x["cost_usd"] or 0 for x in rs) for rs in passes]),
+            "time": f"{int(secs // 60)}m {int(secs % 60):02d}s",
+        }
     a = SCI_SPEC["anchors"]
     w_ = SCI_SPEC["weights"]
 
@@ -327,12 +353,30 @@ def build(all_runs):
   {mcp_lift_chart(lift_pairs)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
 </section>"""
+    tip_js = """<div id="tip" hidden></div><script>
+(function () {
+  var tip = document.getElementById("tip");
+  document.querySelectorAll(".scibar").forEach(function (bar) {
+    bar.addEventListener("mousemove", function (e) {
+      tip.innerHTML = "<b>" + bar.dataset.name + " \\u00b7 median of " + bar.dataset.passes + " passes</b>"
+        + "one-shot " + bar.dataset.oneshot + "<br>cost " + bar.dataset.cost
+        + "<br>model time " + bar.dataset.time;
+      tip.hidden = false;
+      var x = e.clientX + 14, y = e.clientY + 14;
+      if (x + tip.offsetWidth > window.innerWidth - 8) x = e.clientX - tip.offsetWidth - 14;
+      tip.style.left = x + "px"; tip.style.top = y + "px";
+    });
+    bar.addEventListener("mouseleave", function () { tip.hidden = true; });
+  });
+})();
+</script>"""
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
+  {tip_js}
 </section>"""
     # Fair questions: the priors readers arrive with, answered by one number
     FAQ = [
@@ -569,6 +613,9 @@ def build(all_runs):
   th.r,td.r{{text-align:right}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
+  .scibar:hover{{filter:brightness(1.08)}}
+  #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
+  #tip b{{display:block;margin-bottom:4px}}
   .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
   .faqcard:last-child{{grid-column:1/-1}}
   .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
