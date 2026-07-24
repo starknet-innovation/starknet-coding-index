@@ -407,7 +407,7 @@ def build(all_runs):
     num_td = lambda v, txt: (f'<td class="r" data-s="{v}">{txt}</td>' if v is not None
                              else '<td class="r">n/a</td>')
     model_rows = []
-    for rank, r in enumerate(sci_rows, 1):
+    for r in sci_rows:
         api_id = r["spec"].partition("@")[0]
         mm = meta["models"][api_id]
         pm = mm["price_per_m"]
@@ -418,7 +418,7 @@ def build(all_runs):
         wcls = "ow" if r["open_weight"] else "cw"
         wtxt = "open" if r["open_weight"] else "closed"
         model_rows.append(
-            f'<tr>{num_td(rank, rank)}<td>{r["label"]}</td>'
+            f'<tr><td>{r["label"]}</td>'
             + num_td(r["sci"], f'{r["sci"]:.1f}')
             + f'<td>{r["lab"]}</td>'
             f'<td><span class="wchip {wcls}">{wtxt}</span></td>'
@@ -470,7 +470,7 @@ def build(all_runs):
 <section>
   <h2>The models</h2>
   <div class="tablewrap"><table id="modeltable">
-    <tr><th class="r" data-num>#</th><th>Model</th><th class="r" data-num>SCI</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>$/M cache</th><th class="r" data-num>Obs. tok/s</th></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>$/M cache</th><th class="r" data-num>Obs. tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
