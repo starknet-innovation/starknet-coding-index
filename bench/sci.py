@@ -81,6 +81,22 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high"],
      # small: rendered in the report's small-models section, not the main charts
      "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
+    # Small open-weight batch 2026-07-24. gpt-oss: @disabled REJECTED
+    # ("Reasoning is mandatory"), effort ladder low/medium/high; 0% correct at
+    # every tier. coder-next: no reasoning params at all, bare only; 0% correct.
+    # 35b-a3b: dial accepted (effort levels likely coerced; bare behaves
+    # differently); gemma: dial accepted. All winning edges at surface floors.
+    {"specs": ["openai/gpt-oss-120b@low", "openai/gpt-oss-120b@medium",
+               "openai/gpt-oss-120b@high"],
+     "label": "gpt-oss-120b", "lab": "OpenAI", "open_weight": True, "small": True},
+    {"specs": ["qwen/qwen3.6-35b-a3b", "qwen/qwen3.6-35b-a3b@disabled",
+               "qwen/qwen3.6-35b-a3b@low", "qwen/qwen3.6-35b-a3b@high"],
+     "label": "Qwen3.6-35B-A3B", "lab": "Alibaba", "open_weight": True, "small": True},
+    {"specs": ["google/gemma-4-31b-it@disabled", "google/gemma-4-31b-it@low",
+               "google/gemma-4-31b-it@high"],
+     "label": "Gemma 4 31B", "lab": "Google", "open_weight": True, "small": True},
+    {"specs": ["qwen/qwen3-coder-next"],
+     "label": "Qwen3 Coder Next", "lab": "Alibaba", "open_weight": True, "small": True},
     # Probe 2026-07-24: full surface honored incl. @disabled; real curve with
     # overshoot (correct 79 off -> 99 low -> 88 high); low = interior winner.
     {"specs": ["thinkingmachines/inkling@disabled", "thinkingmachines/inkling@low",
@@ -160,6 +176,8 @@ BARE_VARIANT_LABELS = {
     "anthropic/claude-haiku-4.5": "off",  # same: bare = thinking off (probe-confirmed)
     "openai/gpt-5.6-luna-pro": "pro",    # same model as luna, reasoning.mode=pro
     "openai/gpt-5.6-terra-pro": "pro",   # same model as terra, reasoning.mode=pro
+    "qwen/qwen3.6-35b-a3b": "dynamic",   # bare = hybrid auto-thinking, distinct from @disabled
+    "qwen/qwen3-coder-next": "",         # no reasoning surface at all: no variant parenthetical
 }
 
 

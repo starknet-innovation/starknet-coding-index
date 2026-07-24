@@ -133,7 +133,7 @@ def sci_bar_chart(rows, w=760, h=389):
     return "".join(parts)
 
 
-def mcp_lift_chart(pairs, w=760, h=359):
+def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
     """Baseline-vs-MCP columns: solid bar = best baseline SCI, stacked coral
     segment = the gain when the best MCP config scores higher. No segment
     means the tool doesn't improve that model's best configuration (no
@@ -145,8 +145,11 @@ def mcp_lift_chart(pairs, w=760, h=359):
     """
     # pad_r balances the whitespace left of the tick labels (see sci_bar_chart);
     # pad_b is smaller than chart 1's — these labels carry no effort suffix, so
-    # their rotated extent is shorter and 130 left a blank band above the legend
-    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 85
+    # their rotated extent is shorter and 130 left a blank band above the legend.
+    # pad_l/pad_b are params: the small-models chart carries longer names than
+    # chart 2 (its rotated labels clipped at pad_b 85 and its first column at
+    # pad_l 64), so it passes larger pads and a taller h to keep bar height
+    pad_r, pad_t = 40, 26
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
     n = len(pairs)
     col_w = cw / n
@@ -417,8 +420,8 @@ def build(all_runs):
     small_html = f"""
 <section>
   <h2>Small models</h2>
-  <p class="takeaway" style="margin:0 0 10px">Models an order of magnitude smaller than the rest of the field trade differently with the MCP: the tool substitutes for knowledge they never had the capacity to learn, so the gains are large where the big-model chart shows noise. Same chart as above, small models only. This section grows as more small models are benchmarked.</p>
-  {mcp_lift_chart(build_lift_pairs(small_rows))}
+  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+10.8 to +29.1). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
+  {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120)}
   {lift_legend}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
@@ -488,9 +491,10 @@ def build(all_runs):
         ("Best result with thinking off?", "+0 solves",
          "That is what thinking buys a saturated model, while still billing time and money. "
          "One model even inverts: Haiku drops from 89% to 66% with a big budget."),
-        ("Why isn't Qwen in the chart?", "27B",
-         "Smaller than every other entrant by 10×, and it never learned Cairo: 23% correct, "
-         "zero one-shots. Docs nearly triple it (+23.1), so small models get their own section below."),
+        ("Where are the small models?", "+29.1",
+         "The small class (3B to 31B active) lives at the knowledge floor: baselines collapse, "
+         "and docs either transform them (the study's biggest gain, Qwen3.6-35B-A3B) or bounce off. "
+         "They compare on their own footing in the section below."),
         ("Sol mid-pack? It rivals Fable elsewhere", "19% one-shot",
          "Knowledge is perfect (100% correct); habits are not. Sol pays 3 to 4 compiler "
          "round-trips per task at flagship pricing, and the index prices the whole workflow."),
@@ -653,10 +657,10 @@ def build(all_runs):
 <section class="findings">
   <h2>Findings</h2>
   <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness across all twenty models: +23.1 for the weakest entrant (Qwen3.6-27B), +10.1 for Hy3, +6.4 for GLM 5.2, +5.1 for MiniMax, +4.3 for Haiku 4.5 (the largest closed-model gain), fading to zero and below at the saturated top (Grok, the Opus-class models, MiMo, K3).</p>
-  <p>Two refinements from the closed models: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier), and saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6).</p></div>
+  <p>Documentation lift lines up with baseline weakness across all twenty-four models: +29.1 for Qwen3.6-35B-A3B and +23.1 for Qwen3.6-27B at the knowledge floor, +10.8 for Qwen3 Coder Next, +10.1 for Hy3, +6.4 for GLM 5.2, +5.1 for MiniMax, +4.3 for Haiku 4.5 (the largest closed-model gain), fading to zero and below at the saturated top (Grok, the Opus-class models, MiMo, K3).</p>
+  <p>Three refinements: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier); saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6); and the law has a competence floor, because a model must be able to exploit what it reads. Gemma 4 31B (−1.3) and gpt-oss-120b (−2.7, zero solves even with documentation) sit below it.</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness: run the cheapest tier that holds it</h3>
-  <p>Five patterns across twenty models: thinkers whose dial never moves correctness (Sonnet 5, Opus 4.8, Opus 5, Fable 5, Qwen3.7 Max, and Grok 4.5, where it only nudges one-shot rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax, and two whose curves overshoot: Qwen3.7 Plus falls from 92% correctness at <code>high</code> to 77% at <code>xhigh</code>, Inkling from 99% at <code>low</code> to 88% at <code>high</code>), and one inverted curve (Haiku overthinks itself from 89% to 66%). Almost everywhere the index-best variant is the cheapest tier that holds correctness; Grok is the exception, where <code>max</code> pays for itself in one-shots.</p></div>
+  <p>Five patterns across twenty-four models (the four new small models effectively join the first family: at the knowledge floor their dials move time and tokens, barely correctness): thinkers whose dial never moves correctness (Sonnet 5, Opus 4.8, Opus 5, Fable 5, Qwen3.7 Max, and Grok 4.5, where it only nudges one-shot rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax, and two whose curves overshoot: Qwen3.7 Plus falls from 92% correctness at <code>high</code> to 77% at <code>xhigh</code>, Inkling from 99% at <code>low</code> to 88% at <code>high</code>), and one inverted curve (Haiku overthinks itself from 89% to 66%). Almost everywhere the index-best variant is the cheapest tier that holds correctness; Grok is the exception, where <code>max</code> pays for itself in one-shots.</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
   <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs. A habit is not a knowledge gap.</p>
   <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−0.0 to −1.9, pure schema overhead; Opus 5 gave the pattern its cleanest datapoint at exactly zero calls and zero delta) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
@@ -737,7 +741,7 @@ def build(all_runs):
 <main>
 <header>
   <h1>The Starknet Coding Index (SCI)</h1>
-  <p class="lede">{len(sci_rows)} models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the best open-weight coders from seven labs, plus current closed models from Anthropic, Google, OpenAI, xAI, and Alibaba. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
+  <p class="lede">{len(sci_rows)} models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the leading open-weight coders, large and small, alongside the current closed models from Anthropic, Google, OpenAI, xAI, and Alibaba. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
   <p class="lede">Each run is a bare agentic loop. The model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool: <b><code>submit</code></b>. Every submission is compiled with <code>scarb build</code> and run against hidden <code>snforge</code> tests. On failure the model sees the raw compiler errors and failing-test output (never the test code itself) and can resubmit, within a budget of 10 turns and 15 minutes of model time.</p>
   <p class="lede">In the MCP condition the model gets one extra tool, <b><code>assist_with_cairo</code></b>, which searches the Cairo and Starknet documentation corpus.</p>
   <div class="chips">

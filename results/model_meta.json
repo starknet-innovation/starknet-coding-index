@@ -301,6 +301,66 @@
    "type": "MoE",
    "params_total": "975B",
    "params_active": "41B"
+  },
+  "openai/gpt-oss-120b": {
+   "name": "OpenAI: gpt-oss-120b",
+   "context_length": 131072,
+   "hugging_face_id": "openai/gpt-oss-120b",
+   "price_per_m": {
+    "input": 0.037,
+    "output": 0.16999999999999998,
+    "cache_read": null,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE",
+   "params_total": "117B",
+   "params_active": "5.1B"
+  },
+  "qwen/qwen3.6-35b-a3b": {
+   "name": "Qwen: Qwen3.6 35B A3B",
+   "context_length": 262144,
+   "hugging_face_id": "Qwen/Qwen3.6-35B-A3B",
+   "price_per_m": {
+    "input": 0.14,
+    "output": 1.0,
+    "cache_read": null,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE",
+   "params_total": "35B",
+   "params_active": "3B"
+  },
+  "google/gemma-4-31b-it": {
+   "name": "Google: Gemma 4 31B",
+   "context_length": 262144,
+   "hugging_face_id": "google/gemma-4-31B-it",
+   "price_per_m": {
+    "input": 0.14,
+    "output": 0.39999999999999997,
+    "cache_read": null,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "dense",
+   "params_total": "30.7B",
+   "params_active": "30.7B"
+  },
+  "qwen/qwen3-coder-next": {
+   "name": "Qwen: Qwen3 Coder Next",
+   "context_length": 262144,
+   "hugging_face_id": "Qwen/Qwen3-Coder-Next",
+   "price_per_m": {
+    "input": 0.11,
+    "output": 0.7999999999999999,
+    "cache_read": 0.07,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE",
+   "params_total": "80B",
+   "params_active": "3B"
   }
  },
  "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T lab-stated, repo gated; Hy3 295B/21B and Qwen 27B dense lab-stated."
