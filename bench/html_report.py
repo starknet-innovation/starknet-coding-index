@@ -333,6 +333,7 @@ def build(all_runs):
         ("medium", "minimax/minimax-m3@medium"),
         ("high", "minimax/minimax-m3@high"),
         ("xhigh", "minimax/minimax-m3@xhigh"),
+        ("max", "minimax/minimax-m3@max"),
     ]
     HY3_TIERS = [
         ("off", "tencent/hy3@disabled"),
@@ -341,6 +342,16 @@ def build(all_runs):
         ("medium", "tencent/hy3@medium"),
         ("high", "tencent/hy3@high"),
         ("xhigh", "tencent/hy3@xhigh"),
+        ("max", "tencent/hy3@max"),
+    ]
+    GLM_TIERS = [
+        ("off", "z-ai/glm-5.2@disabled"),
+        ("minimal", "z-ai/glm-5.2@minimal"),
+        ("low", "z-ai/glm-5.2@low"),
+        ("medium", "z-ai/glm-5.2@medium"),
+        ("high", "z-ai/glm-5.2@high"),
+        ("xhigh", "z-ai/glm-5.2@xhigh"),
+        ("max", "z-ai/glm-5.2@max"),
     ]
     DEEPSEEK_TIERS = [
         ("off", "deepseek/deepseek-v4-pro@disabled"),
@@ -420,6 +431,8 @@ def build(all_runs):
   {tier_table(MINIMAX_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">Tencent Hy3 (open weights; bare spec ≡ <code>high</code>)</h3>
   {tier_table(HY3_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">GLM 5.2 (open weights; the pilot model — deepest per-effort dataset)</h3>
+  {tier_table(GLM_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">DeepSeek V4-Pro (open weights)</h3>
   {tier_table(DEEPSEEK_TIERS)}
   <p class="takeaway">{effort_curve_takeaway}</p>
