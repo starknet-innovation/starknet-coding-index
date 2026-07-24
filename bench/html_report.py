@@ -339,6 +339,11 @@ def build(all_runs):
         ("max", "openai/gpt-5.6-terra@max"),
         ("pro", "openai/gpt-5.6-terra-pro"),
     ]
+    QWEN_TIERS = [
+        ("high", "qwen/qwen3.6-27b@high"),
+        ("xhigh", "qwen/qwen3.6-27b@xhigh"),
+        ("max", "qwen/qwen3.6-27b@max"),
+    ]
     MINIMAX_TIERS = [
         ("minimal", "minimax/minimax-m3@minimal"),
         ("low", "minimax/minimax-m3@low"),
@@ -445,6 +450,8 @@ def build(all_runs):
   {tier_table(HY3_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">GLM 5.2 (open weights; the pilot model — deepest per-effort dataset)</h3>
   {tier_table(GLM_TIERS)}
+  <h3 style="font-size:13px;margin:18px 0 6px">Qwen3.6-27B (open weights; the knowledge-floor case — upper tiers only)</h3>
+  {tier_table(QWEN_TIERS)}
   <h3 style="font-size:13px;margin:18px 0 6px">DeepSeek V4-Pro (open weights)</h3>
   {tier_table(DEEPSEEK_TIERS)}
   <p class="takeaway">{effort_curve_takeaway}</p>
@@ -665,7 +672,7 @@ def build(all_runs):
       <h2>Caveats</h2>
       <ul class="meta">
         <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study) — it anchors the substitution-law finding and the n=130 statistics; newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
-        <li><b>Five roster cells abandoned:</b> repeated host-sleep/network stalls made 5 qwen/minimax baseline cells (of 390) unrecoverable within budget; they are counted as failures, consistent with their completed sibling reps (which failed in 10-turn slogs). Time/cost medians exclude them.</li>
+        <li><b>Six cells abandoned, one batch truncated:</b> host-sleep/network stalls made 5 qwen/minimax baseline cells unrecoverable, and 1 qwen@high cell was cut when its batch was stopped manually; all are counted as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time/cost medians exclude abandoned cells.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> — 38/39 solved on both, same turn counts — so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>
