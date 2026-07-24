@@ -56,7 +56,7 @@
 </style>
 <main>
 <header>
-  <h1>The Starknet Coding Index</h1>
+  <h1>The Starknet Coding Index (SCI)</h1>
   <p class="lede">Sixteen models ran the same 13 Starknet smart-contract tasks: the best open-weight coders from seven labs, plus the current closed models from Anthropic, Google, OpenAI, and xAI. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
   <p class="lede">Each run is a bare agentic loop. The model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool: <b><code>submit</code></b>. Every submission is compiled with <code>scarb build</code> and run against hidden <code>snforge</code> tests. On failure the model sees the raw compiler errors and failing-test output (never the test code itself) and can resubmit, within a budget of 10 turns and 15 minutes of model time.</p>
   <p class="lede">In the MCP condition the model gets one extra tool, <b><code>assist_with_cairo</code></b>, which searches the Cairo and Starknet documentation corpus.</p>
