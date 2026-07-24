@@ -331,8 +331,9 @@ def build(all_runs):
     w_ = SCI_SPEC["weights"]
 
     # Small models (registry small: True) get their own section; the main
-    # charts show the regular-size field only
-    big_rows = [r for r in sci_rows if not r.get("small")]
+    # charts show the regular-size field only, minus rows flagged charted:
+    # False (secondary tiers of an already-charted lab, e.g. Qwen3.7 Plus)
+    big_rows = [r for r in sci_rows if not r.get("small") and r.get("charted", True)]
     small_rows = [r for r in sci_rows if r.get("small")]
 
     # Chart 2: best-without vs best-with the MCP, per model. Each condition

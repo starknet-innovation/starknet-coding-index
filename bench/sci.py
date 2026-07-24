@@ -89,7 +89,9 @@ MODEL_REGISTRY = [
      "label": "Qwen3.7 Max", "lab": "Alibaba", "open_weight": False},
     {"specs": ["qwen/qwen3.7-plus@disabled", "qwen/qwen3.7-plus@low", "qwen/qwen3.7-plus@high",
                "qwen/qwen3.7-plus@xhigh"],
-     "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False},
+     # charted False: one Qwen 3.7 bar is enough (David); Plus stays in the
+     # roster table and prose but not in charts 1-2
+     "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False, "charted": False},
     {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
                "anthropic/claude-sonnet-5"],
