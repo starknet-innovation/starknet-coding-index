@@ -449,9 +449,9 @@ def build(all_runs):
     h3_style = 'style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 4px"'
     cost_max = math.ceil(max(r["tip"]["cost"] for r in big_rows) / 0.5) * 0.5
     time_max_m = math.ceil(max(r["tip"]["secs"] for r in big_rows) / 60 / 20) * 20
-    # two lines (minutes over seconds): full precision without the width
-    # that made single-line "3m 32s" labels collide at 16 columns
-    mins = lambda s: (f"{int(s // 60)}m", f"{int(s % 60):02d}s")
+    # compact decimal minutes ("2.5m", "72m"): narrow enough that neighbors
+    # never collide at 16 columns
+    mins = lambda s: (f"{s / 60:.1f}m" if s < 600 else f"{s / 60:.0f}m")
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
