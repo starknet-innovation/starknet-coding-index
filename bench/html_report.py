@@ -552,14 +552,14 @@ def build(all_runs):
     score_html = f"""
 <section>
   <h2>How the score is built</h2>
-  <ul class="meta" style="margin-bottom:8px">
-    <li><b>Correctness ({w_["correct"]:.0%}):</b> average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
-    <li><b>One-shot rate ({w_["oneshot"]:.0%}):</b> share of runs solved on the very first submission, no compiler feedback needed.</li>
-    <li><b>Speed ({w_["speed"]:.0%}):</b> median model latency per task (time spent waiting on the model's API, excluding this harness's local compile/test), scored 100→0 on a fixed log scale ({a["speed"][0]}s→{a["speed"][1]}s).</li>
-    <li><b>Cost ({w_["cost"]:.0%}):</b> median $ per task, scored 100→0 on a fixed log scale (${a["cost"][0]}→${a["cost"][1]}).</li>
-    <li><b>Token efficiency ({w_["tokens"]:.0%}):</b> median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
-  </ul>
-  <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
+  <div class="scorecards">
+    <div class="faqcard"><div class="q">Correctness</div><div class="stat">{w_["correct"]:.0%}</div><p>Average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</p></div>
+    <div class="faqcard"><div class="q">One-shot rate</div><div class="stat">{w_["oneshot"]:.0%}</div><p>Share of runs solved on the very first submission, no compiler feedback needed.</p></div>
+    <div class="faqcard"><div class="q">Speed</div><div class="stat">{w_["speed"]:.0%}</div><p>Median model latency per task, scored on a fixed log scale ({a["speed"][0]}s to {a["speed"][1]}s). Local compile/test time excluded.</p></div>
+    <div class="faqcard"><div class="q">Cost</div><div class="stat">{w_["cost"]:.0%}</div><p>Median $ per task, scored on a fixed log scale (${a["cost"][0]} to ${a["cost"][1]}).</p></div>
+    <div class="faqcard"><div class="q">Token efficiency</div><div class="stat">{w_["tokens"]:.0%}</div><p>Median output tokens per task ({a["tokens"][0] // 1000}k to {a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</p></div>
+  </div>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
 </section>"""
 
     # The models: OpenRouter snapshot (pricing, context, disclosed architecture)
@@ -715,6 +715,9 @@ def build(all_runs):
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
   #tip b{{font-weight:700}}
   .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
+  .scorecards{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 22px}}
+  .scorecards .faqcard:first-child{{grid-column:1/-1}}
+  @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
   .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
   .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--mcp);letter-spacing:-.02em;margin:4px 0 2px}}
   .faqcard p{{margin:0;font-size:13.5px}}
