@@ -7,7 +7,6 @@ no JS, no external assets). Publishing to an Artifact is a separate, manual
 step — this module never publishes anything.
 """
 
-import statistics
 import sys
 from pathlib import Path
 
@@ -24,27 +23,8 @@ GOOD = "#2E9E6B"
 
 
 
-def med(vals):
-    vals = [v for v in vals if v is not None]
-    return statistics.median(vals) if vals else 0
-
-
 def solve_pct(rs):
     return 100 * sum(r["solved"] for r in rs) / len(rs)
-
-
-def model_time(r):
-    """Seconds spent waiting on remote services (LLM + doc tool). Wall time
-    additionally includes local compile/test, which scales with runner
-    concurrency and says nothing about the model."""
-    return r["llm_time_s"] + (r.get("assist_time_s") or 0)
-
-
-def group(runs, key):
-    out = {}
-    for r in runs:
-        out.setdefault(key(r), []).append(r)
-    return out
 
 
 # ---------------------------------------------------------------- SVG helpers
@@ -65,18 +45,25 @@ def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101)
     sx = lambda i: pad_l + i * cw / (n - 1)
     sy = lambda v: pad_t + (y_max - v) / (y_max - y_min) * ch
     parts = [svg_open(w, h)]
-    for gv in range(y_min + (10 - y_min % 10) % 10, int(y_max) + 1, 10):
+    # 10%-gridlines get stripey when the panel spans most of 0–100
+    step = 20 if y_max - y_min > 60 else 10
+    for gv in range(y_min + (step - y_min % step) % step, int(y_max) + 1, step):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
         parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}%</text>')
     for i, lab in enumerate(x_labels):
         parts.append(f'<text x="{sx(i):.0f}" y="{h - 36}" font-size="12" fill="{INK}" text-anchor="middle">{lab}</text>')
-    for name, color, vals in series:
+    for si, (name, color, vals) in enumerate(series):
         pts = " ".join(f"{sx(i):.0f},{sy(v):.1f}" for i, v in enumerate(vals))
         parts.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2.5"/>')
         for i, v in enumerate(vals):
             parts.append(f'<circle cx="{sx(i):.0f}" cy="{sy(v):.1f}" r="4.5" fill="{color}"/>')
-            dy = -10 if name == "with MCP" else 16
+            # labels go outside the band the two lines span at this x, so
+            # near-equal points can't collide: higher value above, lower below
+            # (ties: later series wins the top slot)
+            others = [s[2][i] for sj, s in enumerate(series) if sj != si]
+            on_top = all(v > o for o in others) or (any(v == o for o in others) and si > 0)
+            dy = -10 if on_top else 16
             parts.append(
                 f'<text x="{sx(i):.0f}" y="{sy(v) + dy:.1f}" font-size="11" fill="{color}" '
                 f'text-anchor="middle" font-weight="600">{v:.0f}</text>'
@@ -214,38 +201,23 @@ def mcp_lift_chart(pairs, w=760, h=359):
 
 
 
-def bar_cell(v, vmax, cls, label):
-    wpct = max(2, v / vmax * 100)
-    return (
-        f'<td class="barcell"><div class="barrow"><div class="bar {cls}" '
-        f'style="width:{wpct:.0f}%"></div><span class="barlabel">{label}</span></div></td>'
-    )
-
-
 # ---------------------------------------------------------------- build page
-
-# Best open-weight coder per top Chinese lab, at max thinking (label, spec)
-ROSTER = [
-    ("Moonshot · Kimi K3", "moonshotai/kimi-k3"),
-    ("Xiaomi · MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@xhigh"),
-    ("DeepSeek · V4-Pro", "deepseek/deepseek-v4-pro@xhigh"),
-    ("Tencent · Hy3", "tencent/hy3"),
-    ("Z.ai · GLM 5.2", "z-ai/glm-5.2@xhigh"),
-    ("MiniMax · M3", "minimax/minimax-m3@xhigh"),
-    ("Alibaba · Qwen3.6-27B", "qwen/qwen3.6-27b@xhigh"),
-]
 
 
 def build(all_runs):
-    # Does the effort pattern generalize? Small-multiple curves per model.
+    # Does the effort pattern generalize? Small-multiple curves — every model
+    # with at least two thinking tiers measured in BOTH conditions qualifies;
+    # per-family y_min because Qwen lives far below everyone else's floor.
     FAMILIES = [
-        ("GLM 5.2", "z-ai/glm-5.2@", ["disabled", "low", "medium", "high", "xhigh"]),
-        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", ["low", "xhigh"]),
-        ("Tencent Hy3", "tencent/hy3@", ["low", "high"]),
-        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", ["low", "xhigh"]),
+        ("GLM 5.2", "z-ai/glm-5.2@", ["disabled", "low", "medium", "high", "xhigh"], 60),
+        ("Tencent Hy3", "tencent/hy3@", ["disabled", "low", "medium", "high", "xhigh"], 60),
+        ("MiniMax M3", "minimax/minimax-m3@", ["minimal", "low", "medium", "high", "xhigh", "max"], 60),
+        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", ["disabled", "low", "xhigh"], 60),
+        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", ["low", "xhigh"], 60),
+        ("Qwen3.6-27B", "qwen/qwen3.6-27b@", ["high", "xhigh", "max"], 0),
     ]
     multiples = []
-    for name, prefix, tiers in FAMILIES:
+    for name, prefix, tiers, y_min in FAMILIES:
         series = []
         for cond, color in [("baseline", SLATE), ("mcp", CORAL)]:
             vals = []
@@ -253,275 +225,17 @@ def build(all_runs):
                 rs = [r for r in all_runs if r["model"] == prefix + t and r["condition"] == cond]
                 vals.append(solve_pct(rs) if rs else 0)
             series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
-        chart = line_chart(tiers, series, annotations=[], w=380, h=230, y_min=60)
+        labels = ["off" if t == "disabled" else t for t in tiers]
+        chart = line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min)
         multiples.append(f'<div><h3 style="font-size:13px;margin-bottom:6px">{name}</h3>{chart}</div>')
     generalize_html = f"""
 <section>
-  <h2>Does the effort pattern generalize? — four labs' effort curves</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 39 runs per point</span></div>
+  <h2>Does the effort pattern generalize? — six labs' effort curves</h2>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 26–147 runs per point</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}</div>
-  <p class="takeaway">Yes — and the 15-minute model-time budget settles the one apparent exception. <b>"Extra thinking buys no solve-rate gain" holds for DeepSeek</b> (94.9% at both tiers, but the low tier answers ~2.2× faster for ~25% less money) <b>and trivially for MiMo</b> (100% everywhere — knowledge-saturated, effort irrelevant). <b>Tencent Hy3 looked like the counterexample, but its high-tier edge was built on marathon runs</b>: with over-budget solves (some past 40 minutes of thinking) counted as the failures they are, high scores 89.7% vs low's 87.2% — one run apart. What the budget reveals instead is a real MCP lift for Hy3 (87.2%→94.9% at bare/low): the documentation tool converts its over-budget grinds into in-budget solves, exactly what the substitution law predicts. MCP lift appears where reasoning or knowledge falls short — never where the model is already saturated.</p>
+  <p class="takeaway">Yes — six labs, three archetypes. <b>Saturated (MiMo, DeepSeek): extra thinking buys no solve-rate gain</b> — DeepSeek holds 95–97% even with thinking off (where it answers 2–4× faster and cheaper), MiMo sits at ~100% everywhere, and the documentation tool has nothing left to add. <b>Real curves (GLM, Hy3, MiniMax): thinking does buy solves, but documentation buys more.</b> MiniMax climbs 74%→90% up its ladder yet with docs its <code>low</code> tier (93%) already beats its best baseline tier; Hy3's noisy dial (67–90% baseline, non-monotone) flattens to 93–96% with docs at every setting except <code>high</code> (85%) — the one tier where baseline itself peaks, and even that peak sits one solve above <code>low</code> once the 15-minute budget counts its 40-minute marathons as the failures they are. <b>Knowledge floor (Qwen3.6-27B): the substitution law at its extreme.</b> Docs double-to-triple every tier (19→58, 23→41, 12→58) while more thinking makes baseline <i>worse</i> — no reasoning budget can derive idioms the model never learned. MCP lift appears where reasoning or knowledge falls short, never where the model is already saturated.</p>
 </section>"""
 
-    # Full effort curves: every benchmarked thinking tier, baseline only.
-    def tier_table(tier_spec_pairs):
-        rows = []
-        for tier, spec in tier_spec_pairs:
-            rs = [r for r in all_runs if r["model"] == spec and r["condition"] == "baseline"]
-            if not rs:
-                continue
-            oneshot = 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs)
-            rows.append(
-                f'<tr><td class="task">{tier}</td>'
-                + bar_cell(solve_pct(rs), 100, "b", f"{solve_pct(rs):.0f}%")
-                + bar_cell(oneshot, 100, "b", f"{oneshot:.0f}%")
-                + f'<td class="num">{med([r["turns"] for r in rs]):.0f}</td>'
-                f'<td class="num">{med([model_time(r) for r in rs]):.0f}s</td>'
-                f'<td class="num">${med([r["cost_usd"] for r in rs]):.4f}</td>'
-                f'<td class="num">{med([r["completion_tokens"] for r in rs]):,.0f}</td></tr>'
-            )
-        return ('<div class="tablewrap"><table class="num"><tr><th>Thinking</th>'
-                '<th class="barcell">Solve rate</th><th class="barcell">One-shot</th>'
-                '<th>Med. turns</th><th>Med. model time</th><th>Med. cost</th>'
-                f'<th>Med. output toks</th></tr>{"".join(rows)}</table></div>')
-
-    SONNET_TIERS = [
-        ("off", "anthropic/claude-sonnet-5"),
-        ("minimal", "anthropic/claude-sonnet-5@minimal"),
-        ("low", "anthropic/claude-sonnet-5@low"),
-        ("medium", "anthropic/claude-sonnet-5@medium"),
-        ("high", "anthropic/claude-sonnet-5@high"),
-    ]
-    MIMO_TIERS = [
-        ("off", "xiaomi/mimo-v2.5-pro@disabled"),
-        ("minimal", "xiaomi/mimo-v2.5-pro@minimal"),
-        ("low", "xiaomi/mimo-v2.5-pro@low"),
-        ("medium", "xiaomi/mimo-v2.5-pro@medium"),
-        ("high", "xiaomi/mimo-v2.5-pro@high"),
-        ("xhigh", "xiaomi/mimo-v2.5-pro@xhigh"),
-        ("max", "xiaomi/mimo-v2.5-pro@max"),
-    ]
-    GEMINI_TIERS = [
-        ("minimal", "google/gemini-3.6-flash@minimal"),
-        ("low", "google/gemini-3.6-flash@low"),
-        ("medium", "google/gemini-3.6-flash@medium"),
-        ("high", "google/gemini-3.6-flash@high"),
-        ("xhigh", "google/gemini-3.6-flash@xhigh"),
-        ("max", "google/gemini-3.6-flash@max"),
-    ]
-    LUNA_TIERS = [
-        ("off", "openai/gpt-5.6-luna@disabled"),
-        ("minimal", "openai/gpt-5.6-luna@minimal"),
-        ("low", "openai/gpt-5.6-luna@low"),
-        ("medium", "openai/gpt-5.6-luna@medium"),
-        ("high", "openai/gpt-5.6-luna@high"),
-        ("xhigh", "openai/gpt-5.6-luna@xhigh"),
-        ("max", "openai/gpt-5.6-luna@max"),
-        ("pro", "openai/gpt-5.6-luna-pro"),
-    ]
-    GROK_TIERS = [
-        ("minimal", "x-ai/grok-4.5@minimal"),
-        ("low", "x-ai/grok-4.5@low"),
-        ("high", "x-ai/grok-4.5@high"),
-        ("xhigh", "x-ai/grok-4.5@xhigh"),
-        ("max", "x-ai/grok-4.5@max"),
-    ]
-    FABLE_TIERS = [
-        ("minimal", "anthropic/claude-fable-5@minimal"),
-        ("low", "anthropic/claude-fable-5@low"),
-        ("high", "anthropic/claude-fable-5@high"),
-        ("xhigh", "anthropic/claude-fable-5@xhigh"),
-        ("max", "anthropic/claude-fable-5@max"),
-    ]
-    OPUS_TIERS = [
-        ("off", "anthropic/claude-opus-4.8@disabled"),
-        ("low", "anthropic/claude-opus-4.8@low"),
-        ("high", "anthropic/claude-opus-4.8@high"),
-        ("xhigh", "anthropic/claude-opus-4.8@xhigh"),
-        ("max", "anthropic/claude-opus-4.8@max"),
-    ]
-    HAIKU_TIERS = [
-        ("off", "anthropic/claude-haiku-4.5"),
-        ("low", "anthropic/claude-haiku-4.5@low"),
-        ("high", "anthropic/claude-haiku-4.5@high"),
-        ("xhigh", "anthropic/claude-haiku-4.5@xhigh"),
-        ("max", "anthropic/claude-haiku-4.5@max"),
-    ]
-    SOL_TIERS = [
-        ("off", "openai/gpt-5.6-sol@disabled"),
-        ("low", "openai/gpt-5.6-sol@low"),
-        ("high", "openai/gpt-5.6-sol@high"),
-        ("xhigh", "openai/gpt-5.6-sol@xhigh"),
-        ("max", "openai/gpt-5.6-sol@max"),
-    ]
-    TERRA_TIERS = [
-        ("off", "openai/gpt-5.6-terra@disabled"),
-        ("minimal", "openai/gpt-5.6-terra@minimal"),
-        ("low", "openai/gpt-5.6-terra@low"),
-        ("medium", "openai/gpt-5.6-terra@medium"),
-        ("high", "openai/gpt-5.6-terra@high"),
-        ("xhigh", "openai/gpt-5.6-terra@xhigh"),
-        ("max", "openai/gpt-5.6-terra@max"),
-        ("pro", "openai/gpt-5.6-terra-pro"),
-    ]
-    QWEN_TIERS = [
-        ("high", "qwen/qwen3.6-27b@high"),
-        ("xhigh", "qwen/qwen3.6-27b@xhigh"),
-        ("max", "qwen/qwen3.6-27b@max"),
-    ]
-    MINIMAX_TIERS = [
-        ("minimal", "minimax/minimax-m3@minimal"),
-        ("low", "minimax/minimax-m3@low"),
-        ("medium", "minimax/minimax-m3@medium"),
-        ("high", "minimax/minimax-m3@high"),
-        ("xhigh", "minimax/minimax-m3@xhigh"),
-        ("max", "minimax/minimax-m3@max"),
-    ]
-    HY3_TIERS = [
-        ("off", "tencent/hy3@disabled"),
-        ("minimal", "tencent/hy3@minimal"),
-        ("low", "tencent/hy3@low"),
-        ("medium", "tencent/hy3@medium"),
-        ("high", "tencent/hy3@high"),
-        ("xhigh", "tencent/hy3@xhigh"),
-        ("max", "tencent/hy3@max"),
-    ]
-    GLM_TIERS = [
-        ("off", "z-ai/glm-5.2@disabled"),
-        ("minimal", "z-ai/glm-5.2@minimal"),
-        ("low", "z-ai/glm-5.2@low"),
-        ("medium", "z-ai/glm-5.2@medium"),
-        ("high", "z-ai/glm-5.2@high"),
-        ("xhigh", "z-ai/glm-5.2@xhigh"),
-        ("max", "z-ai/glm-5.2@max"),
-    ]
-    DEEPSEEK_TIERS = [
-        ("off", "deepseek/deepseek-v4-pro@disabled"),
-        ("minimal", "deepseek/deepseek-v4-pro@minimal"),
-        ("low", "deepseek/deepseek-v4-pro@low"),
-        ("medium", "deepseek/deepseek-v4-pro@medium"),
-        ("high", "deepseek/deepseek-v4-pro@high"),
-        ("xhigh", "deepseek/deepseek-v4-pro@xhigh"),
-    ]
-    effort_curve_takeaway = (
-        "<b>For both leaders the thinking knob buys nothing on this suite — including switching it off.</b> "
-        "Sonnet 5 solves 195/195 at identical cost (~$0.024) and output (~1,700 tokens) at every tier because "
-        "its thinking is adaptive: granted any budget, it declines to spend reasoning tokens on tasks it already "
-        "knows. </p><p class='takeaway'>MiMo-V2.5-Pro solves 273/273 across all seven tiers with equally flat cost (~$0.005) and output "
-        "(~1,500 tokens) — knowledge saturation again, this time in an open-weight model with a hard off switch. "
-        "MiMo's apparent latency spread (19s at xhigh vs ~45s at the tiers benchmarked in a later batch) is a "
-        "provider artifact, not an effort effect: the earlier batch was served at ~81 tok/s, the later at ~33 tok/s, "
-        "and within a batch the tiers are flat. One-shot rates wobble without a monotone trend (MiMo 18–41%, "
-        "Sonnet 46–67%) — binomial noise at n=39. <b>Gemini 3.6 Flash is the third pattern: an obedient thinker.</b> "
-        "It spends whatever budget it is granted (2k→7.7k output tokens, $0.023→$0.061 per task, minimal→max) and "
-        "the spend does buy something — one-shot rate climbs steadily from 10% to 46% — but not solves: it is at "
-        "100% from <code>low</code> upward regardless. </p><p class='takeaway'><b>GPT-5.6 Luna is the fourth pattern — and the first "
-        "closed model that is NOT Cairo-saturated</b>: its solve rate genuinely climbs with the dial (79.5% with "
-        "thinking off → 100% at <code>max</code>), it never one-shots at any tier (median 3–4 compiler round-trips), "
-        "and its <code>pro</code> serving mode burns 14.5k output tokens and ~$0.11 per task to score <i>below</i> "
-        "<code>max</code>. </p><p class='takeaway'><b>Terra, Luna's 2.5×-price sibling, shows what that money buys: knowledge, not habits.</b> "
-        "Its thinking-off correctness jumps to 89.7% (Luna: 79.5%) and its curve flattens to noise (only "
-        "<code>medium</code> reaches 100%), but it still never one-shots and its <code>pro</code> mode is again "
-        "strictly dominated ($0.21/task for less than <code>max</code>). Net effect on the index: +0.6 points over "
-        "Luna. </p><p class='takeaway'>Completing the open-model ladders sharpened the split. <b>DeepSeek V4-Pro turns out "
-        "not to need its thinking at all</b>: ~95–97% at every tier including off, where it runs 2–4× faster and "
-        "cheaper — the off tier jumps it to #5 on the index. <b>Hy3's ladder is erratic</b>: thinking off "
-        "collapses it (87%→67%, the GLM pattern), but the dial isn't even monotone — <code>minimal</code> reasons "
-        "longer than <code>medium</code> (303s vs 242s median) and both drown in over-budget grinds; "
-        "<code>low</code> stays its sweet spot. <b>MiniMax M3 genuinely needs its thinking</b> (87%→74% descending "
-        "the ladder) and its off switch is fake — the API accepts <code>disabled</code> and reasons anyway, so "
-        "that pseudo-variant is excluded. </p><p class='takeaway'><b>Haiku 4.5 adds a fifth pattern — the overthinker — and the dataset's first inverted "
-        "curve</b>: thinking off solves 88.9% at 29s/$0.05, while <code>high</code> collapses to 65.6% at "
-        "102s/$0.17, burning ~18k output tokens spiraling through full 10-turn slogs. Granting the small model a "
-        "big budget makes it strictly worse on every axis; per the bracket protocol its ladder was not extended "
-        "further upward. </p><p class='takeaway'><b>Opus 4.8 completes the Anthropic ladder at the opposite extreme</b>: all three bracket "
-        "tiers are indistinguishable at 100% solve, ~15s, ~1,400 tokens — its adaptive thinking simply doesn't "
-        "engage on tasks it has mastered — and at <code>high</code> it one-shots the entire suite, 26 for 26. "
-        "One family, four fates for the same dial: the small model overthinks itself into failure, the mid model "
-        "ignores the dial, the big models transcend it — <b>Fable 5's dial is inert until <code>max</code></b> "
-        "(<code>minimal</code> and <code>high</code> return byte-identical cost/token medians at the adaptive "
-        "floor; <code>max</code> finally engages real thinking for +4pt one-shot at 3× the cost), and its 78-run "
-        "bracket produced zero errors, zero tiebreaks, and zero refusals.</p><p class='takeaway'><b>GPT-5.6 Sol completes the rival "
-        "ladder</b>: full "
-        "correctness saturation at flagship scale (100% at every bracket tier), a one-shot habit that finally "
-        "cracks but only to 12–23%, and an interior best tier (<code>low</code>) — the first bracket where "
-        "neither edge won, so the ladder was not extended in either direction.</p><p class='takeaway'>The practical rule survives every pattern: run the cheapest tier that holds correctness; the thinking dial buys solve rate only where knowledge runs out (GLM, Hy3, MiniMax, Qwen — and Luna)."
-    )
-    sonnet_html = f"""
-<section>
-  <h2>Full effort curves — what does the thinking knob actually buy?</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline only (no documentation tool)</span><span>39 runs per tier; times are model latency</span></div>
-  <h3 style="font-size:13px;margin-bottom:6px">Sonnet 5 (closed weights, adaptive thinking)</h3>
-  {tier_table(SONNET_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">MiMo-V2.5-Pro (open weights)</h3>
-  {tier_table(MIMO_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Gemini 3.6 Flash (closed weights, thinking mandatory — no off tier)</h3>
-  {tier_table(GEMINI_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Luna (closed weights; <code>pro</code> is the same model in reasoning.mode=pro)</h3>
-  {tier_table(LUNA_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Grok 4.5 (closed weights; thinking mandatory — no off tier)</h3>
-  {tier_table(GROK_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Fable 5 (closed weights; thinking mandatory — no off tier. Disclosure: this model also operates the harness; measurement is submissions + hidden tests only)</h3>
-  {tier_table(FABLE_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Opus 4.8 (closed weights; Anthropic's top tier — bracket tiers, bare spec skipped as adaptive/unnameable)</h3>
-  {tier_table(OPUS_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Haiku 4.5 (closed weights; Sonnet 5's small sibling — bracket tiers, extended only if an edge wins)</h3>
-  {tier_table(HAIKU_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Sol (closed weights; the flagship — bracket tiers)</h3>
-  {tier_table(SOL_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">GPT-5.6 Terra (closed weights; Luna's mid-tier sibling, <code>pro</code> = reasoning.mode=pro)</h3>
-  {tier_table(TERRA_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">MiniMax M3 (open weights; <code>disabled</code> accepted but ignored — omitted)</h3>
-  {tier_table(MINIMAX_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Tencent Hy3 (open weights; bare spec ≡ <code>high</code>)</h3>
-  {tier_table(HY3_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">GLM 5.2 (open weights; the pilot model — deepest per-effort dataset)</h3>
-  {tier_table(GLM_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">Qwen3.6-27B (open weights; the knowledge-floor case — upper tiers only)</h3>
-  {tier_table(QWEN_TIERS)}
-  <h3 style="font-size:13px;margin:18px 0 6px">DeepSeek V4-Pro (open weights)</h3>
-  {tier_table(DEEPSEEK_TIERS)}
-  <p class="takeaway">{effort_curve_takeaway}</p>
-</section>"""
-
-    # Lab roster: best open-weight coder per lab at max thinking
-    roster_rows, roster_stats = [], {}
-    for label, spec in ROSTER:
-        rs = [r for r in all_runs if r["model"] == spec]
-        if not rs:
-            continue
-        st = {}
-        for c in ["baseline", "mcp"]:
-            crs = [r for r in rs if r["condition"] == c]
-            st[c] = {
-                "n": len(crs),
-                "solve": solve_pct(crs),
-                "wall": med([model_time(r) for r in crs]),
-                "cost": med([r["cost_usd"] for r in crs]),
-                "assists": sum(r["n_assist_calls"] for r in crs) / len(crs),
-            }
-        roster_stats[label] = st
-    for label, st in sorted(roster_stats.items(), key=lambda kv: -kv[1]["baseline"]["solve"]):
-        b, m = st["baseline"], st["mcp"]
-        delta = m["solve"] - b["solve"]
-        roster_rows.append(
-            f'<tr class="taskrow"><td class="task" rowspan="2">{label}</td>'
-            f'<td><span class="cond b">baseline</span></td>'
-            + bar_cell(b["solve"], 100, "b", f"{b['solve']:.0f}%")
-            + f'<td class="num">{b["wall"]:.0f}s</td><td class="num">${b["cost"]:.3f}</td>'
-            f'<td class="num" rowspan="2">{"+" if delta >= 0 else "−"}{abs(delta):.0f}pt</td>'
-            f'<td class="num" rowspan="2">{m["assists"]:.1f}</td></tr>'
-            f'<tr class="taskrow2"><td><span class="cond m">mcp</span></td>'
-            + bar_cell(m["solve"], 100, "m", f"{m['solve']:.0f}%")
-            + f'<td class="num">{m["wall"]:.0f}s</td><td class="num">${m["cost"]:.3f}</td></tr>'
-        )
-    k3_html = f"""
-<section>
-  <h2>The lab roster — best open-weight coder per lab, max thinking</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>39 runs per condition per model</span></div>
-  <div class="tablewrap"><table class="num"><tr><th>Lab · model</th><th>Cond.</th><th class="barcell">Solve rate</th><th>Med. model time</th><th>Med. cost</th><th>MCP lift</th><th>Assists/run</th></tr>{"".join(roster_rows)}</table></div>
-  <p class="takeaway">The knowledge-gap law holds across seven labs: <b>MCP lift tracks baseline weakness</b> — zero for the saturating frontier (Kimi K3, MiMo), +5pt in the 95% tier (DeepSeek, GLM), +8pt for Hy3, +18pt for the weakest entrant (Qwen3.6-27B, 23%→41%). <b>Xiaomi's MiMo-V2.5-Pro is the efficiency standout</b>: 100% baseline at ~19s and ~$0.004 per task — 14× cheaper and 5× faster than Kimi K3 for the same solve rate. Qwen3.6-27B, despite strong general-coding benchmarks, collapses on Cairo — the clearest demonstration that language-specific knowledge, not coding skill, is what the MCP substitutes for.</p>
-</section>"""
 
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
     sci_rows = leaderboard(all_runs)
@@ -608,7 +322,6 @@ def build(all_runs):
   h1,h2,h3{{font-family:var(--mono);font-weight:600;margin:0}}
   h1{{font-size:27px;letter-spacing:-.02em}}
   h2{{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}}
-  .num{{font-variant-numeric:tabular-nums}}
   header p.lede{{font-size:17px;margin:14px 0 0}}
   .chips{{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}}
   .chip{{font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line);padding:4px 10px;border-radius:3px;color:var(--muted)}}
@@ -625,19 +338,6 @@ def build(all_runs):
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
   .takeaway{{font-size:14.5px;margin:14px 0 0}}
   .takeaway b{{color:var(--ink)}}
-  .tablewrap{{overflow-x:auto}}
-  table{{border-collapse:collapse;width:100%;min-width:640px}}
-  th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
-  td{{padding:7px 10px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}}
-  td.task{{font-family:var(--mono);font-size:12.5px;white-space:nowrap}}
-  .cond{{font-family:var(--mono);font-size:11px}}
-  .cond.b{{color:var(--baseline)}} .cond.m{{color:var(--mcp)}}
-  .barcell{{min-width:170px}}
-  .bar{{height:9px;border-radius:2px}}
-  .bar.b{{background:var(--baseline)}} .bar.m{{background:var(--mcp)}}
-  .barrow{{display:flex;align-items:center}}
-  .barlabel{{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap}}
-  .assists{{display:flex;gap:22px;font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}}
   .findings{{display:flex;flex-direction:column;gap:18px}}
   .finding h3{{font-size:14px;margin-bottom:4px}}
   .finding p{{margin:0;font-size:14px}}
@@ -672,11 +372,7 @@ def build(all_runs):
 
 {findings_html}
 
-{sonnet_html}
-
 {generalize_html}
-
-{k3_html}
 
 <section>
   <div class="split">
