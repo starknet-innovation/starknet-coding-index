@@ -334,6 +334,35 @@ def build(all_runs):
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
+    # Fair questions: the priors readers arrive with, answered by one number
+    FAQ = [
+        ("Grok over Fable? Isn't Fable stronger?", "9× cheaper",
+         "Both solve 100% and Fable one-shots more (96% vs 73%). The suite is saturated, "
+         "so the bill decides: $0.009 vs $0.087 per task. Harder work than these 13 tasks "
+         "might rank them differently."),
+        ("MiMo over Kimi K3? K3 is newer and 3× bigger", "14× cheaper, 5× faster",
+         "Both 100% correct. Serving 2.8T weights is the handicap: 97s and $0.061 per task "
+         "vs 19s and $0.0044 with MiMo's 42B-active MoE."),
+        ("Best result with thinking off?", "+0 solves",
+         "That is what thinking buys a saturated model, while still billing time and money. "
+         "One model even inverts: Haiku drops from 89% to 66% with a big budget."),
+        ("Why is Qwen so far behind?", "27B",
+         "Smallest model here by 10×, and it never learned Cairo: 23% correct, zero one-shots. "
+         "Docs nearly triple it (+23.1), the signature of a knowledge floor."),
+        ("Sol mid-pack? It rivals Fable elsewhere", "19% one-shot",
+         "Knowledge is perfect (100% correct); habits are not. Sol pays 3 to 4 compiler "
+         "round-trips per task at flagship pricing, and the index prices the whole workflow."),
+    ]
+    faq_cards = "".join(
+        f'<div class="faqcard"><div class="q">{q}</div><div class="stat">{stat}</div><p>{a}</p></div>'
+        for q, stat, a in FAQ
+    )
+    faq_html = f"""
+<section>
+  <h2>Fair questions</h2>
+  <div class="faq">{faq_cards}</div>
+</section>"""
+
     # Head to head: the ranking's best closed model vs best open model,
     # picked dynamically so a leaderboard shake-up updates the section
     best_closed = next(r for r in sci_rows if not r["open_weight"])
@@ -540,6 +569,12 @@ def build(all_runs):
   th.r,td.r{{text-align:right}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
+  .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
+  .faqcard:last-child{{grid-column:1/-1}}
+  .faqcard .q{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}}
+  .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--mcp);letter-spacing:-.02em;margin:4px 0 2px}}
+  .faqcard p{{margin:0;font-size:13.5px}}
+  @media(max-width:760px){{.faq{{grid-template-columns:1fr}}}}
   .findings{{display:flex;flex-direction:column;gap:18px}}
   .finding h3{{font-size:14px;margin-bottom:4px}}
   .finding p{{margin:0;font-size:14px}}
@@ -572,6 +607,8 @@ def build(all_runs):
 {score_html}
 
 {sci_html}
+
+{faq_html}
 
 {h2h_html}
 
