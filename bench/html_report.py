@@ -560,24 +560,17 @@ def build(all_runs):
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Green label arrows (▲) mark models that climb the ranking once the tool is in play, versus their baseline-only position. Every bar is measured in both conditions — the two flagships' small negative deltas come from runs in which they never consulted the tool at all.</p>
+  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b> — possibly a different thinking level, so bars carry no effort label.</p>
   <p class="charttitle">What does the Cairo Coder MCP add? — best config per model, without vs with the tool</p>
   {mcp_lift_chart(lift_pairs)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
+  <p class="takeaway" style="margin-top:12px">How to read it: a coral segment is the score the tool adds; a grey −x.x means the tool makes that model's best configuration worse (the bar stays at the baseline). Green arrows (▲) mark models that climb the ranking once the tool is in play. Lookup wait counts as latency; every bar is measured in both conditions — the flagships' small negative deltas come from runs where they never consulted the tool at all.</p>
   <p class="takeaway">{lift_takeaway}</p>
 </section>"""
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 6px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone (no documentation tool) with a compile-and-repair budget of 10 turns and 15 minutes of model time — a run that needs more than 15 minutes of thinking is a failure, however its tests end up.</p>
-  <p class="takeaway" style="margin:0 0 6px">Where several thinking variants were benchmarked, the chart shows the model's <b>best-scoring variant</b>, labeled in parentheses (models with one fixed mode show that mode — Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The score blends five measurements:</p>
-  <ul class="meta" style="margin-bottom:14px">
-    <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
-    <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
-    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%})</b> — median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
-    <li><b>Token efficiency ({w_["tokens"]:.0%})</b> — median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
-  </ul>
-  <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
+  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today" — each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
   <p class="charttitle">Starknet Coding Index — {len(sci_rows)} models, best thinking variant, no assistance</p>
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
@@ -585,6 +578,14 @@ def build(all_runs):
   <p class="takeaway">The best variant is usually the cheapest one: GLM 5.2 and Hy3 peak at <code>@low</code>; Sonnet 5 and DeepSeek V4-Pro peak with thinking <code>off</code> — DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money.</p>
   <p class="takeaway"><b>OpenAI's ladder — Luna (#10), Terra (#9), Sol (#7) — is a knowledge ladder with sticky habits.</b> Off-tier correctness climbs 79.5% → 89.7% → 100% with scale, but the iterate-against-the-compiler habit barely bends: the smaller two never one-shot and Sol manages only 12–23%, so perfect correctness at flagship pricing still can't crack the top five. The family's <code>pro</code> serving modes remain strictly dominated. Google's <b>Gemini 3.6 Flash (#6)</b> pairs perfect correctness with near-best latency but thinks in volume — 2–5× MiMo's output tokens per task.</p>
   <p class="takeaway"><b>Anthropic's ladder tells the opposite story.</b> Haiku 4.5 (#12) keeps the family trait — thinking off is its best mode — but sheds 20 correctness points against Sonnet and adds a failure mode its siblings lack: given a big thinking budget it overthinks its way from 89% down to 66%.</p>
+  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px">How the score is built</h3>
+  <ul class="meta" style="margin-bottom:8px">
+    <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
+    <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
+    <li><b>Speed ({w_["speed"]:.0%})</b> and <b>cost ({w_["cost"]:.0%})</b> — median model latency (time spent waiting on the model's API, excluding this harness's local compile/test) and median $ per task, scored 100→0 on fixed log scales ({a["speed"][0]}s→{a["speed"][1]}s, ${a["cost"][0]}→${a["cost"][1]}).</li>
+    <li><b>Token efficiency ({w_["tokens"]:.0%})</b> — median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
+  </ul>
+  <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
 </section>"""
 
     findings_html = """
@@ -618,7 +619,8 @@ def build(all_runs):
   *{{box-sizing:border-box}}
   body{{background:var(--ground);color:var(--ink);font-family:var(--sans);margin:0;padding:40px 20px 80px;line-height:1.55}}
   main{{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:26px}}
-  h1,h2,h3{{font-family:var(--mono);font-weight:600;text-wrap:balance;margin:0}}
+  /* no text-wrap:balance anywhere: it hangs some Chromium builds on these headings */
+  h1,h2,h3{{font-family:var(--mono);font-weight:600;margin:0}}
   h1{{font-size:27px;letter-spacing:-.02em}}
   h2{{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}}
   .num{{font-variant-numeric:tabular-nums}}
@@ -635,10 +637,10 @@ def build(all_runs):
   .card .what{{font-size:13px;color:var(--muted);max-width:24ch}}
   .legend{{display:flex;gap:18px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap}}
   .legend-bottom{{justify-content:center;margin:10px 0 0}}
-  .charttitle{{font-family:var(--mono);font-size:16px;font-weight:600;text-align:center;margin:8px 0 6px;text-wrap:balance}}
+  .charttitle{{font-family:var(--mono);font-size:16px;font-weight:600;text-align:center;margin:8px 0 6px}}
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
   .takeaway{{font-size:14.5px;max-width:76ch;margin:14px 0 0}}
-  .takeaway b{{color:var(--mcp)}}
+  .takeaway b{{color:var(--ink)}}
   .tablewrap{{overflow-x:auto}}
   table{{border-collapse:collapse;width:100%;min-width:640px}}
   th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
@@ -667,7 +669,7 @@ def build(all_runs):
 <main>
 <header>
   <h1>The Starknet Coding Index — and what documentation access adds</h1>
-  <p class="lede">Fifteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, and OpenAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} hidden-test smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Two headlines: <b>Opus 4.8 leads the index at 90.5</b>, the first model to one-shot the whole suite; and <b>the tool's value tracks the model's Cairo knowledge gap</b> — from +12 index points for the weakest entrant to nothing at the saturated top.</p>
+  <p class="lede">Sixteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, OpenAI, and xAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} hidden-test smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Two headlines: <b>Grok 4.5 leads the index at 90.8</b>, a statistical tie with Opus 4.8 decided by economics; and <b>the tool's value tracks the model's Cairo knowledge gap</b> — from +23 index points for the weakest entrant to nothing at the saturated top.</p>
   <div class="chips">
     <span class="chip">models <b>16</b></span>
     <span class="chip">labs <b>11</b></span>
