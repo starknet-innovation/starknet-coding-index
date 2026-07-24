@@ -244,6 +244,53 @@ def head_to_head_chart(metrics, w=760):
 
 
 
+def pass_stats_chart(rows, w=760):
+    """One row per model (SCI order), three aligned horizontal-bar columns:
+    1-shot rate, cost per pass, model time per pass. Values are the median
+    complete benchmark pass of the winning variant (same numbers as the
+    chart-1 tooltips). Bars scale per column to that metric's max.
+    """
+    pad_l, pad_r, pad_t = 170, 16, 30
+    row_h, bar_h, col_gap = 26, 12, 26
+    col_w = (w - pad_l - pad_r - 2 * col_gap) / 3
+    label_room = 56
+    bar_max = col_w - label_room
+    h = pad_t + len(rows) * row_h + 6
+    metrics = [
+        ("1-SHOT", lambda t: t["oneshot"], lambda t: f'{t["oneshot"]:.0f}%'),
+        ("COST / PASS", lambda t: t["cost"], lambda t: f'${t["cost"]:.2f}'),
+        ("MODEL TIME / PASS", lambda t: t["secs"], lambda t: t["time"]),
+    ]
+    parts = [svg_open(w, h)]
+    for j, (title, val, _) in enumerate(metrics):
+        x0 = pad_l + j * (col_w + col_gap)
+        parts.append(
+            f'<text x="{x0:.0f}" y="12" font-size="10.5" fill="{MUTED}" '
+            f'letter-spacing=".07em">{title}</text>'
+        )
+    for j in range(3):
+        maxv = max(metrics[j][1](r["tip"]) for r in rows) or 1
+        x0 = pad_l + j * (col_w + col_gap)
+        for i, r in enumerate(rows):
+            t = r["tip"]
+            y = pad_t + i * row_h
+            color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
+            bw = max(2, metrics[j][1](t) / maxv * bar_max)
+            parts.append(f'<rect x="{x0:.0f}" y="{y}" width="{bw:.1f}" height="{bar_h}" rx="2" fill="{color}"/>')
+            parts.append(
+                f'<text x="{x0 + bw + 6:.0f}" y="{y + bar_h / 2:.0f}" font-size="10.5" fill="{INK}" '
+                f'dominant-baseline="middle">{metrics[j][2](t)}</text>'
+            )
+    for i, r in enumerate(rows):
+        y = pad_t + i * row_h + bar_h / 2
+        parts.append(
+            f'<text x="{pad_l - 12}" y="{y:.0f}" font-size="11" fill="{INK}" '
+            f'text-anchor="end" dominant-baseline="middle">{r["label"]}</text>'
+        )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def attempts_chart(groups, w=760, h=210):
     """Grouped columns: median attempts per task difficulty, one pair of
     columns (closed grey, open blue) per tier. Y axis in whole attempts.
@@ -325,6 +372,7 @@ def build(all_runs):
             "passes": len(passes),
             "oneshot": med_of([100 * sum(1 for x in rs if x["solved"] and x["turns"] == 1) / n_tasks for rs in passes]),
             "cost": med_of([sum(x["cost_usd"] or 0 for x in rs) for rs in passes]),
+            "secs": secs,
             "time": f"{int(secs // 60)}m {int(secs % 60):02d}s",
         }
     a = SCI_SPEC["anchors"]
@@ -396,6 +444,14 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {tip_js}
 </section>"""
+    pass_html = f"""
+<section>
+  <h2>Behind the score</h2>
+  <p class="takeaway" style="margin:0 0 14px">The winning variants unpacked: each model's median complete pass of the 13-task suite (over its 2 to 3 passes, baseline condition). Same numbers as the chart tooltips above.</p>
+  {pass_stats_chart(big_rows)}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span><span>cost and time: lower is better</span></div>
+</section>"""
+
     # Fair questions: the priors readers arrive with, answered by one number
     FAQ = [
         ("Grok over Fable? Isn't Fable stronger?", "9× cheaper",
@@ -672,6 +728,8 @@ def build(all_runs):
 {score_html}
 
 {sci_html}
+
+{pass_html}
 
 {faq_html}
 
