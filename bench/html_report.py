@@ -408,7 +408,7 @@ def build(all_runs):
 </section>"""
 
     return f"""<title>Starknet Coding Index — Cairo Coder Benchmark</title>
-<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs, 16 models: Grok 4.5 leads the index at 90.8; the Cairo Coder MCP pays exactly where a model's Cairo knowledge runs out.">
+<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across 16 models from 11 labs, on 13 hidden-test Cairo tasks — with and without the Cairo Coder documentation tool.">
 <style>
   :root{{
     --ground:#F6F7F9; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
@@ -454,7 +454,7 @@ def build(all_runs):
 <main>
 <header>
   <h1>The Starknet Coding Index</h1>
-  <p class="lede">Sixteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, OpenAI, and xAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} hidden-test smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Two headlines: <b>Grok 4.5 leads the index at 90.8</b>, a statistical tie with Opus 4.8 decided by economics; and <b>the tool's value tracks the model's Cairo knowledge gap</b> — from +23 index points for the weakest entrant to nothing at the saturated top.</p>
+  <p class="lede">Sixteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, OpenAI, and xAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Each run is a bare agentic loop: the model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool — <b><code>submit</code></b>. Every submission is compiled (<code>scarb build</code>) and run against hidden <code>snforge</code> tests, and the model sees the raw compiler errors and failing-test output — never the test code — then may resubmit, within 10 turns and 15 minutes of model time. In the MCP condition a second tool, <b><code>assist_with_cairo</code></b>, adds documentation search over the Cairo/Starknet corpus.</p>
   <div class="chips">
     <span class="chip">models <b>16</b></span>
     <span class="chip">labs <b>11</b></span>
