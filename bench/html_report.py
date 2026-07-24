@@ -245,14 +245,14 @@ def head_to_head_chart(metrics, w=760):
 
 
 def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
-                     pad_l=64, stagger=False):
+                     pad_l=64):
     """Chart-1-styled column chart for an arbitrary per-model metric: same
     geometry, angled "Model (variant)" labels, value above each column,
     open/closed palette. y runs 0..y_max with (value, label) ticks supplied
     by the caller. Rows are rendered in the order given. pad_l must cover the
     FIRST column's rotated label (it can be the longest name here, unlike
-    chart 1 where rank order puts a short one first); stagger alternates
-    value-label heights for wide labels over similar values.
+    chart 1 where rank order puts a short one first). Value labels must stay
+    narrow (<= ~5 chars) or neighbors collide at 16 columns.
     """
     pad_r, pad_t, pad_b = 40, 26, 115
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
@@ -272,8 +272,13 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
         top = sy(v)
         color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
         parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{max(1, sy(0) - top):.1f}" rx="3" fill="{color}"/>')
-        dy = 8 if not stagger or i % 2 == 0 else 21
-        parts.append(f'<text x="{cx:.0f}" y="{top - dy:.0f}" font-size="10.5" font-weight="600" fill="{INK}" text-anchor="middle">{fmt_fn(v)}</text>')
+        # fmt_fn may return a tuple of lines (e.g. minutes over seconds),
+        # stacked upward from the bar top so neighbors never collide
+        label = fmt_fn(v)
+        lines = label if isinstance(label, (list, tuple)) else (label,)
+        for k, ln in enumerate(lines):
+            ly_val = top - 8 - (len(lines) - 1 - k) * 12
+            parts.append(f'<text x="{cx:.0f}" y="{ly_val:.0f}" font-size="10.5" font-weight="600" fill="{INK}" text-anchor="middle">{ln}</text>')
         ly = sy(0) + 12
         variant = (
             f' <tspan fill="{MUTED}" font-family="var(--mono)">({r["variant"]})</tspan>'
@@ -444,7 +449,9 @@ def build(all_runs):
     h3_style = 'style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 4px"'
     cost_max = math.ceil(max(r["tip"]["cost"] for r in big_rows) / 0.5) * 0.5
     time_max_m = math.ceil(max(r["tip"]["secs"] for r in big_rows) / 60 / 20) * 20
-    mins = lambda s: (f"{int(s // 60)}m {int(s % 60):02d}s" if s < 3600 else f"{int(s // 60)}m")
+    # two lines (minutes over seconds): full precision without the width
+    # that made single-line "3m 32s" labels collide at 16 columns
+    mins = lambda s: (f"{int(s // 60)}m", f"{int(s % 60):02d}s")
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
@@ -461,7 +468,7 @@ def build(all_runs):
   {metric_bar_chart(sorted(big_rows, key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
                     time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)],
-                    pad_l=110, stagger=True)}
+                    pad_l=110)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
