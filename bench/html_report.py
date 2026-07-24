@@ -364,11 +364,11 @@ def build(all_runs):
   </div>
 </header>
 
+{score_html}
+
 {sci_html}
 
 {lift_html}
-
-{score_html}
 
 {findings_html}
 
