@@ -271,6 +271,21 @@
    "type": null,
    "params_total": null,
    "params_active": null
+  },
+  "anthropic/claude-opus-5": {
+   "name": "Claude Opus 5",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 5.0,
+    "output": 25.0,
+    "cache_read": 0.5,
+    "cache_write": 6.25
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
   }
  },
  "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T lab-stated, repo gated; Hy3 295B/21B and Qwen 27B dense lab-stated."

@@ -81,6 +81,13 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high"],
      # small: rendered in the report's small-models section, not the main charts
      "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
+    # Probe 2026-07-24: adaptive-Anthropic signature (all variants identical on
+    # the probe, @disabled honored). Bracket: 78/78 solved, 0 tiebreaks; low =
+    # interior winner (91.5, 100% one-shot, speed 96). -fast serving tier
+    # skipped per the Opus 4.8 precedent and pro-modes-dominated finding.
+    {"specs": ["anthropic/claude-opus-5@disabled", "anthropic/claude-opus-5@low",
+               "anthropic/claude-opus-5@high"],
+     "label": "Opus 5", "lab": "Anthropic", "open_weight": False},
     # Probe 2026-07-24: full reasoning surface accepted incl. @disabled; output
     # and latency scale with the dial. Max: flat correctness, off wins on SCI
     # (edge = floor, ladder closed). Plus: real curve, high interior winner
