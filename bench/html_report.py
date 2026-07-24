@@ -561,8 +561,9 @@ def build(all_runs):
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 6px">Same index, second question: take each model at its <b>best thinking configuration without the tool</b> (solid bar) and compare it to its <b>best configuration with the tool</b> — which may be a different thinking level, so bars carry no effort label. A coral segment is the score the documentation tool adds; where the tool makes the best configuration <b>worse</b>, the bar stays at the baseline and a red −x.x quantifies the cost of using it. MCP-condition scoring counts documentation-lookup wait as latency. Green label arrows (▲) mark models that climb the ranking once the tool is in play, versus their baseline-only position. Every bar is measured in both conditions — the two flagships' small negative deltas come from runs in which they never consulted the tool at all.</p>
-  <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
+  <p class="charttitle">What does the Cairo Coder MCP add? — best config per model, without vs with the tool</p>
   {mcp_lift_chart(lift_pairs)}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   <p class="takeaway">{lift_takeaway}</p>
 </section>"""
     sci_html = f"""
@@ -577,8 +578,9 @@ def build(all_runs):
     <li><b>Token efficiency ({w_["tokens"]:.0%})</b> — median output tokens per task ({a["tokens"][0] // 1000}k→{a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</li>
   </ul>
   <p class="takeaway" style="margin:0 0 14px">The scales are fixed, not relative — adding a new model later never changes an existing score.</p>
-  <div class="legend"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
+  <p class="charttitle">Starknet Coding Index — {len(sci_rows)} models, best thinking variant, no assistance</p>
   {sci_bar_chart(sci_rows)}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   <p class="takeaway"><b>Grok 4.5 leads at 90.8</b> — a statistical tie with Opus 4.8 (90.5) decided by economics: identical perfect correctness, but under a cent per task against Opus's ~$0.045 (cost score 78 vs 49). <b>Opus keeps the record that money can't buy</b>: the only model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). <b>Fable 5 (#2) ties it on every component except the bill</b>: same correctness, speed, and token profile, but at 2× the price its cost score decides the race — Anthropic's two flagships are separated by pricing alone. <b>MiMo-V2.5-Pro (#3) remains the open-weight champion</b>, ~20× cheaper per task than the leaders, and <b>Sonnet 5 (#4)</b> matches everyone's correctness at the field's best latency.</p>
   <p class="takeaway">The best variant is usually the cheapest one: GLM 5.2 and Hy3 peak at <code>@low</code>; Sonnet 5 and DeepSeek V4-Pro peak with thinking <code>off</code> — DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money.</p>
   <p class="takeaway"><b>OpenAI's ladder — Luna (#10), Terra (#9), Sol (#7) — is a knowledge ladder with sticky habits.</b> Off-tier correctness climbs 79.5% → 89.7% → 100% with scale, but the iterate-against-the-compiler habit barely bends: the smaller two never one-shot and Sol manages only 12–23%, so perfect correctness at flagship pricing still can't crack the top five. The family's <code>pro</code> serving modes remain strictly dominated. Google's <b>Gemini 3.6 Flash (#6)</b> pairs perfect correctness with near-best latency but thinks in volume — 2–5× MiMo's output tokens per task.</p>
@@ -632,6 +634,8 @@ def build(all_runs):
   .card .big small{{font-size:20px;color:var(--muted);font-weight:400}}
   .card .what{{font-size:13px;color:var(--muted);max-width:24ch}}
   .legend{{display:flex;gap:18px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap}}
+  .legend-bottom{{justify-content:center;margin:10px 0 0}}
+  .charttitle{{font-family:var(--mono);font-size:16px;font-weight:600;text-align:center;margin:8px 0 6px;text-wrap:balance}}
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
   .takeaway{{font-size:14.5px;max-width:76ch;margin:14px 0 0}}
   .takeaway b{{color:var(--mcp)}}
