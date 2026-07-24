@@ -201,6 +201,38 @@ def mcp_lift_chart(pairs, w=760, h=359):
 
 
 
+def head_to_head_chart(metrics, w=760):
+    """Paired horizontal bars, one group per metric: closed champion (grey)
+    over open champion (blue). Bars are scaled per row to the larger of the
+    pair — the point is the ratio within a metric, not across metrics.
+
+    metrics: [(label, val_closed, val_open, fmt)] with fmt a callable.
+    """
+    pad_l, pad_r, pad_t = 150, 76, 10
+    bar_h, pair_gap, group_gap = 13, 4, 22
+    group_h = bar_h * 2 + pair_gap
+    h = pad_t * 2 + len(metrics) * group_h + (len(metrics) - 1) * group_gap
+    bw_max = w - pad_l - pad_r
+    parts = [svg_open(w, h)]
+    for gi, (label, va, vb, fmt) in enumerate(metrics):
+        gy = pad_t + gi * (group_h + group_gap)
+        parts.append(
+            f'<text x="{pad_l - 12}" y="{gy + group_h / 2:.0f}" font-size="11.5" fill="{INK}" '
+            f'text-anchor="end" dominant-baseline="middle">{label}</text>'
+        )
+        top = max(va, vb) or 1
+        for row, (v, color) in enumerate([(va, SCI_CLOSED_COLOR), (vb, SCI_OPEN_COLOR)]):
+            y = gy + row * (bar_h + pair_gap)
+            bw = max(2, v / top * bw_max)
+            parts.append(f'<rect x="{pad_l}" y="{y}" width="{bw:.1f}" height="{bar_h}" rx="2" fill="{color}"/>')
+            parts.append(
+                f'<text x="{pad_l + bw + 7:.0f}" y="{y + bar_h / 2:.0f}" font-size="11" fill="{INK}" '
+                f'font-family="var(--mono)" dominant-baseline="middle">{fmt(v)}</text>'
+            )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 # ---------------------------------------------------------------- build page
 
 
@@ -273,6 +305,44 @@ def build(all_runs):
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
+    # Head to head: the ranking's best closed model vs best open model,
+    # picked dynamically so a leaderboard shake-up updates the section
+    best_closed = next(r for r in sci_rows if not r["open_weight"])
+    best_open = next(r for r in sci_rows if r["open_weight"])
+
+    def h2h_stats(spec):
+        rs = [r for r in all_runs if r["model"] == spec and r["condition"] == "baseline"]
+        times = sorted(r["llm_time_s"] + (r.get("assist_time_s") or 0) for r in rs)
+        costs = sorted(r["cost_usd"] for r in rs if r["cost_usd"] is not None)
+        toks = sorted(r["completion_tokens"] for r in rs if r["completion_tokens"])
+        med = lambda v: v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2
+        return {
+            "n": len(rs),
+            "solve": solve_pct(rs),
+            "oneshot": 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs),
+            "time": med(times), "time_p90": times[int(0.9 * (len(times) - 1))],
+            "cost": med(costs), "tokens": med(toks),
+        }
+
+    sa, sb = h2h_stats(best_closed["spec"]), h2h_stats(best_open["spec"])
+    pct = lambda v: f"{v:.0f}%"
+    secs = lambda v: f"{v:.0f}s"
+    h2h_metrics = [
+        ("solve rate", sa["solve"], sb["solve"], pct),
+        ("one-shot rate", sa["oneshot"], sb["oneshot"], pct),
+        ("med. model time", sa["time"], sb["time"], secs),
+        ("p90 model time", sa["time_p90"], sb["time_p90"], secs),
+        ("med. cost / task", sa["cost"], sb["cost"], lambda v: f"${v:.4f}"),
+        ("med. output tokens", sa["tokens"], sb["tokens"], lambda v: f"{v:,.0f}"),
+    ]
+    h2h_html = f"""
+<section>
+  <h2>Head to head — best closed vs best open weights</h2>
+  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions — <b>{best_closed["label"]} ({best_closed["variant"]})</b>, {best_closed["lab"]}, and <b>{best_open["label"]} ({best_open["variant"]})</b>, {best_open["lab"]} — both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
+  {head_to_head_chart(h2h_metrics)}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}) — closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}) — open</span><span>bars scaled per row; time, cost, tokens: lower is better</span></div>
+</section>"""
+
     # score definition applies to both charts above, so it gets its own section
     score_html = f"""
 <section>
@@ -366,6 +436,8 @@ def build(all_runs):
 {score_html}
 
 {sci_html}
+
+{h2h_html}
 
 {lift_html}
 
