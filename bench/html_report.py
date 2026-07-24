@@ -715,8 +715,7 @@ def build(all_runs):
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
   #tip b{{font-weight:700}}
   .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
-  .scorecards{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 22px}}
-  .scorecards .faqcard:first-child{{grid-column:1/-1}}
+  .scorecards{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 20px}}
   @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
   .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
   .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--mcp);letter-spacing:-.02em;margin:4px 0 2px}}
