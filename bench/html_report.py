@@ -392,17 +392,17 @@ def build(all_runs):
 <section class="findings">
   <h2>Findings</h2>
   <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness across all thirteen measured models: +12.1 for the weakest entrant (Qwen3.6-27B), +4.3 for Haiku 4.5 (the first closed-model gain), fading to zero at the saturated top (MiMo, K3, Opus-class models).</p>
+  <p>Documentation lift lines up with baseline weakness across all sixteen models: +23.1 for the weakest entrant (Qwen3.6-27B), +10.1 for Hy3, +6.4 for GLM 5.2, +5.1 for MiniMax, +4.3 for Haiku 4.5 (the largest closed-model gain), fading to zero and below at the saturated top (Grok, the Opus-class models, MiMo, K3).</p>
   <p>Two refinements from the closed models: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier), and saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6).</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness: run the cheapest tier that holds it</h3>
-  <p>Five patterns across fifteen models: adaptive thinkers that ignore the dial (Sonnet 5, Opus 4.8, Fable 5), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). In twelve of fifteen models the index-best variant is the cheapest tier that holds correctness.</p></div>
+  <p>Five patterns across sixteen models: thinkers whose dial never moves correctness (Sonnet 5, Opus 4.8, Fable 5, and Grok 4.5, where it only nudges one-shot rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax), and one inverted curve (Haiku overthinks itself from 89% to 66%). Almost everywhere the index-best variant is the cheapest tier that holds correctness; Grok is the exception, where <code>max</code> pays for itself in one-shots.</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
   <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs. A habit is not a knowledge gap.</p>
   <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−1.2 to −1.9, pure schema overhead) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>
-  <div class="finding"><h3><span class="tag win">effectiveness</span>In the GLM study, baseline failures are training-data lag, and the tool fixes exactly that</h3>
-  <p>GLM 5.2's failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it; net effect was lower median cost at 4 of 5 effort settings, with lookups rising as thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off).</p></div>
+  <div class="finding"><h3><span class="tag win">effectiveness</span>Why the tool works: baseline failures are training-data lag</h3>
+  <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (~1,300 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
@@ -475,9 +475,9 @@ def build(all_runs):
 
 {lift_html}
 
-{findings_html}
-
 {generalize_html}
+
+{findings_html}
 
 <section>
   <div class="split">
