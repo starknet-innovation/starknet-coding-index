@@ -546,30 +546,12 @@ def build(all_runs):
         (label, base, mcp, open_w, base_rank[label] - i)
         for i, (label, base, mcp, open_w) in enumerate(lift_pairs)
     ]
-    gains = [(l, m - b) for l, b, m, _, _ in lift_pairs if m is not None and m > b]
-    flat = [l for l, b, m, _, _ in lift_pairs if m is not None and m <= b]
-    unmeasured = [l for l, b, m, _, _ in lift_pairs if m is None]
-    gains_txt = ", ".join(f"<b>{l} +{g:.1f}</b>" for l, g in sorted(gains, key=lambda x: -x[1]))
-    lift_takeaway = (
-        f"<b>The tool pays where knowledge runs out — in either weight class.</b> Gains: {gains_txt}. "
-        f"No improvement for {', '.join(flat)}: for the saturated ones documentation lookups only add "
-        "latency, and GPT-5.6 Luna marks the law's boundary — it knows Cairo (97.4% correct) but never "
-        "one-shots, and a documentation lookup cannot fix a habit. Two nuances the closed models added: "
-        "a gain doesn't require missing knowledge (Gemini and Sol are 100% correct with or without the tool, "
-        "but docs shorten their repair loops enough to win on efficiency), and the law applies per "
-        "<i>variant</i>, not per model (Terra's best tier is its unsaturated <code>off</code> mode, where "
-        "docs buy real solves)."
-        + (f" Not yet measured with the tool: {', '.join(unmeasured)} — shown for scale."
-           if unmeasured else "")
-    )
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b> — possibly a different thinking level, so bars carry no effort label.</p>
   {mcp_lift_chart(lift_pairs)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
-  <p class="takeaway" style="margin-top:12px">How to read it: a coral segment is the score the tool adds; a grey −x.x means the tool makes that model's best configuration worse (the bar stays at the baseline). Green arrows (▲) mark models that climb the ranking once the tool is in play. Lookup wait counts as latency; every bar is measured in both conditions — the flagships' small negative deltas come from runs where they never consulted the tool at all.</p>
-  <p class="takeaway">{lift_takeaway}</p>
 </section>"""
     sci_html = f"""
 <section>
@@ -577,11 +559,11 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today" — each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
-  <p class="takeaway"><b>Grok 4.5 leads at 90.8</b> — a statistical tie with Opus 4.8 (90.5) decided by economics: identical perfect correctness, but under a cent per task against Opus's ~$0.045 (cost score 78 vs 49). <b>Opus keeps the record that money can't buy</b>: the only model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). <b>Fable 5 (#2) ties it on every component except the bill</b>: same correctness, speed, and token profile, but at 2× the price its cost score decides the race — Anthropic's two flagships are separated by pricing alone. <b>MiMo-V2.5-Pro (#3) remains the open-weight champion</b>, ~20× cheaper per task than the leaders, and <b>Sonnet 5 (#4)</b> matches everyone's correctness at the field's best latency.</p>
-  <p class="takeaway">The best variant is usually the cheapest one: GLM 5.2 and Hy3 peak at <code>@low</code>; Sonnet 5 and DeepSeek V4-Pro peak with thinking <code>off</code> — DeepSeek holds ~97% correctness without reasoning at all, at 2–4× less time and money.</p>
-  <p class="takeaway"><b>OpenAI's ladder — Luna (#10), Terra (#9), Sol (#7) — is a knowledge ladder with sticky habits.</b> Off-tier correctness climbs 79.5% → 89.7% → 100% with scale, but the iterate-against-the-compiler habit barely bends: the smaller two never one-shot and Sol manages only 12–23%, so perfect correctness at flagship pricing still can't crack the top five. The family's <code>pro</code> serving modes remain strictly dominated. Google's <b>Gemini 3.6 Flash (#6)</b> pairs perfect correctness with near-best latency but thinks in volume — 2–5× MiMo's output tokens per task.</p>
-  <p class="takeaway"><b>Anthropic's ladder tells the opposite story.</b> Haiku 4.5 (#12) keeps the family trait — thinking off is its best mode — but sheds 20 correctness points against Sonnet and adds a failure mode its siblings lack: given a big thinking budget it overthinks its way from 89% down to 66%.</p>
-  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px">How the score is built</h3>
+</section>"""
+    # score definition applies to both charts above, so it gets its own section
+    score_html = f"""
+<section>
+  <h2>How the score is built</h2>
   <ul class="meta" style="margin-bottom:8px">
     <li><b>Correctness ({w_["correct"]:.0%})</b> — average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</li>
     <li><b>One-shot rate ({w_["oneshot"]:.0%})</b> — share of runs solved on the very first submission, no compiler feedback needed.</li>
@@ -685,6 +667,8 @@ def build(all_runs):
 {sci_html}
 
 {lift_html}
+
+{score_html}
 
 {findings_html}
 
