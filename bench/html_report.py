@@ -104,8 +104,10 @@ def sci_bar_chart(rows, w=760, h=404):
     """
     # pad_l sized for the leftmost column's angled label, not just the y-axis
     # ticks — rendered label widths run ~15% over naive char-count estimates
-    # (mono parenthetical + sans fallback), which clipped "Opus" at pad_l=48
-    pad_l, pad_r, pad_t, pad_b = 64, 12, 26, 130
+    # (mono parenthetical + sans fallback), which clipped "Opus" at pad_l=48.
+    # pad_r balances the ~36px of whitespace left of the tick labels so the
+    # bar block reads centered.
+    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 130
     cw = w - pad_l - pad_r
     ch = h - pad_t - pad_b
     n = len(rows)
@@ -147,7 +149,8 @@ def mcp_lift_chart(pairs, w=760, h=404):
     pairs: (label, sci_base, sci_mcp_or_None, open_weight, rank_delta) where
     rank_delta is places moved vs the baseline-only ranking (+ = up).
     """
-    pad_l, pad_r, pad_t, pad_b = 64, 12, 26, 130
+    # pad_r balances the whitespace left of the tick labels (see sci_bar_chart)
+    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 130
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
     n = len(pairs)
     col_w = cw / n
@@ -561,7 +564,7 @@ def build(all_runs):
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b> — possibly a different thinking level, so bars carry no effort label.</p>
-  <p class="charttitle">What does the Cairo Coder MCP add? — best config per model, without vs with the tool</p>
+  <p class="charttitle">Index score without vs with the Cairo Coder MCP</p>
   {mcp_lift_chart(lift_pairs)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   <p class="takeaway" style="margin-top:12px">How to read it: a coral segment is the score the tool adds; a grey −x.x means the tool makes that model's best configuration worse (the bar stays at the baseline). Green arrows (▲) mark models that climb the ranking once the tool is in play. Lookup wait counts as latency; every bar is measured in both conditions — the flagships' small negative deltas come from runs where they never consulted the tool at all.</p>
@@ -571,7 +574,7 @@ def build(all_runs):
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today" — each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
-  <p class="charttitle">Starknet Coding Index — {len(sci_rows)} models, best thinking variant, no assistance</p>
+  <p class="charttitle">Starknet Coding Index — best score per model</p>
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   <p class="takeaway"><b>Grok 4.5 leads at 90.8</b> — a statistical tie with Opus 4.8 (90.5) decided by economics: identical perfect correctness, but under a cent per task against Opus's ~$0.045 (cost score 78 vs 49). <b>Opus keeps the record that money can't buy</b>: the only model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). <b>Fable 5 (#2) ties it on every component except the bill</b>: same correctness, speed, and token profile, but at 2× the price its cost score decides the race — Anthropic's two flagships are separated by pricing alone. <b>MiMo-V2.5-Pro (#3) remains the open-weight champion</b>, ~20× cheaper per task than the leaders, and <b>Sonnet 5 (#4)</b> matches everyone's correctness at the field's best latency.</p>
@@ -608,7 +611,7 @@ def build(all_runs):
 </section>"""
 
     return f"""<title>Starknet Coding Index — Cairo Coder Benchmark</title>
-<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs, 15 models: Opus 4.8 leads the index at 90.5; the Cairo Coder MCP pays exactly where a model's Cairo knowledge runs out.">
+<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs, 16 models: Grok 4.5 leads the index at 90.8; the Cairo Coder MCP pays exactly where a model's Cairo knowledge runs out.">
 <style>
   :root{{
     --ground:#F6F7F9; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
@@ -624,7 +627,7 @@ def build(all_runs):
   h1{{font-size:27px;letter-spacing:-.02em}}
   h2{{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}}
   .num{{font-variant-numeric:tabular-nums}}
-  header p.lede{{max-width:66ch;font-size:17px;margin:14px 0 0}}
+  header p.lede{{font-size:17px;margin:14px 0 0}}
   .chips{{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}}
   .chip{{font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line);padding:4px 10px;border-radius:3px;color:var(--muted)}}
   .chip b{{color:var(--ink);font-weight:600}}
@@ -639,7 +642,7 @@ def build(all_runs):
   .legend-bottom{{justify-content:center;margin:10px 0 0}}
   .charttitle{{font-family:var(--mono);font-size:16px;font-weight:600;text-align:center;margin:8px 0 6px}}
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
-  .takeaway{{font-size:14.5px;max-width:76ch;margin:14px 0 0}}
+  .takeaway{{font-size:14.5px;margin:14px 0 0}}
   .takeaway b{{color:var(--ink)}}
   .tablewrap{{overflow-x:auto}}
   table{{border-collapse:collapse;width:100%;min-width:640px}}
@@ -656,19 +659,19 @@ def build(all_runs):
   .assists{{display:flex;gap:22px;font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}}
   .findings{{display:flex;flex-direction:column;gap:18px}}
   .finding h3{{font-size:14px;margin-bottom:4px}}
-  .finding p{{margin:0;max-width:80ch;font-size:14px}}
+  .finding p{{margin:0;font-size:14px}}
   .tag{{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:3px;margin-right:8px;vertical-align:1px}}
   .tag.win{{background:#E7F4EE;color:var(--good)}} .tag.cost{{background:#FBEDE8;color:var(--mcp)}} .tag.warn{{background:#F7EFDC;color:#9A7013}}
   code{{font-family:var(--mono);font-size:.92em;background:var(--ground);border:1px solid var(--line);border-radius:3px;padding:1px 5px}}
   .split{{display:grid;grid-template-columns:1fr 1fr;gap:28px}}
   @media(max-width:760px){{.split{{grid-template-columns:1fr}}}}
   ul.meta{{margin:0;padding-left:20px;font-size:13.5px;color:var(--muted)}}
-  ul.meta li{{margin-bottom:7px;max-width:85ch}}
+  ul.meta li{{margin-bottom:7px}}
   ul.meta b{{color:var(--ink)}}
 </style>
 <main>
 <header>
-  <h1>The Starknet Coding Index — and what documentation access adds</h1>
+  <h1>The Starknet Coding Index</h1>
   <p class="lede">Sixteen models — the best open-weight coders from seven labs and the current closed models from Anthropic, Google, OpenAI, and xAI — each ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} hidden-test smart-contract tasks at every useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool. Two headlines: <b>Grok 4.5 leads the index at 90.8</b>, a statistical tie with Opus 4.8 decided by economics; and <b>the tool's value tracks the model's Cairo knowledge gap</b> — from +23 index points for the weakest entrant to nothing at the saturated top.</p>
   <div class="chips">
     <span class="chip">models <b>16</b></span>
