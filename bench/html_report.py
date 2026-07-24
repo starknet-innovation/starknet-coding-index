@@ -424,7 +424,7 @@ def build(all_runs):
     <tr><th>Model</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r">Params</th><th class="r">Active</th><th class="r">Context</th><th class="r">$/M in</th><th class="r">$/M out</th><th class="r">$/M cache</th><th class="r">Obs. tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens; cache is the cache-read price (Grok's prices double above 200k prompt tokens; Anthropic and OpenAI also bill cache writes). Type and parameter counts only as disclosed by the lab; n/a means not disclosed. Obs. tok/s is measured in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens; cache is the cache-read price (Grok's prices double above 200k prompt tokens; Anthropic and OpenAI also bill cache writes). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Obs. tok/s is measured in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
     findings_html = """

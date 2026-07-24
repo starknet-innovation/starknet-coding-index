@@ -28,7 +28,7 @@
     "cache_write": null
    },
    "pricing_note": null,
-   "type": null,
+   "type": "MoE",
    "params_total": "2.8T",
    "params_active": null
   },
@@ -103,7 +103,7 @@
     "cache_write": null
    },
    "pricing_note": null,
-   "type": "MoE (192 experts, top-8)",
+   "type": "MoE",
    "params_total": "295B",
    "params_active": "21B"
   },
@@ -133,9 +133,9 @@
     "cache_write": null
    },
    "pricing_note": null,
-   "type": null,
-   "params_total": null,
-   "params_active": null
+   "type": "MoE",
+   "params_total": "753B",
+   "params_active": "~40B"
   },
   "anthropic/claude-fable-5": {
    "name": "Anthropic: Claude Fable 5",
@@ -163,9 +163,9 @@
     "cache_write": null
    },
    "pricing_note": null,
-   "type": null,
-   "params_total": null,
-   "params_active": null
+   "type": "MoE",
+   "params_total": "428B",
+   "params_active": "23B"
   },
   "anthropic/claude-opus-4.8": {
    "name": "Anthropic: Claude Opus 4.8",
@@ -223,9 +223,9 @@
     "cache_write": null
    },
    "pricing_note": null,
-   "type": null,
-   "params_total": null,
-   "params_active": null
+   "type": "MoE",
+   "params_total": "1.02T",
+   "params_active": "42B"
   },
   "anthropic/claude-haiku-4.5": {
    "name": "Anthropic: Claude Haiku 4.5",
@@ -242,5 +242,6 @@
    "params_total": null,
    "params_active": null
   }
- }
+ },
+ "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T lab-stated, repo gated; Hy3 295B/21B and Qwen 27B dense lab-stated."
 }
