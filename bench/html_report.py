@@ -178,7 +178,9 @@ def mcp_lift_chart(pairs, w=760, h=404):
         if gain:
             top_m = sy(mcp)
             parts.append(top_rounded(x, top_m, top_b, bar_w, CORAL))
-            parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="13.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
+            # absolute with-tool score (comparable across all bars) + the gain
+            parts.append(f'<text x="{cx:.0f}" y="{top_m - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{mcp:.1f}</text>')
+            parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
         elif mcp is not None:
             # measured, no gain: plain value — the absent segment is the verdict
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
