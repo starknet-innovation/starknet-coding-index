@@ -244,48 +244,44 @@ def head_to_head_chart(metrics, w=760):
 
 
 
-def pass_stats_chart(rows, w=760):
-    """One row per model (SCI order), three aligned horizontal-bar columns:
-    1-shot rate, cost per pass, model time per pass. Values are the median
-    complete benchmark pass of the winning variant (same numbers as the
-    chart-1 tooltips). Bars scale per column to that metric's max.
+def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
+                     pad_l=64, stagger=False):
+    """Chart-1-styled column chart for an arbitrary per-model metric: same
+    geometry, angled "Model (variant)" labels, value above each column,
+    open/closed palette. y runs 0..y_max with (value, label) ticks supplied
+    by the caller. Rows are rendered in the order given. pad_l must cover the
+    FIRST column's rotated label (it can be the longest name here, unlike
+    chart 1 where rank order puts a short one first); stagger alternates
+    value-label heights for wide labels over similar values.
     """
-    pad_l, pad_r, pad_t = 170, 16, 30
-    row_h, bar_h, col_gap = 26, 12, 26
-    col_w = (w - pad_l - pad_r - 2 * col_gap) / 3
-    label_room = 56
-    bar_max = col_w - label_room
-    h = pad_t + len(rows) * row_h + 6
-    metrics = [
-        ("1-SHOT", lambda t: t["oneshot"], lambda t: f'{t["oneshot"]:.0f}%'),
-        ("COST / PASS", lambda t: t["cost"], lambda t: f'${t["cost"]:.2f}'),
-        ("MODEL TIME / PASS", lambda t: t["secs"], lambda t: t["time"]),
-    ]
+    pad_r, pad_t, pad_b = 40, 26, 115
+    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    n = len(rows)
+    col_w = cw / n
+    bar_w = min(col_w * 0.62, 80)
+    sy = lambda v: pad_t + (y_max - v) / y_max * ch
     parts = [svg_open(w, h)]
-    for j, (title, val, _) in enumerate(metrics):
-        x0 = pad_l + j * (col_w + col_gap)
-        parts.append(
-            f'<text x="{x0:.0f}" y="12" font-size="10.5" fill="{MUTED}" '
-            f'letter-spacing=".07em">{title}</text>'
-        )
-    for j in range(3):
-        maxv = max(metrics[j][1](r["tip"]) for r in rows) or 1
-        x0 = pad_l + j * (col_w + col_gap)
-        for i, r in enumerate(rows):
-            t = r["tip"]
-            y = pad_t + i * row_h
-            color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
-            bw = max(2, metrics[j][1](t) / maxv * bar_max)
-            parts.append(f'<rect x="{x0:.0f}" y="{y}" width="{bw:.1f}" height="{bar_h}" rx="2" fill="{color}"/>')
-            parts.append(
-                f'<text x="{x0 + bw + 6:.0f}" y="{y + bar_h / 2:.0f}" font-size="10.5" fill="{INK}" '
-                f'dominant-baseline="middle">{metrics[j][2](t)}</text>'
-            )
+    for gv, glabel in y_ticks:
+        y = sy(gv)
+        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
+        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{glabel}</text>')
     for i, r in enumerate(rows):
-        y = pad_t + i * row_h + bar_h / 2
+        v = value_fn(r)
+        cx = pad_l + col_w * i + col_w / 2
+        x = cx - bar_w / 2
+        top = sy(v)
+        color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
+        parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{max(1, sy(0) - top):.1f}" rx="3" fill="{color}"/>')
+        dy = 8 if not stagger or i % 2 == 0 else 21
+        parts.append(f'<text x="{cx:.0f}" y="{top - dy:.0f}" font-size="10.5" font-weight="600" fill="{INK}" text-anchor="middle">{fmt_fn(v)}</text>')
+        ly = sy(0) + 12
+        variant = (
+            f' <tspan fill="{MUTED}" font-family="var(--mono)">({r["variant"]})</tspan>'
+            if r.get("variant") else ""
+        )
         parts.append(
-            f'<text x="{pad_l - 12}" y="{y:.0f}" font-size="11" fill="{INK}" '
-            f'text-anchor="end" dominant-baseline="middle">{r["label"]}</text>'
+            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{variant}</text>'
         )
     parts.append("</svg>")
     return "".join(parts)
@@ -444,12 +440,29 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   {tip_js}
 </section>"""
+    import math
+    h3_style = 'style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 4px"'
+    cost_max = math.ceil(max(r["tip"]["cost"] for r in big_rows) / 0.5) * 0.5
+    time_max_m = math.ceil(max(r["tip"]["secs"] for r in big_rows) / 60 / 20) * 20
+    mins = lambda s: (f"{int(s // 60)}m {int(s % 60):02d}s" if s < 3600 else f"{int(s // 60)}m")
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
-  <p class="takeaway" style="margin:0 0 14px">The winning variants unpacked: each model's median complete pass of the 13-task suite (over its 2 to 3 passes, baseline condition). Same numbers as the chart tooltips above.</p>
-  {pass_stats_chart(big_rows)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span><span>cost and time: lower is better</span></div>
+  <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked: each model's median complete pass of the 13-task suite (over its 2 to 3 passes, baseline condition). Same numbers as the chart tooltips above; each chart ranks best first.</p>
+  <h3 {h3_style}>One-shot rate</h3>
+  {metric_bar_chart(sorted(big_rows, key=lambda r: -r["tip"]["oneshot"]),
+                    lambda r: r["tip"]["oneshot"], lambda v: f"{v:.0f}%",
+                    100, [(t, f"{t}%") for t in range(0, 101, 25)], pad_l=110)}
+  <h3 {h3_style}>Cost per pass</h3>
+  {metric_bar_chart(sorted(big_rows, key=lambda r: r["tip"]["cost"]),
+                    lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
+                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)], pad_l=110)}
+  <h3 {h3_style}>Model time per pass</h3>
+  {metric_bar_chart(sorted(big_rows, key=lambda r: r["tip"]["secs"]),
+                    lambda r: r["tip"]["secs"], mins,
+                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)],
+                    pad_l=110, stagger=True)}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
     # Fair questions: the priors readers arrive with, answered by one number
