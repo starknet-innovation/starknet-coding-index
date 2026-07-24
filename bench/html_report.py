@@ -94,7 +94,7 @@ SCI_OPEN_COLOR = "#3D5A96"    # open-weight models
 SCI_CLOSED_COLOR = "#9AA3B2"  # closed-weight models
 
 
-def sci_bar_chart(rows, w=760, h=404):
+def sci_bar_chart(rows, w=760, h=389):
     """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
     One solid column per model, colored by open- vs closed-weight; SCI value
@@ -107,7 +107,7 @@ def sci_bar_chart(rows, w=760, h=404):
     # (mono parenthetical + sans fallback), which clipped "Opus" at pad_l=48.
     # pad_r balances the ~36px of whitespace left of the tick labels so the
     # bar block reads centered.
-    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 130
+    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 115
     cw = w - pad_l - pad_r
     ch = h - pad_t - pad_b
     n = len(rows)
@@ -125,7 +125,7 @@ def sci_bar_chart(rows, w=760, h=404):
         top = sy(r["sci"])
         color = SCI_OPEN_COLOR if r["open_weight"] else SCI_CLOSED_COLOR
         parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{sy(0) - top:.1f}" rx="3" fill="{color}"/>')
-        parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
+        parts.append(f'<text x="{cx:.0f}" y="{top - 8:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{r["sci"]:.1f}</text>')
         ly = sy(0) + 12
         variant = (
             f' <tspan fill="{MUTED}" font-family="var(--mono)">({r["variant"]})</tspan>'
@@ -139,7 +139,7 @@ def sci_bar_chart(rows, w=760, h=404):
     return "".join(parts)
 
 
-def mcp_lift_chart(pairs, w=760, h=404):
+def mcp_lift_chart(pairs, w=760, h=359):
     """Baseline-vs-MCP columns: solid bar = best baseline SCI, stacked coral
     segment = the gain when the best MCP config scores higher. No segment
     means the tool doesn't improve that model's best configuration (no
@@ -149,8 +149,10 @@ def mcp_lift_chart(pairs, w=760, h=404):
     pairs: (label, sci_base, sci_mcp_or_None, open_weight, rank_delta) where
     rank_delta is places moved vs the baseline-only ranking (+ = up).
     """
-    # pad_r balances the whitespace left of the tick labels (see sci_bar_chart)
-    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 130
+    # pad_r balances the whitespace left of the tick labels (see sci_bar_chart);
+    # pad_b is smaller than chart 1's — these labels carry no effort suffix, so
+    # their rotated extent is shorter and 130 left a blank band above the legend
+    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 85
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
     n = len(pairs)
     col_w = cw / n
@@ -183,19 +185,19 @@ def mcp_lift_chart(pairs, w=760, h=404):
             top_m = sy(mcp)
             parts.append(top_rounded(x, top_m, top_b, bar_w, CORAL))
             # absolute with-tool score (comparable across all bars) + the gain
-            parts.append(f'<text x="{cx:.0f}" y="{top_m - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{mcp:.1f}</text>')
+            parts.append(f'<text x="{cx:.0f}" y="{top_m - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{mcp:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
         elif mcp is not None:
             # measured, no gain: bar stays at the (better) baseline; the red
             # sub-line quantifies what the tool would cost this model
             if mcp < base:
-                parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
                 parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="10.5" fill="{MUTED}" text-anchor="middle">−{base - mcp:.1f}</text>')
             else:
-                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
         else:
             # not yet measured with the tool: shown for scale, flagged as such
-            parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
+            parts.append(f'<text x="{cx:.0f}" y="{top_b - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
         # only upward moves are annotated — downward is mostly being overtaken
@@ -564,7 +566,6 @@ def build(all_runs):
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b> — possibly a different thinking level, so bars carry no effort label.</p>
-  <p class="charttitle">Index score without vs with the Cairo Coder MCP</p>
   {mcp_lift_chart(lift_pairs)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>
   <p class="takeaway" style="margin-top:12px">How to read it: a coral segment is the score the tool adds; a grey −x.x means the tool makes that model's best configuration worse (the bar stays at the baseline). Green arrows (▲) mark models that climb the ranking once the tool is in play. Lookup wait counts as latency; every bar is measured in both conditions — the flagships' small negative deltas come from runs where they never consulted the tool at all.</p>
@@ -574,7 +575,6 @@ def build(all_runs):
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today" — each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
-  <p class="charttitle">Starknet Coding Index — best score per model</p>
   {sci_bar_chart(sci_rows)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
   <p class="takeaway"><b>Grok 4.5 leads at 90.8</b> — a statistical tie with Opus 4.8 (90.5) decided by economics: identical perfect correctness, but under a cent per task against Opus's ~$0.045 (cost score 78 vs 49). <b>Opus keeps the record that money can't buy</b>: the only model to solve every task on the first submission, every time (100% one-shot at <code>high</code>; the previous record was Kimi K3's 90%). <b>Fable 5 (#2) ties it on every component except the bill</b>: same correctness, speed, and token profile, but at 2× the price its cost score decides the race — Anthropic's two flagships are separated by pricing alone. <b>MiMo-V2.5-Pro (#3) remains the open-weight champion</b>, ~20× cheaper per task than the leaders, and <b>Sonnet 5 (#4)</b> matches everyone's correctness at the field's best latency.</p>
@@ -640,7 +640,6 @@ def build(all_runs):
   .card .what{{font-size:13px;color:var(--muted);max-width:24ch}}
   .legend{{display:flex;gap:18px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap}}
   .legend-bottom{{justify-content:center;margin:10px 0 0}}
-  .charttitle{{font-family:var(--mono);font-size:16px;font-weight:600;text-align:center;margin:8px 0 6px}}
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
   .takeaway{{font-size:14.5px;margin:14px 0 0}}
   .takeaway b{{color:var(--ink)}}
