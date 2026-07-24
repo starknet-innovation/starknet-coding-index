@@ -358,8 +358,8 @@ def build(all_runs):
   var tip = document.getElementById("tip");
   document.querySelectorAll(".scibar").forEach(function (bar) {
     bar.addEventListener("mousemove", function (e) {
-      tip.innerHTML = "one-shot " + bar.dataset.oneshot + "<br>cost " + bar.dataset.cost
-        + "<br>model time " + bar.dataset.time;
+      tip.innerHTML = "<b>1-shot:</b> " + bar.dataset.oneshot + "<br><b>cost:</b> " + bar.dataset.cost
+        + "<br><b>time:</b> " + bar.dataset.time;
       tip.hidden = false;
       var x = e.clientX + 14, y = e.clientY + 14;
       if (x + tip.offsetWidth > window.innerWidth - 8) x = e.clientX - tip.offsetWidth - 14;
@@ -614,7 +614,7 @@ def build(all_runs):
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
   .scibar:hover{{filter:brightness(1.08)}}
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
-  #tip b{{display:block;margin-bottom:4px}}
+  #tip b{{font-weight:700}}
   .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
   .faqcard:last-child{{grid-column:1/-1}}
   .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
