@@ -212,8 +212,8 @@ def build(all_runs):
         ("GLM 5.2", "z-ai/glm-5.2@", ["disabled", "low", "medium", "high", "xhigh"], 60),
         ("Tencent Hy3", "tencent/hy3@", ["disabled", "low", "medium", "high", "xhigh"], 60),
         ("MiniMax M3", "minimax/minimax-m3@", ["minimal", "low", "medium", "high", "xhigh", "max"], 60),
-        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", ["disabled", "low", "xhigh"], 60),
-        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", ["low", "xhigh"], 60),
+        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", ["disabled", "minimal", "low", "medium", "high", "xhigh"], 60),
+        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", ["disabled", "minimal", "low", "medium", "high", "xhigh", "max"], 60),
         ("Qwen3.6-27B", "qwen/qwen3.6-27b@", ["high", "xhigh", "max"], 0),
     ]
     multiples = []
