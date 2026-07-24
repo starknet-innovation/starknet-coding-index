@@ -7,6 +7,7 @@ no JS, no external assets). Publishing to an Artifact is a separate, manual
 step — this module never publishes anything.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -388,6 +389,44 @@ def build(all_runs):
   <p class="takeaway" style="margin:0">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
 </section>"""
 
+    # The models: OpenRouter snapshot (pricing, context, disclosed architecture)
+    # plus throughput observed in our own runs. Rows follow the SCI ranking.
+    meta = json.loads((config.REPO_ROOT / "results" / "model_meta.json").read_text())
+    fmt_price = lambda v: "n/a" if v is None else (f"${v:,.2f}" if v >= 0.01 else f"${v:.4f}")
+    fmt_ctx = lambda v: "1M" if v >= 10**6 else f"{v // 1000}k"
+    model_rows = []
+    for r in sci_rows:
+        api_id = r["spec"].partition("@")[0]
+        mm = meta["models"][api_id]
+        pm = mm["price_per_m"]
+        rs = [x for x in all_runs if x["model"] == r["spec"] and x["condition"] == "baseline"
+              and x["completion_tokens"] and x["llm_time_s"]]
+        tps = sorted(x["completion_tokens"] / x["llm_time_s"] for x in rs)
+        tps_med = tps[len(tps) // 2] if tps else None
+        wcls = "ow" if r["open_weight"] else "cw"
+        wtxt = "open" if r["open_weight"] else "closed"
+        model_rows.append(
+            f'<tr><td>{r["label"]}</td><td>{r["lab"]}</td>'
+            f'<td><span class="wchip {wcls}">{wtxt}</span></td>'
+            f'<td>{mm["type"] or "n/a"}</td>'
+            f'<td class="r">{mm["params_total"] or "n/a"}</td>'
+            f'<td class="r">{mm["params_active"] or "n/a"}</td>'
+            f'<td class="r">{fmt_ctx(mm["context_length"])}</td>'
+            f'<td class="r">{fmt_price(pm["input"])}</td>'
+            f'<td class="r">{fmt_price(pm["output"])}</td>'
+            f'<td class="r">{fmt_price(pm["cache_read"])}</td>'
+            f'<td class="r">{tps_med:.0f}</td></tr>'
+        )
+    models_html = f"""
+<section>
+  <h2>The models</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Model</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r">Params</th><th class="r">Active</th><th class="r">Context</th><th class="r">$/M in</th><th class="r">$/M out</th><th class="r">$/M cache</th><th class="r">Obs. tok/s</th></tr>
+    {"".join(model_rows)}
+  </table></div>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens; cache is the cache-read price (Grok's prices double above 200k prompt tokens; Anthropic and OpenAI also bill cache writes). Type and parameter counts only as disclosed by the lab; n/a means not disclosed. Obs. tok/s is measured in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+</section>"""
+
     findings_html = """
 <section class="findings">
   <h2>Findings</h2>
@@ -439,6 +478,13 @@ def build(all_runs):
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
   .takeaway{{font-size:14.5px;margin:14px 0 0}}
   .takeaway b{{color:var(--ink)}}
+  .tablewrap{{overflow-x:auto}}
+  table{{border-collapse:collapse;width:100%;min-width:900px;font-variant-numeric:tabular-nums}}
+  th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
+  td{{padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
+  th.r,td.r{{text-align:right}}
+  .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
+  .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
   .findings{{display:flex;flex-direction:column;gap:18px}}
   .finding h3{{font-size:14px;margin-bottom:4px}}
   .finding p{{margin:0;font-size:14px}}
@@ -477,6 +523,8 @@ def build(all_runs):
 {lift_html}
 
 {generalize_html}
+
+{models_html}
 
 {findings_html}
 

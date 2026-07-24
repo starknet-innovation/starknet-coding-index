@@ -1,0 +1,246 @@
+{
+ "snapshot_date": "2026-07-24",
+ "source": "https://openrouter.ai/api/v1/models",
+ "models": {
+  "google/gemini-3.6-flash": {
+   "name": "Google: Gemini 3.6 Flash",
+   "context_length": 1048576,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 1.5,
+    "output": 7.5,
+    "cache_read": 0.15,
+    "cache_write": 0.08333333333333334
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "moonshotai/kimi-k3": {
+   "name": "MoonshotAI: Kimi K3",
+   "context_length": 1048576,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 3.0,
+    "output": 15.0,
+    "cache_read": 0.3,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": "2.8T",
+   "params_active": null
+  },
+  "openai/gpt-5.6-luna": {
+   "name": "OpenAI: GPT-5.6 Luna",
+   "context_length": 1050000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 1.0,
+    "output": 6.0,
+    "cache_read": 0.09999999999999999,
+    "cache_write": 1.25
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "openai/gpt-5.6-terra": {
+   "name": "OpenAI: GPT-5.6 Terra",
+   "context_length": 1050000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 2.5,
+    "output": 15.0,
+    "cache_read": 0.25,
+    "cache_write": 3.125
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "openai/gpt-5.6-sol": {
+   "name": "OpenAI: GPT-5.6 Sol",
+   "context_length": 1050000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 5.0,
+    "output": 30.0,
+    "cache_read": 0.5,
+    "cache_write": 6.25
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "x-ai/grok-4.5": {
+   "name": "xAI: Grok 4.5",
+   "context_length": 500000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 2.0,
+    "output": 6.0,
+    "cache_read": 0.3,
+    "cache_write": null
+   },
+   "pricing_note": "doubles above 200k prompt tokens",
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "tencent/hy3": {
+   "name": "Tencent: Hy3",
+   "context_length": 262144,
+   "hugging_face_id": "tencent/Hy3",
+   "price_per_m": {
+    "input": 0.13199999999999998,
+    "output": 0.5279999999999999,
+    "cache_read": 0.032999999999999995,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE (192 experts, top-8)",
+   "params_total": "295B",
+   "params_active": "21B"
+  },
+  "anthropic/claude-sonnet-5": {
+   "name": "Anthropic: Claude Sonnet 5",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 2.0,
+    "output": 10.0,
+    "cache_read": 0.19999999999999998,
+    "cache_write": 2.5
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "z-ai/glm-5.2": {
+   "name": "Z.ai: GLM 5.2",
+   "context_length": 1048576,
+   "hugging_face_id": "zai-org/GLM-5.2",
+   "price_per_m": {
+    "input": 0.7966,
+    "output": 2.5036,
+    "cache_read": 0.14794000000000002,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "anthropic/claude-fable-5": {
+   "name": "Anthropic: Claude Fable 5",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 10.0,
+    "output": 50.0,
+    "cache_read": 1.0,
+    "cache_write": 12.5
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "minimax/minimax-m3": {
+   "name": "MiniMax: MiniMax M3",
+   "context_length": 1048576,
+   "hugging_face_id": "MiniMaxAI/Minimax-M3",
+   "price_per_m": {
+    "input": 0.3,
+    "output": 1.2,
+    "cache_read": 0.06,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "anthropic/claude-opus-4.8": {
+   "name": "Anthropic: Claude Opus 4.8",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 5.0,
+    "output": 25.0,
+    "cache_read": 0.5,
+    "cache_write": 6.25
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "qwen/qwen3.6-27b": {
+   "name": "Qwen: Qwen3.6 27B",
+   "context_length": 262144,
+   "hugging_face_id": "Qwen/Qwen3.6-27B",
+   "price_per_m": {
+    "input": 0.288,
+    "output": 2.4,
+    "cache_read": null,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "dense",
+   "params_total": "27B",
+   "params_active": "27B"
+  },
+  "deepseek/deepseek-v4-pro": {
+   "name": "DeepSeek: DeepSeek V4 Pro",
+   "context_length": 1048576,
+   "hugging_face_id": "deepseek-ai/DeepSeek-V4-Pro",
+   "price_per_m": {
+    "input": 0.435,
+    "output": 0.87,
+    "cache_read": 0.003625,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE",
+   "params_total": "1.6T",
+   "params_active": "49B"
+  },
+  "xiaomi/mimo-v2.5-pro": {
+   "name": "Xiaomi: MiMo-V2.5-Pro",
+   "context_length": 1050000,
+   "hugging_face_id": "XiaomiMiMo/MiMo-V2.5-Pro",
+   "price_per_m": {
+    "input": 0.435,
+    "output": 0.87,
+    "cache_read": 0.0036,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "anthropic/claude-haiku-4.5": {
+   "name": "Anthropic: Claude Haiku 4.5",
+   "context_length": 200000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 1.0,
+    "output": 5.0,
+    "cache_read": 0.09999999999999999,
+    "cache_write": 1.25
+   },
+   "pricing_note": null,
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  }
+ }
+}
