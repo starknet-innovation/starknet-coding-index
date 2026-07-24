@@ -157,15 +157,27 @@ def mcp_lift_chart(pairs, w=760, h=404):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
         parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}</text>')
+    def top_rounded(x, y1, y2, bw, fill, r=3):
+        """Rect with only its top corners rounded — for the topmost piece of a
+        stack, so segment bottoms sit flush on the piece below."""
+        return (f'<path d="M{x:.1f},{y2:.1f} L{x:.1f},{y1 + r:.1f} Q{x:.1f},{y1:.1f} {x + r:.1f},{y1:.1f} '
+                f'L{x + bw - r:.1f},{y1:.1f} Q{x + bw:.1f},{y1:.1f} {x + bw:.1f},{y1 + r:.1f} '
+                f'L{x + bw:.1f},{y2:.1f} Z" fill="{fill}"/>')
+
     for i, (label, base, mcp, open_w) in enumerate(pairs):
         cx = pad_l + col_w * i + col_w / 2
         x = cx - bar_w / 2
         color = SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR
         top_b = sy(base)
-        parts.append(f'<rect x="{x:.1f}" y="{top_b:.1f}" width="{bar_w:.1f}" height="{sy(0) - top_b:.1f}" fill="{color}"/>')
-        if mcp is not None and mcp > base:
+        gain = mcp is not None and mcp > base
+        if gain:
+            # sharp-topped base; the coral segment carries the rounded top
+            parts.append(f'<rect x="{x:.1f}" y="{top_b:.1f}" width="{bar_w:.1f}" height="{sy(0) - top_b:.1f}" fill="{color}"/>')
+        else:
+            parts.append(top_rounded(x, top_b, sy(0), bar_w, color))
+        if gain:
             top_m = sy(mcp)
-            parts.append(f'<rect x="{x:.1f}" y="{top_m:.1f}" width="{bar_w:.1f}" height="{top_b - top_m:.1f}" rx="3" fill="{CORAL}"/>')
+            parts.append(top_rounded(x, top_m, top_b, bar_w, CORAL))
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="13.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
         elif mcp is not None:
             # measured, no gain: plain value — the absent segment is the verdict
