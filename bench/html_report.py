@@ -186,7 +186,7 @@ def mcp_lift_chart(pairs, w=760, h=404):
             # sub-line quantifies what the tool would cost this model
             if mcp < base:
                 parts.append(f'<text x="{cx:.0f}" y="{top_b - 22:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
-                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="10.5" font-weight="700" fill="#D62222" text-anchor="middle">−{base - mcp:.1f}</text>')
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="10.5" font-weight="600" fill="{MUTED}" text-anchor="middle">−{base - mcp:.1f}</text>')
             else:
                 parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="13.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
         else:
