@@ -20,7 +20,11 @@ from . import config
 from .report import load_runs
 from .sci import MODEL_REGISTRY, SCI_SPEC, compute_sci, variant_label
 
-CI_TARGET = 3.0        # points of SCI: the precision the leaderboard claims
+# Points of SCI. Not tighter than 5 on purpose: almost every adjacent pair in
+# the ranking is under 2 points apart, so those models are ties at any budget we
+# would spend. Going 5 -> 3 cost ~$47 and 1,300 runs to resolve one extra pair.
+# 5 keeps each published score meaningful without buying false precision.
+CI_TARGET = 5.0
 BOOTSTRAP = 200        # resamples; enough for a stable half-width, fast to run
 
 
