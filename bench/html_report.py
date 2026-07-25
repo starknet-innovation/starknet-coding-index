@@ -249,8 +249,9 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
         # Only upward moves are annotated (downward is mostly being overtaken).
-        # The arrow is DRAWN, not typed: SF Mono and friends lack U+25B2, and a
-        # per-glyph font fallback rendered it at foreign metrics on macOS.
+        # The arrow is DRAWN, not typed. The garbling that prompted this was an
+        # encoding bug (see assert_output_is_portable), but geometry is still the
+        # better answer: it cannot depend on the reader's mono font coverage.
         if rank_delta > 0:
             tri_x, num_x = cx - 15, cx
             parts.append(
@@ -753,7 +754,11 @@ def build(all_runs):
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
 
-    return f"""<title>Starknet Coding Index | A Starknet Foundation report</title>
+    # charset first: without it a browser guesses the encoding (file:// has no
+    # Content-Type header to consult) and renders every multi-byte character as
+    # mojibake, e.g. "9x cheaper" arriving as "9A- cheaper"
+    return f"""<meta charset="utf-8">
+<title>Starknet Coding Index | A Starknet Foundation report</title>
 <meta name="description" content="A Starknet Foundation benchmark: which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across {len(sci_rows)} models from {len({r["lab"] for r in sci_rows})} labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
 <style>
   {inter_font_face()}
@@ -890,26 +895,35 @@ def build(all_runs):
 """
 
 
-def assert_charts_are_ascii(html):
-    """Chart text must not depend on the viewer's fonts.
+def assert_output_is_portable(html):
+    """Two things screenshots in this sandbox cannot check for us.
 
-    SVG chart text renders in the mono stack, which resolves to SF Mono on
-    macOS; SF Mono has no U+25B2, so a typed arrow fell back per-glyph to
-    another font at foreign metrics and looked broken on David's machine. This
-    sandbox cannot reproduce that (no SF Mono here, and its DejaVu Sans Mono
-    covers the glyph), so screenshots are not a sufficient check: the rule is
-    enforced here instead. Draw symbols as geometry rather than typing them.
+    1. The encoding declaration. Garbled symbols reported on 2026-07-25
+       ("9A- cheaper", a mangled minus and delta in the models table) were
+       mojibake, not missing glyphs: the file is valid UTF-8 but declared no
+       charset, so browsers guessed a single-byte codepage. Chromium here
+       sniffs UTF-8 correctly, which is exactly why the local render looked
+       fine while David's browser did not.
+    2. ASCII-only chart text. Belt and braces after the same incident: SVG
+       chart text renders in whatever mono font the reader has, so symbols are
+       drawn as geometry (see the rank arrows) rather than typed.
     """
-    offenders = []
-    for svg in re.findall(r"<svg.*?</svg>", html, re.S):
-        for ch in set(svg):
-            if ord(ch) > 127:
-                offenders.append(f"U+{ord(ch):04X} {ch!r}")
+    if 'charset="utf-8"' not in html[:1024]:
+        raise SystemExit(
+            'missing <meta charset="utf-8"> in the first 1024 bytes: browsers '
+            "would guess the encoding and render multi-byte characters as mojibake"
+        )
+    offenders = {
+        f"U+{ord(ch):04X} {ch!r}"
+        for svg in re.findall(r"<svg.*?</svg>", html, re.S)
+        for ch in set(svg)
+        if ord(ch) > 127
+    }
     if offenders:
         raise SystemExit(
-            "non-ASCII characters in chart SVG: " + ", ".join(sorted(set(offenders)))
-            + "\nDraw the symbol (polygon/path) instead of typing it: mono fonts "
-              "vary by platform and fall back at the wrong metrics."
+            "non-ASCII characters in chart SVG: " + ", ".join(sorted(offenders))
+            + "\nDraw the symbol (polygon/path) instead of typing it: chart text "
+              "renders in whatever mono font the reader happens to have."
         )
 
 
@@ -920,9 +934,9 @@ def main():
         print("no runs found")
         sys.exit(1)
     html = build(runs)
-    assert_charts_are_ascii(html)
+    assert_output_is_portable(html)
     out = config.RESULTS_DIR / "report.html"
-    out.write_text(html)
+    out.write_text(html, encoding="utf-8")
     print(f"{len(runs)} runs -> {out}")
 
 
