@@ -42,6 +42,7 @@ then add one MODEL_REGISTRY entry; the report picks it up on regeneration.
 """
 
 import math
+import random
 import statistics
 import sys
 from collections import defaultdict
@@ -272,6 +273,23 @@ def compute_sci(runs_for_model):
     }
     sci = sum(w[k] * components[k] for k in w)
     return {"sci": sci, "components": components, "raw": raw}
+
+
+def index_ci(runs_for_model, resamples=1000, seed=0):
+    """Half-width of the 95% interval on this model's SCI, resampling its runs.
+
+    The published number, so it lives here rather than in the report or the
+    status tool: those two disagreed in the second digit while each rolled its
+    own bootstrap, and a precision figure that changes per caller is worse than
+    none. 1000 resamples is what it takes for the printed digit to hold still.
+    """
+    if len(runs_for_model) < 4:
+        return None
+    rng = random.Random(seed)
+    vals = sorted(compute_sci(rng.choices(runs_for_model, k=len(runs_for_model)))["sci"]
+                  for _ in range(resamples))
+    lo, hi = int(resamples * 0.025), int(resamples * 0.975) - 1
+    return (vals[hi] - vals[lo]) / 2
 
 
 def active_models():

@@ -18,24 +18,16 @@ import time
 
 from . import config
 from .report import load_runs
-from .sci import SCI_SPEC, active_models, compute_sci, variant_label
+from .sci import SCI_SPEC, active_models, compute_sci, index_ci, variant_label
 
 # Points of SCI. Not tighter than 5 on purpose: almost every adjacent pair in
 # the ranking is under 2 points apart, so those models are ties at any budget we
 # would spend. Going 5 -> 3 cost ~$47 and 1,300 runs to resolve one extra pair.
 # 5 keeps each published score meaningful without buying false precision.
 CI_TARGET = 5.0
-BOOTSTRAP = 200        # resamples; enough for a stable half-width, fast to run
-
-
-def boot_ci(rs, b=BOOTSTRAP, seed=0):
-    """Half-width of the 95% interval on this model's SCI, by resampling runs."""
-    if len(rs) < 4:
-        return None
-    rng = random.Random(seed)
-    vals = [compute_sci(rng.choices(rs, k=len(rs)))["sci"] for _ in range(b)]
-    q = st.quantiles(vals, n=40)
-    return (q[-1] - q[0]) / 2
+# the estimator itself lives in sci.py, so this tool and the report cannot
+# print different intervals for the same model
+boot_ci = index_ci
 
 
 def bar(frac, width=14):

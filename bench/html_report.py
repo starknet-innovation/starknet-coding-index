@@ -18,7 +18,7 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import SCI_SPEC, attempt_score, attempts, leaderboard
+from .sci import SCI_SPEC, attempt_score, attempts, index_ci, leaderboard
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -133,6 +133,29 @@ SCI_OPEN_COLOR = SNF_BLUE      # open-weight models (brand blue-70)
 SCI_CLOSED_COLOR = SNF_LAVENDER  # closed-weight models (neutral lavender-50)
 
 
+def rotated_label_pad(labels, font_px=11, gap=12, extra=0):
+    """Bottom padding a block of -45 degree column labels needs, from the
+    longest one.
+
+    Every hardcoded pad_b in this file has been wrong at least once. A label
+    that descends to the left puts the START of its text at the lowest point,
+    so what a too-small pad_b cuts off is the first characters: at pad_b=115
+    "Gemini 3.6 Flash (xhigh)" rendered as "emini 3.6 Flash (xhigh)" in three
+    charts at once. Deriving the pad from the label set ends that.
+
+    extra: pixels of non-text furniture on the label line (the rank-delta
+    arrow and number in the MCP chart).
+    """
+    widest = max((len(s) for s in labels), default=0) * font_px * 0.60 + extra
+    return int(gap + widest * 0.7071 + 10)
+
+
+def variant_suffixed(rows):
+    """The label strings the rotated axis actually draws, for pad measurement."""
+    return [f'{r["label"]} ({r["variant"]})' if r.get("variant") else r["label"]
+            for r in rows]
+
+
 def sci_bar_chart(rows, w=760, h=389):
     """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
@@ -146,9 +169,11 @@ def sci_bar_chart(rows, w=760, h=389):
     # (mono parenthetical + sans fallback), which clipped "Opus" at pad_l=48.
     # pad_r balances the ~36px of whitespace left of the tick labels so the
     # bar block reads centered.
-    pad_l, pad_r, pad_t, pad_b = 64, 40, 26, 115
+    pad_l, pad_r, pad_t = 64, 40, 26
+    pad_b = rotated_label_pad(variant_suffixed(rows))
     cw = w - pad_l - pad_r
-    ch = h - pad_t - pad_b
+    ch = h - pad_t - 115          # plot height stays put as the pad grows
+    h = pad_t + ch + pad_b
     n = len(rows)
     col_w = cw / n
     bar_w = col_w * 0.62
@@ -200,7 +225,10 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
     # chart 2 (its rotated labels clipped at pad_b 85 and its first column at
     # pad_l 64), so it passes larger pads and a taller h to keep bar height
     pad_r, pad_t = 40, 26
-    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    pad_b_arg, pad_b = pad_b, rotated_label_pad(
+        [p[0] for p in pairs], extra=26 if any(p[4] > 0 for p in pairs) else 0)
+    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b_arg
+    h = pad_t + ch + pad_b
     n = len(pairs)
     col_w = cw / n
     # cap so a sparse chart (the small-models section) doesn't render slabs;
@@ -318,8 +346,10 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
     submissions it took. A tall, mostly-dark column is a model that just works;
     the empty space above a column is runs it never solved at all.
     """
-    pad_r, pad_t, pad_b = 40, 26, 115
-    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    pad_r, pad_t = 40, 26
+    pad_b = rotated_label_pad(variant_suffixed(rows))
+    cw, ch = w - pad_l - pad_r, h - pad_t - 115
+    h = pad_t + ch + pad_b
     col_w = cw / len(rows)
     bar_w = min(col_w * 0.62, 80)
     sy = lambda v: pad_t + (100 - v) / 100 * ch
@@ -339,8 +369,19 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
             parts.append(f'<rect x="{x:.1f}" y="{y1:.1f}" width="{bar_w:.1f}" '
                          f'height="{y0 - y1:.1f}" fill="{ATTEMPT_COLORS[k]}"/>')
             base += share
-        parts.append(f'<text x="{cx:.0f}" y="{sy(base) - 8:.0f}" font-size="10.5" font-weight="600" '
-                     f'fill="{SNF_BLUE}" text-anchor="middle">{r["dist"][0]:.0f}%</text>')
+        # The number is the FIRST-submission share, so it is drawn inside that
+        # segment wherever the segment can hold it. Floating every label at the
+        # column top made it read as the column's own height: Terra showed "0%"
+        # above a bar standing at 97%.
+        first = r["dist"][0]
+        if first >= 14:                     # centered in its own segment
+            ly_pct, fill = (sy(first) + sy(0)) / 2 + 4, "#FFFFFF"
+        elif base >= 14:                    # too thin to fill: sits on the axis
+            ly_pct, fill = sy(0) - 7, "#FFFFFF"
+        else:                               # short column: nowhere inside to go
+            ly_pct, fill = sy(base) - 8, SNF_BLUE
+        parts.append(f'<text x="{cx:.0f}" y="{ly_pct:.0f}" font-size="10.5" font-weight="600" '
+                     f'fill="{fill}" text-anchor="middle">{first:.0f}%</text>')
         ly = sy(0) + 12
         variant = (f' <tspan fill="{MUTED}" font-family="var(--mono)">({r["variant"]})</tspan>'
                    if r.get("variant") else "")
@@ -362,8 +403,10 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
     chart 1 where rank order puts a short one first). Value labels must stay
     narrow (<= ~5 chars) or neighbors collide at 16 columns.
     """
-    pad_r, pad_t, pad_b = 40, 26, 115
-    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    pad_r, pad_t = 40, 26
+    pad_b = rotated_label_pad(variant_suffixed(rows))
+    cw, ch = w - pad_l - pad_r, h - pad_t - 115
+    h = pad_t + ch + pad_b
     n = len(rows)
     col_w = cw / n
     bar_w = min(col_w * 0.62, 80)
@@ -400,29 +443,35 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
     return "".join(parts)
 
 
-def attempts_chart(groups, w=760, h=210):
-    """Grouped columns: median attempts per task difficulty, one pair of
-    columns (closed grey, open blue) per tier. Y axis in whole attempts.
+def attempts_chart(groups, w=760, h=210, y_max=None, fmt=None, ticks=None):
+    """Grouped columns per task difficulty, one pair (closed grey, open blue)
+    per tier.
+
+    Started life as median attempts per tier, which v3 made useless: both
+    champions one-shot the median task at every difficulty, so all six columns
+    read "1". It now takes any per-tier metric, and the section feeds it the
+    first-submission rate, which is what actually separates them.
 
     groups: [(tier_label, val_closed, val_open)]
     """
     pad_l, pad_r, pad_t, pad_b = 64, 40, 18, 30
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
-    y_max = max(3, max(max(a, b) for _, a, b in groups) + 1)
+    fmt = fmt or (lambda v: f"{v:g}")
+    y_max = y_max or max(3, max(max(a, b) for _, a, b in groups) + 1)
     sy = lambda v: pad_t + (y_max - v) / y_max * ch
     group_w = cw / len(groups)
     bar_w, bar_gap = 46, 10
     parts = [svg_open(w, h)]
-    for gv in range(0, int(y_max) + 1):
+    for gv, tick_label in (ticks or [(v, f"{v:g}") for v in range(0, int(y_max) + 1)]):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
-        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}</text>')
+        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{tick_label}</text>')
     for gi, (label, va, vb) in enumerate(groups):
         cx = pad_l + group_w * gi + group_w / 2
         for k, (v, color) in enumerate([(va, SCI_CLOSED_COLOR), (vb, SCI_OPEN_COLOR)]):
             x = cx - bar_w - bar_gap / 2 + k * (bar_w + bar_gap)
             parts.append(f'<rect x="{x:.1f}" y="{sy(v):.1f}" width="{bar_w}" height="{sy(0) - sy(v):.1f}" rx="3" fill="{color}"/>')
-            parts.append(f'<text x="{x + bar_w / 2:.0f}" y="{sy(v) - 7:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{v:g}</text>')
+            parts.append(f'<text x="{x + bar_w / 2:.0f}" y="{sy(v) - 7:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{fmt(v)}</text>')
         parts.append(f'<text x="{cx:.0f}" y="{h - 8}" font-size="12" fill="{INK}" text-anchor="middle">{label}</text>')
     parts.append("</svg>")
     return "".join(parts)
@@ -531,9 +580,12 @@ def build(all_runs):
             for i, (label, base, mcp, open_w, pending) in enumerate(pairs)
         ]
 
-    lift_keys = f'<span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span>'
-    lift_legend = f'<div class="legend legend-bottom">{lift_keys}{pending_note}</div>'
-    lift_legend_small = f'<div class="legend legend-bottom">{lift_keys}</div>'
+    key_open = f'<span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span>'
+    key_closed = f'<span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span>'
+    key_mcp = f'<span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span>'
+    keys_for = lambda rows: (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "") + key_mcp)
+    lift_legend = f'<div class="legend legend-bottom">{keys_for(big_rows)}{pending_note}</div>'
+    lift_legend_small = f'<div class="legend legend-bottom">{keys_for(small_rows)}</div>'
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
@@ -544,7 +596,7 @@ def build(all_runs):
     small_html = f"""
 <section>
   <h2>Small models</h2>
-  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+10.8 to +29.1). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
+  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +15.6). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
   {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120)}
   {lift_legend_small}
 </section>"""
@@ -587,7 +639,7 @@ def build(all_runs):
   {attempts_dist_chart(sorted(starred(big_rows), key=lambda r: -r["dist"][0]))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
-      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span>empty space above a column: never solved</span></div>
+      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span>labels: first-submission share</span><span>empty space above a column: never solved</span></div>
   <h3 {h3_style}>Cost per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
@@ -603,26 +655,29 @@ def build(all_runs):
     # Fair questions: the priors readers arrive with, answered by one number
     FAQ = [
         ("Why does Opus 5 win?", "100% one-shot",
-         "Every task solved on the first submission, at the field's best speed and flagship "
-         "pricing. Those habits outweigh Grok's 5× cheaper serving by 0.7 points, a whisker, "
-         "on otherwise identical correctness."),
-        ("Grok over Fable? Isn't Fable stronger?", "9× cheaper",
-         "Both solve 100% and Fable one-shots more (96% vs 73%). The suite is saturated, "
-         "so the bill decides: $0.009 vs $0.087 per task. Harder work than these 13 tasks "
-         "might rank them differently."),
-        ("MiMo over Kimi K3? K3 is newer and 3× bigger", "14× cheaper, 5× faster",
-         "Both 100% correct. Serving 2.8T weights is the handicap: 97s and $0.061 per task "
-         "vs 19s and $0.0044 with MiMo's 42B-active MoE."),
-        ("Best result with thinking off?", "+0 solves",
-         "That is what thinking buys a saturated model, while still billing time and money. "
-         "Some models even invert, getting less reliable the more budget you grant them."),
-        ("Where are the small models?", "+29.1",
-         "The small class (3B to 31B active) lives at the knowledge floor: baselines collapse, "
-         "and docs either transform them (the study's biggest gain, Qwen3.6-35B-A3B) or bounce off. "
-         "They compare on their own footing in the section below."),
-        ("Sol mid-pack? It rivals Fable elsewhere", "19% one-shot",
-         "Knowledge is perfect (100% correct); habits are not. Sol pays 3 to 4 compiler "
-         "round-trips per task at flagship pricing, and the index prices the whole workflow."),
+         "Every task in every rep solved on the first submission, at the field's fastest "
+         "median pass. Nothing else in the field is perfect on that measure, which is why a "
+         "flagship price tag still leaves it 3.7 points clear."),
+        ("Fable 5 or Grok 4.5?", "0.4 points apart",
+         "Call it a tie: the gap is smaller than either model's confidence interval. Fable "
+         "one-shots more (96% vs 74%), Grok bills 9× less ($0.0095 vs $0.0874 per task), and "
+         "under these weights the two cancel almost exactly."),
+        ("Kimi K3 over MiMo? MiMo is far cheaper", "87% vs 40% one-shot",
+         "This is the index working as intended. MiMo serves a pass 4× faster and 18× cheaper, "
+         "and still loses 4.2 points, because it delivers broken code first about three runs in "
+         "five. First-submission success carries twice the weight of the bill."),
+        ("A model that does best with thinking off?", "4th place",
+         "Sonnet 5 scores highest with reasoning disabled: 67% one-shot at 14 seconds a task. "
+         "Its thinking variants bill more time and money for no extra solves, and several models "
+         "here get less reliable the more budget you grant them."),
+        ("Where are the small models?", "+15.6 with docs",
+         "The small class (3B to 31B active) lives at the knowledge floor, so baselines collapse. "
+         "Documentation doubles the Qwen entries (35B-A3B 16.2 to 31.8) and bounces off Gemma 4 "
+         "and gpt-oss. They compare on their own footing in the section below."),
+        ("Sol mid-pack? It rivals Fable elsewhere", "25% one-shot",
+         "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code). "
+         "Its habit is: a median of two submissions per task, at the highest price per task in "
+         "the field. The index prices the whole workflow, not the eventual answer."),
     ]
     faq_cards = "".join(
         f'<div class="faqcard"><div class="q">{q}</div><div class="stat">{stat}</div><p>{a}</p></div>'
@@ -649,8 +704,10 @@ def build(all_runs):
             "time": med([r["llm_time_s"] + (r.get("assist_time_s") or 0) for r in rs]),
             "cost": med([r["cost_usd"] for r in rs if r["cost_usd"] is not None]),
             "tokens": med([r["completion_tokens"] for r in rs if r["completion_tokens"]]),
-            # attempts = submissions delivered; tasks are tiered by id prefix
-            **{f"turns_{tier}": med([attempts(r) for r in rs if r["task"].startswith(tier)])
+            # per-difficulty first-submission rate; tasks are tiered by id prefix
+            **{f"one_{tier}": 100 * sum(1 for r in rs if r["task"].startswith(tier)
+                                        and r["solved"] and attempts(r) == 1)
+                              / len([r for r in rs if r["task"].startswith(tier)])
                for tier in ("e", "m", "h")},
         }
 
@@ -664,17 +721,18 @@ def build(all_runs):
         ("med. output tokens", sa["tokens"], sb["tokens"], lambda v: f"{v:,.0f}"),
     ]
     h2h_attempts = [
-        (name, sa[f"turns_{t}"], sb[f"turns_{t}"])
+        (name, sa[f"one_{t}"], sb[f"one_{t}"])
         for t, name in (("e", "easy"), ("m", "medium"), ("h", "hard"))
     ]
     h2h_html = f"""
 <section>
   <h2>Head to head: best closed vs best open weights</h2>
-  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
+  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.{" * K3's weights are announced but not yet published, as noted in the table below." if best_open.get("weights_pending") else ""}</p>
   {head_to_head_chart(h2h_metrics)}
-  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">Median submissions by task difficulty</h3>
-  {attempts_chart(h2h_attempts)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>bars scaled per row; all but solve &amp; one-shot: lower is better</span></div>
+  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">First-submission rate by task difficulty</h3>
+  {attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
+                  ticks=[(t * 25, f"{t * 25}%") for t in range(5)])}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>top chart: bars scaled per row, and lower is better on every row but the two rates</span></div>
 </section>"""
 
     # score definition applies to both charts above, so it gets its own section
@@ -692,6 +750,19 @@ def build(all_runs):
 
     # The models: OpenRouter snapshot (pricing, context, disclosed architecture)
     # plus throughput observed in our own runs. Rows follow the SCI ranking.
+    # index CI per model, bootstrapped over its runs: published beside the score
+    # so a reader can see which orderings are real and which are ties
+    ci_by_label = {}
+    for r in sci_rows:
+        ci = index_ci([x for x in all_runs
+                       if x["model"] == r["spec"] and x["condition"] == "baseline"])
+        if ci is not None:
+            ci_by_label[r["label"]] = ci
+
+    closed = sorted({r["lab"] for r in sci_rows if not r["open_weight"]},
+                    key=lambda lab: -max(r["sci"] for r in sci_rows if r["lab"] == lab))
+    closed_labs = ", ".join(closed[:-1]) + f" and {closed[-1]}"
+
     meta = json.loads((config.REPO_ROOT / "results" / "model_meta.json").read_text())
     fmt_price = lambda v: "n/a" if v is None else (f"${v:,.2f}" if v >= 0.01 else f"${v:.4f}")
     fmt_ctx = lambda v: "1M" if v >= 10**6 else f"{v // 1000}k"
@@ -726,7 +797,9 @@ def build(all_runs):
         )
         model_rows.append(
             f'<tr><td>{r["label"]}</td>'
-            + num_td(r["sci"], f'{r["sci"]:.1f}')
+            + num_td(r["sci"], f'{r["sci"]:.1f}'
+                     + (f' <span class="ci">&plusmn;{ci_by_label[r["label"]]:.1f}</span>'
+                        if r["label"] in ci_by_label else ''))
             + num_td(mcp_sci, f"{mcp_sci:.1f}" if mcp_sci is not None else "n/a")
             + delta_td
             + f'<td>{r["lab"]}</td>'
@@ -782,22 +855,22 @@ def build(all_runs):
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant. * Kimi K3 is classed open on the strength of Moonshot's announced weights release (promised 2026-07-27); as of this snapshot the weights are not yet published. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. * Kimi K3 is classed open on the strength of Moonshot's announced weights release (promised 2026-07-27); as of this snapshot the weights are not yet published. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
     findings_html = """
 <section class="findings">
   <h2>Findings</h2>
   <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness: +15.6 for Qwen3.6-35B-A3B and +12.7 for Qwen3.6-27B at the knowledge floor, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +4.2 for MiniMax, +2.0 for Hy3, fading to nothing and then to a small penalty at the saturated top (Opus 5 −0.1, K3 −0.3, MiMo −1.2, Fable −1.6).</p>
-  <p>Three refinements: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier); saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6); and the law has a competence floor, because a model must be able to exploit what it reads. Gemma 4 31B (−1.3) and gpt-oss-120b (−2.7, zero solves even with documentation) sit below it.</p></div>
-  <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness: run the cheapest tier that holds it</h3>
-  <p>Four patterns across the field (small models effectively join the first: at the knowledge floor the dial moves time and tokens, barely correctness): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges first-submission rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 99% correctness at <code>low</code> down to 88% at <code>high</code>). Under v3 the index-best variant is no longer simply the cheapest tier that holds correctness: a pricier tier that gets it right first try now wins, which moved five models up their ladders.</p></div>
+  <p>Documentation lift lines up with baseline weakness: +15.6 for Qwen3.6-35B-A3B and +12.7 for Qwen3.6-27B at the knowledge floor, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +5.1 for MiniMax M3, +2.8 for Hy3, fading to nothing and then to a penalty at the saturated top (Opus 5 −0.1, K3 −0.3, Fable −1.6, MiMo −2.6, Sonnet 5 −5.4).</p>
+  <p>Three refinements. The law applies per <i>variant</i>, not per model: Terra gains only at its unsaturated tiers (+4.2 at <code>minimal</code>, +1.9 with thinking off, nothing at <code>max</code>), and documentation raises MiniMax at five of its six tiers while costing it 5.6 points at the one tier its baseline happens to win on, which is why the like-for-like gain above understates the tool. The lift is mostly bought in solves, not in polish: at the floor it converts runs that never worked into working ones (Qwen3.6-35B-A3B 11% to 59% solved, Qwen3.6-27B 21% to 58%, Coder Next 0% to 17%). And the law has a competence floor, because a model has to be able to exploit what it reads: Gemma 4 31B (−1.8) and gpt-oss-120b (−1.7, zero solves with documentation or without) sit below it.</p></div>
+  <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness, but it can buy first-try delivery</h3>
+  <p>Four patterns across the field (small models effectively join the first: at the knowledge floor the dial moves time and tokens, barely correctness): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models up their own ladders (Gemini, Sol, Terra, GLM to their top tiers, MiniMax down to <code>medium</code>).</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
-  <p>GPT-5.6 Sol iterates against the compiler even at flagship scale and price (23% first-submission), while Anthropic's flagships deliver on the first try nearly every time (96–100%). Documentation barely moves that habit: Sol reads Cairo docs and still lands at 19%. A habit is not a knowledge gap.</p>
-  <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−0.0 to −1.9, pure schema overhead; Opus 5 gave the pattern its cleanest datapoint at exactly zero calls and zero delta) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
+  <p>GPT-5.6 Sol iterates against the compiler even at flagship scale and price (25% first-submission, a median of two submissions per task), while Opus 5 and Fable 5 deliver on the first try nearly every time (100% and 96%). Documentation barely moves that habit: at the tiers where we ran both conditions, Sol reads Cairo docs and still lands at 19% and 15%. A habit is not a knowledge gap, and it is the habit this index prices.</p>
+  <p>Tool use splits the same way. Offered the docs, Anthropic's models never called them once, so the tool is pure schema overhead for them (Opus 5 gave that pattern its cleanest datapoint: zero calls, −0.1 points). Grok 4.5 consults them about once per run it does not obviously need, and no longer pays for the habit: +0.6 points, and a first-submission rate that moves the right way at the same tier, 74% to 88%. Under the previous index that same behaviour scored as a 13-point penalty, because a lookup consumed a turn and turns were what got counted. Nothing about Grok changed; the ruler did. Treat the direction as directional only, though: at the MCP condition's depth these first-submission shifts do not reach significance (Grok p=0.21, Sonnet's 67% to 50% drop p=0.15).</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
-  <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>
+  <p>Both pro serving modes we funded cost 2 to 3× their model's <code>max</code> tier and scored below it (terra-pro 51.2 against terra@max 52.6). Neither ever produced the best configuration of its model, so sol-pro was not funded on that record.</p></div>
   <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: baseline failures are training-data lag</h3>
   <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (~1,300 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
@@ -854,6 +927,7 @@ def build(all_runs):
   #modeltable th.desc::after{{content:" \\25BC";font-size:9px}}
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
+  .ci{{color:var(--muted);font-size:11px}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
   .scibar:hover{{filter:brightness(1.08)}}
@@ -861,6 +935,7 @@ def build(all_runs):
   #tip b{{font-weight:700}}
   .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
   .scorecards{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 20px}}
+  .scorecards>:first-child{{grid-column:span 2}}
   @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
   .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
   .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent);letter-spacing:-.02em;margin:4px 0 2px}}
@@ -886,7 +961,7 @@ def build(all_runs):
 <header>
   {snf_logo()}
   <h1>The Starknet Coding Index (SCI)</h1>
-  <p class="lede">{len(sci_rows)} models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the leading open-weight coders, large and small, alongside the current closed models from Anthropic, Google, OpenAI, xAI, and Alibaba. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
+  <p class="lede">{len(sci_rows)} models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the leading open-weight coders, large and small, alongside the current closed models from {closed_labs}. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
   <p class="lede">Each run is a bare agentic loop. The model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool: <b><code>submit</code></b>. Every submission is compiled with <code>scarb build</code> and run against hidden <code>snforge</code> tests. On failure the model sees the raw compiler errors and failing-test output (never the test code itself) and can resubmit, within a budget of 10 turns and 15 minutes of model time.</p>
   <p class="lede">In the MCP condition the model gets one extra tool, <b><code>assist_with_cairo</code></b>, which searches the Cairo and Starknet documentation corpus.</p>
   <div class="chips">
@@ -926,18 +1001,18 @@ def build(all_runs):
       <ul class="meta">
         <li><b>Harness:</b> agentic repair loop, max 10 assistant turns. The model submits <code>src/lib.cairo</code> via a <code>submit</code> tool; the harness runs <code>scarb build</code> + <code>snforge test</code> against hidden tests and returns the output. Conditions are identical except the MCP condition also exposes <code>assist_with_cairo</code>, replicated exactly from <code>@kasarlabs/cairo-coder-mcp</code> v0.2.5.</li>
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
-        <li><b>Model:</b> z-ai/glm-5.2 via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
+        <li><b>Models:</b> all served via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
         <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). An <b>attempt is a submission</b>, not a turn, so lookups and extra thinking turns are free and only delivered-and-broken code costs.</li>
-        <li><b>Reps and precision:</b> every charted model's best variant was sampled until its index confidence interval reached ±3 points (bootstrapped over runs, 400 resamples), which took 3 to 17 passes of the suite depending on how noisy the model is. The MCP condition keeps its original 2 to 3 passes, so its deltas are less precise than the headline scores.</li>
+        <li><b>Reps and precision:</b> each model's best variant was sampled until its index confidence interval reached ±5 points (bootstrapped over its runs, 1,000 resamples), taking 2 to 6 passes of the suite depending on how noisy the model is. The interval is printed beside every score above. ±5 is the floor on purpose: most adjacent pairs in the ranking sit under 2 points apart, so they are ties that no affordable sample size resolves, and buying ±3 instead cost roughly 1,300 extra runs to separate a single additional pair. <b>Two exceptions:</b> Hy3 (±6.9) and MiniMax M3 (±7.0) keep wider intervals. Both grind into the 15-minute budget, so precision there costs about ten times more per point than anywhere else, and topping one up can shift which variant wins and reset the problem. The MCP condition keeps its original 2 to 3 passes, so its deltas are less precise than the headline scores.</li>
       </ul>
     </div>
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
         <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
-        <li><b>Six cells abandoned, one batch truncated:</b> host-sleep/network stalls made 5 qwen/minimax baseline cells unrecoverable, and 1 qwen@high cell was cut when its batch was stopped manually; all are counted as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time/cost medians exclude abandoned cells.</li>
+        <li><b>Eight cells abandoned:</b> host-sleep and network stalls made six unrecoverable (five qwen/minimax baseline cells, one MiMo MCP cell), one qwen@high cell was cut when its batch was stopped manually, and one Hy3 run was killed at 22m43s after grinding far past the 900-second model-time budget, with its last delivered submission taken as the result (it scored zero either way, being over budget). All count as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time and cost medians exclude abandoned cells.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> (38/39 solved on both, same turn counts), so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
-        <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ~ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
+        <li><b>Statistics:</b> GLM's confirmation batches raised its low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ~ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>
       </ul>
     </div>
