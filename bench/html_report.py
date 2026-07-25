@@ -649,13 +649,13 @@ def build(all_runs):
             series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
         labels = ["off" if t == "disabled" else t for t in tiers]
         chart = line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min)
-        multiples.append(f'<div><h3 style="font-size:13px;margin-bottom:6px">{name}</h3>{chart}</div>')
+        multiples.append(f'<div class="multiple"><h3>{name}</h3>{chart}</div>')
     generalize_html = f"""
 <section>
   <h2>Does the effort pattern generalize?</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span><span>x-axis is the effort we requested; some neighbours are the same setting (see methodology)</span><span>a model appears here when most of its ladder was run in both conditions</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}
-    <div><h3 style="font-size:13px;margin-bottom:6px">Qwen3 Coder Next</h3>
+    <div class="multiple"><h3>Qwen3 Coder Next</h3>
     <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the small-models chart above on its single configuration.</p></div>
   </div>
   <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:16px 0 0">The two OpenAI models whose documentation gain arrives at full effort, Sol (+7.9) and Terra (+9.1), are deliberately not here: this chart measures solve rate and theirs barely moves. Sol already solves every task at every tier, and Terra's solve rate <i>falls</i> at <code>max</code> even as its score rises, because the tool buys it first-try delivery (0% to 27%) rather than more solves. The findings section carries that result.</p>
@@ -1076,6 +1076,12 @@ def build(all_runs):
      above its own chart's first drawn pixel (the svg carries ~26px of internal
      top padding for the value labels), so it read as belonging to the chart
      above. Measured, the gap above is now ~2x the gap below. */
+  /* small multiples: title centred over its own chart, which means centring the
+     wrapper so the inline svg moves with it. The note cell keeps its paragraph
+     left-aligned, since centred body text reads badly. */
+  .multiple{{text-align:center}}
+  .multiple h3{{font-size:13px;margin-bottom:6px}}
+  .multiple>p{{text-align:left}}
   .chart-title{{font-size:12px;letter-spacing:.06em;text-transform:uppercase;
     color:var(--muted);margin:48px 0 4px;text-align:center}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
