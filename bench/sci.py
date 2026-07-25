@@ -131,12 +131,12 @@ MODEL_REGISTRY = [
     # (xhigh collapsed 92 -> 77 correctness).
     {"specs": ["qwen/qwen3.7-max@disabled", "qwen/qwen3.7-max@low", "qwen/qwen3.7-max@high"],
      # charted False: closed Qwen; the interesting Qwen models are the open ones (David)
-     "label": "Qwen3.7 Max", "lab": "Alibaba", "open_weight": False, "charted": False},
+     "label": "Qwen3.7 Max", "lab": "Alibaba", "open_weight": False, "deprecated": True},
     {"specs": ["qwen/qwen3.7-plus@disabled", "qwen/qwen3.7-plus@low", "qwen/qwen3.7-plus@high",
                "qwen/qwen3.7-plus@xhigh"],
      # charted False: one Qwen 3.7 bar is enough (David); Plus stays in the
      # roster table and prose but not in charts 1-2
-     "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False, "charted": False},
+     "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False, "deprecated": True},
     {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
                "anthropic/claude-sonnet-5"],
@@ -150,7 +150,7 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
      # charted False: budget tier, not a coding pick (David); data stays in the table
-     "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False, "charted": False},
+     "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False, "deprecated": True},
     {"specs": ["x-ai/grok-4.5@max", "x-ai/grok-4.5@xhigh", "x-ai/grok-4.5@high",
                "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
      # thinking mandatory (@disabled rejected); bare = dynamic, skipped
@@ -165,12 +165,12 @@ MODEL_REGISTRY = [
                "anthropic/claude-opus-4.8@disabled"],
      # bare skipped: adaptive thinking at an unnameable level (probe 2026-07-24)
      # charted False: superseded by Opus 5; charts carry one bar per family's best (David)
-     "label": "Opus 4.8", "lab": "Anthropic", "open_weight": False, "charted": False},
+     "label": "Opus 4.8", "lab": "Anthropic", "open_weight": False, "deprecated": True},
     {"specs": ["anthropic/claude-haiku-4.5@max", "anthropic/claude-haiku-4.5@xhigh",
                "anthropic/claude-haiku-4.5@high", "anthropic/claude-haiku-4.5@low",
                "anthropic/claude-haiku-4.5"],
      # charted False: budget tier, not a coding pick (David); data stays in the table
-     "label": "Haiku 4.5", "lab": "Anthropic", "open_weight": False, "charted": False},
+     "label": "Haiku 4.5", "lab": "Anthropic", "open_weight": False, "deprecated": True},
     {"specs": ["openai/gpt-5.6-sol@max", "openai/gpt-5.6-sol@xhigh",
                "openai/gpt-5.6-sol@high", "openai/gpt-5.6-sol@low",
                "openai/gpt-5.6-sol@disabled"],
@@ -274,8 +274,20 @@ def compute_sci(runs_for_model):
     return {"sci": sci, "components": components, "raw": raw}
 
 
+def active_models():
+    """Registry entries that are still part of the study.
+
+    Deprecated entries are excluded EVERYWHERE, not just from the charts: no
+    report rows, no leaderboard, and above all no new benchmark runs. The
+    earlier "charted: False" flag only hid them in the report, so top-up sweeps
+    kept spending money and hours on models David had already dropped. Anything
+    that picks models to run must go through this function.
+    """
+    return [e for e in MODEL_REGISTRY if not e.get("deprecated")]
+
+
 def leaderboard(all_runs, condition=None):
-    """SCI rows for every registry model present in the data, best first.
+    """SCI rows for every active registry model present in the data, best first.
 
     Each model is scored at every benchmarked candidate variant; the row
     carries the best-scoring one (spec + variant fields say which)."""
@@ -285,7 +297,7 @@ def leaderboard(all_runs, condition=None):
         if r["condition"] == condition:
             by_model[r["model"]].append(r)
     rows = []
-    for entry in MODEL_REGISTRY:
+    for entry in active_models():
         scored = [
             {"spec": spec, **compute_sci(by_model[spec])}
             for spec in entry["specs"]

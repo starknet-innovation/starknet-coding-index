@@ -494,9 +494,9 @@ def build(all_runs):
     w_ = SCI_SPEC["weights"]
 
     # Small models (registry small: True) get their own section; the main
-    # charts show the regular-size field only, minus rows flagged charted:
-    # False (secondary tiers of an already-charted lab, e.g. Qwen3.7 Plus)
-    big_rows = [r for r in sci_rows if not r.get("small") and r.get("charted", True)]
+    # charts show the regular-size field; deprecated models are already gone
+    # from sci_rows entirely (see sci.active_models)
+    big_rows = [r for r in sci_rows if not r.get("small")]
     small_rows = [r for r in sci_rows if r.get("small")]
 
     # weights_pending models (K3) get a display-time star on their label;
@@ -603,7 +603,7 @@ def build(all_runs):
     # Fair questions: the priors readers arrive with, answered by one number
     FAQ = [
         ("Why does Opus 5 win?", "100% one-shot",
-         "Every task solved on the first submission, at the field's best speed and Opus 4.8's "
+         "Every task solved on the first submission, at the field's best speed and flagship "
          "pricing. Those habits outweigh Grok's 5× cheaper serving by 0.7 points, a whisker, "
          "on otherwise identical correctness."),
         ("Grok over Fable? Isn't Fable stronger?", "9× cheaper",
@@ -615,7 +615,7 @@ def build(all_runs):
          "vs 19s and $0.0044 with MiMo's 42B-active MoE."),
         ("Best result with thinking off?", "+0 solves",
          "That is what thinking buys a saturated model, while still billing time and money. "
-         "One model even inverts: Haiku drops from 89% to 66% with a big budget."),
+         "Some models even invert, getting less reliable the more budget you grant them."),
         ("Where are the small models?", "+29.1",
          "The small class (3B to 31B active) lives at the knowledge floor: baselines collapse, "
          "and docs either transform them (the study's biggest gain, Qwen3.6-35B-A3B) or bounce off. "
@@ -789,12 +789,12 @@ def build(all_runs):
 <section class="findings">
   <h2>Findings</h2>
   <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness across all twenty-four models: +29.1 for Qwen3.6-35B-A3B and +23.1 for Qwen3.6-27B at the knowledge floor, +10.8 for Qwen3 Coder Next, +10.1 for Hy3, +6.4 for GLM 5.2, +5.1 for MiniMax, +4.3 for Haiku 4.5 (the largest closed-model gain), fading to zero and below at the saturated top (Grok, the Opus-class models, MiMo, K3).</p>
+  <p>Documentation lift lines up with baseline weakness: +15.6 for Qwen3.6-35B-A3B and +12.7 for Qwen3.6-27B at the knowledge floor, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +4.2 for MiniMax, +2.0 for Hy3, fading to nothing and then to a small penalty at the saturated top (Opus 5 −0.1, K3 −0.3, MiMo −1.2, Fable −1.6).</p>
   <p>Three refinements: the law applies per <i>variant</i> (Terra gains only at its unsaturated <code>off</code> tier); saturated models can still gain a little when lookups shorten their repair loops (Gemini +1.1, Sol +0.6); and the law has a competence floor, because a model must be able to exploit what it reads. Gemma 4 31B (−1.3) and gpt-oss-120b (−2.7, zero solves even with documentation) sit below it.</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness: run the cheapest tier that holds it</h3>
-  <p>Five patterns across twenty-four models (the four new small models effectively join the first family: at the knowledge floor their dials move time and tokens, barely correctness): thinkers whose dial never moves correctness (Sonnet 5, Opus 4.8, Opus 5, Fable 5, Qwen3.7 Max, and Grok 4.5, where it only nudges one-shot rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), real curves where thinking buys solves (GLM, Luna, MiniMax, and two whose curves overshoot: Qwen3.7 Plus falls from 92% correctness at <code>high</code> to 77% at <code>xhigh</code>, Inkling from 99% at <code>low</code> to 88% at <code>high</code>), and one inverted curve (Haiku overthinks itself from 89% to 66%). Almost everywhere the index-best variant is the cheapest tier that holds correctness; Grok is the exception, where <code>max</code> pays for itself in one-shots.</p></div>
+  <p>Four patterns across the field (small models effectively join the first: at the knowledge floor the dial moves time and tokens, barely correctness): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges first-submission rate from 69% to 73%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 99% correctness at <code>low</code> down to 88% at <code>high</code>). Under v3 the index-best variant is no longer simply the cheapest tier that holds correctness: a pricier tier that gets it right first try now wins, which moved five models up their ladders.</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
-  <p>OpenAI's entire ladder iterates against the compiler at every scale and price (0–23% one-shot from Luna to Sol), while Anthropic's flagships one-shot nearly everything (96–100%). The tool never changed a model's one-shot rate: GPT-5.6 Luna knows Cairo (97% correct) yet measured −1.4 with docs. A habit is not a knowledge gap.</p>
+  <p>GPT-5.6 Sol iterates against the compiler even at flagship scale and price (23% first-submission), while Anthropic's flagships deliver on the first try nearly every time (96–100%). Documentation barely moves that habit: Sol reads Cairo docs and still lands at 19%. A habit is not a knowledge gap.</p>
   <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−0.0 to −1.9, pure schema overhead; Opus 5 gave the pattern its cleanest datapoint at exactly zero calls and zero delta) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>

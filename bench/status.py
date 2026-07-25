@@ -18,7 +18,7 @@ import time
 
 from . import config
 from .report import load_runs
-from .sci import MODEL_REGISTRY, SCI_SPEC, compute_sci, variant_label
+from .sci import SCI_SPEC, active_models, compute_sci, variant_label
 
 # Points of SCI. Not tighter than 5 on purpose: almost every adjacent pair in
 # the ranking is under 2 points apart, so those models are ties at any budget we
@@ -46,7 +46,7 @@ def bar(frac, width=14):
 def snapshot(runs):
     n_tasks = len({r["task"] for r in runs if r["task"] != "fake"})
     rows, done, pending = [], 0, 0
-    for e in MODEL_REGISTRY:
+    for e in active_models():   # never touch deprecated models
         scored = []
         for spec in e["specs"]:
             rs = [x for x in runs if x["model"] == spec and x["condition"] == "baseline"]
