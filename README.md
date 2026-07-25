@@ -29,8 +29,58 @@ Two conditions, identical in every way except tool availability:
   stub `src/lib.cairo`, hidden `tests/`, reference `solution/lib.cairo`
 - `bench/` — Python harness (see `bench/README` docstrings): runner, agent loop,
   OpenRouter client, workspace executor, task validator, report generator
-- `results/runs/*.jsonl` — one record per run, append-only, resumable
+- `results/runs/main.jsonl` — one record per run, append-only, resumable
 - `results/report.md` / `report.html` — aggregated results
+- `bench/audit.py` — re-checks every number quoted in the report against the data
+
+## Published data
+
+`results/runs/main.jsonl` holds all 7,338 analysed runs, one JSON object per line,
+and it is the only input the report and the audit need:
+
+```
+model condition task rep          what was run
+solved compiled tests_passed      outcome
+n_submissions turns               how many times code was delivered, and turns taken
+llm_time_s assist_time_s          model latency, and doc-tool wait
+cost_usd completion_tokens        OpenRouter-reported cost, output tokens
+submissions[] llm_calls[]         per-submission results, per-call latency
+assist_calls[] n_assist_calls     documentation lookups
+over_time_budget error            budget breach, transport failure
+```
+
+Two fields are **not** published: `transcript` (the full conversation) and
+`final_code` (the submitted Cairo). They were 88.7% and 7.4% of each record, 640 MB
+of the original 655, and nothing in `bench/` reads either. Dropping them leaves every
+published number reproducible bit-for-bit, which is checked below. If you need to see
+what a model actually wrote, the harness records both, so re-running a cell locally
+regenerates them.
+
+Per-stream files from the sweeps (`gap-*`, `ladder-*`, `topup*`) are not tracked
+either: they were merged into `main.jsonl` and keeping them would double-count.
+
+## Reproducing the report
+
+```bash
+uv run python -m bench.html_report     # rebuilds results/report.html from main.jsonl
+uv run python -m bench.audit           # 70 checks: every figure in the report
+uv run python -m bench.sci             # the index, per model and variant
+uv run python -m bench.status          # per-model confidence intervals vs the target
+```
+
+`bench.audit` exits non-zero if any published figure stops matching the data, so it
+works as a release gate. `bench.html_report` also refuses to write a report whose
+charts contain non-ASCII text or labels that would run off an edge.
+
+## A note on contamination
+
+The hidden tests are in this repository, so they are public from the moment it is.
+Any model trained after this release may have seen them, which makes those scores
+untrustworthy for models newer than the snapshot date in the report footer. That is
+the cost of an auditable benchmark, and the alternative — asking readers to trust
+unpublished tests — is worse. If you want a clean comparison for a newer model,
+write fresh tasks in the same shape; `bench.validate_tasks` gates them (reference
+solution must pass, stub must fail).
 
 ## Toolchain (pinned)
 

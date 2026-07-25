@@ -77,7 +77,8 @@ def aggregate(runs):
             ]),
             "med_cost": _med([r["cost_usd"] for r in rs]),
             "total_cost": sum(r["cost_usd"] or 0 for r in rs),
-            "mean_assist_calls": statistics.mean([r["n_assist_calls"] for r in rs]),
+            # one early record predates this field; absent means no lookups
+            "mean_assist_calls": statistics.mean([r.get("n_assist_calls") or 0 for r in rs]),
         })
     return rows
 
@@ -116,7 +117,10 @@ def markdown(rows, runs):
 
 
 def main():
-    paths = [Path(p) for p in sys.argv[1:]] or sorted(config.RUNS_DIR.glob("*.jsonl"))
+    # main.jsonl only, like html_report: globbing the directory counted every
+    # per-stream file that had already been merged into it, which inflated this
+    # report by 1,102 duplicate runs (8,440 against 7,338 real ones)
+    paths = [Path(p) for p in sys.argv[1:]] or [config.RUNS_DIR / "main.jsonl"]
     runs = load_runs(paths)
     if not runs:
         print("no runs found")

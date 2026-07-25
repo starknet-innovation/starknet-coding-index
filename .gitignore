@@ -8,3 +8,22 @@ results/workspaces/
 .env
 vendor/
 results/shots/
+
+# Run data: only the analysis-ready main.jsonl is published. main.full.jsonl keeps
+# the transcripts and submitted code locally (640 MB of the 655, and nothing in
+# bench/ reads either field). The rest are per-stream inputs to merges that already
+# happened, so tracking them would double-count and bloat the repo.
+results/runs/main.full.jsonl
+results/runs/gap-*.jsonl
+results/runs/ladder-*.jsonl
+results/runs/topup*.jsonl
+results/runs/refill-*.jsonl
+results/runs/probe-*.jsonl
+results/runs/*.bak
+results/runs/*.bak2
+results/runs/dryrun.jsonl
+results/runs/smoke.jsonl
+results/runs/pilot.jsonl
+
+# session tooling, not part of the benchmark
+.claude/
