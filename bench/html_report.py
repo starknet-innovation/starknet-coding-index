@@ -34,7 +34,7 @@ SNF_PINK_TINT = "#fdd2fc"
 
 SLATE = "#7c7ba2"          # lavender-60: baseline series in the effort curves
 CORAL = SNF_ORANGE         # "added by MCP" fills
-CORAL_INK = SNF_ORANGE_INK # "+x.x" labels and table deltas
+CORAL_INK = SNF_ORANGE_INK # table Δ cells only: chart labels match their bar
 INK = "#080435"            # blue-110
 MUTED = "#696989"          # lavender-70
 LINE = "#e6e3f3"           # lavender-10
@@ -234,7 +234,8 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             parts.append(top_rounded(x, top_m, top_b, bar_w, CORAL))
             # absolute with-tool score (comparable across all bars) + the gain
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{mcp:.1f}</text>')
-            parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL_INK}" text-anchor="middle">+{mcp - base:.1f}</text>')
+            # gain label takes the segment's own colour: bar and number are one thing
+            parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
         elif mcp is not None:
             # measured, no gain: bar stays at the (better) baseline; the red
             # sub-line quantifies what the tool would cost this model
