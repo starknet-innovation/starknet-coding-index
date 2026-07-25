@@ -594,10 +594,17 @@ def build(all_runs):
         wcls = "ow" if r["open_weight"] else "cw"
         wtxt = "open" if r["open_weight"] else "closed"
         mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
+        delta = mcp_sci - r["sci"] if mcp_sci is not None else None
+        delta_td = (
+            f'<td class="r" data-s="{delta:.1f}"><span style="color:{"var(--mcp)" if delta > 0 else "var(--muted)"};'
+            f'font-weight:{600 if delta > 0 else 400}">{"+" if delta > 0 else "−"}{abs(delta):.1f}</span></td>'
+            if delta is not None else '<td class="r">n/a</td>'
+        )
         model_rows.append(
             f'<tr><td>{r["label"]}</td>'
             + num_td(r["sci"], f'{r["sci"]:.1f}')
             + num_td(mcp_sci, f"{mcp_sci:.1f}" if mcp_sci is not None else "n/a")
+            + delta_td
             + f'<td>{r["lab"]}</td>'
             f'<td><span class="wchip {wcls}">{wtxt}</span></td>'
             f'<td>{mm["type"] or "n/a"}</td>'
@@ -647,7 +654,7 @@ def build(all_runs):
 <section>
   <h2>The models</h2>
   <div class="tablewrap"><table id="modeltable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Obs. tok/s</th></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Obs. tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
@@ -707,12 +714,13 @@ def build(all_runs):
   .takeaway b{{color:var(--ink)}}
   .tablewrap{{overflow-x:auto}}
   table{{border-collapse:collapse;width:100%;min-width:900px;font-variant-numeric:tabular-nums}}
-  th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
+  th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}}
+  #modeltable td:first-child{{white-space:nowrap}}
   #modeltable th{{cursor:pointer;user-select:none;white-space:nowrap}}
   #modeltable th:hover,#modeltable th:focus-visible{{color:var(--ink)}}
   #modeltable th.asc::after{{content:" \\25B2";font-size:9px}}
   #modeltable th.desc::after{{content:" \\25BC";font-size:9px}}
-  td{{padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
+  td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
