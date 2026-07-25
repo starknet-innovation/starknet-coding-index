@@ -76,6 +76,11 @@ def main():
                 path = SHOTS_DIR / f"{i:02d}-{name}.png"
                 sec.screenshot(path=str(path))
                 shots.append(path)
+            footer = page.query_selector("footer")
+            if footer:
+                path = SHOTS_DIR / "99-footer.png"
+                footer.screenshot(path=str(path))
+                shots.append(path)
             browser.close()
     except Exception as e:
         print(f"{e}\n\n{DEPS_HINT}", file=sys.stderr)

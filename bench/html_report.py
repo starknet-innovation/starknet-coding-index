@@ -4,11 +4,15 @@
 
 Writes results/report.html: a self-contained page (inline CSS + SVG charts,
 no external assets; the only JS is a small inline sorter for the models
-table). Publishing to an Artifact is a separate, manual step — this module
-never publishes anything.
+table). Brand assets in results/brand/ (Starknet Foundation logo, Inter
+subset) are inlined at build time so the published artifact stays offline.
+Publishing to an Artifact is a separate, manual step — this module never
+publishes anything.
 """
 
+import base64
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -16,12 +20,56 @@ from . import config
 from .report import load_runs
 from .sci import SCI_SPEC, leaderboard
 
-SLATE = "#7C8DB0"
-CORAL = "#E2653E"
-INK = "#1C2230"
-MUTED = "#5C6572"
-LINE = "#E3E6EC"
-GOOD = "#2E9E6B"
+# Starknet Foundation design tokens, read off starknet.org's stylesheet
+# (snf-st.shared.css exposes them as --base-color-* custom properties).
+SNF_BLUE = "#2e64d7"       # brand blue-70: primary accent, open-weight series
+SNF_BLUE_LINK = "#3f8cff"  # blue-60
+SNF_BLUE_DEEP = "#1c1c84"  # blue-90: tag text
+SNF_LAVENDER = "#8f8ebb"   # neutral lavender-50: closed-weight series
+SNF_ORANGE = "#f18f7e"     # orange-50: MCP gain fills
+SNF_ORANGE_INK = "#a8524c" # orange-80: MCP gain text (contrast on white)
+SNF_ORANGE_TINT = "#fddecf"
+SNF_PINK_INK = "#573166"   # pink-100
+SNF_PINK_TINT = "#fdd2fc"
+
+SLATE = "#7c7ba2"          # lavender-60: baseline series in the effort curves
+CORAL = SNF_ORANGE         # "added by MCP" fills
+CORAL_INK = SNF_ORANGE_INK # "+x.x" labels and table deltas
+INK = "#080435"            # blue-110
+MUTED = "#696989"          # lavender-70
+LINE = "#e6e3f3"           # lavender-10
+GROUND = "#f3f1f8"         # lavender-02: the site's page background
+GOOD = "#2E9E6B"           # semantic (up-rank arrows), deliberately non-brand
+
+BRAND_DIR = config.REPO_ROOT / "results" / "brand"
+
+
+def inter_font_face():
+    """@font-face for the Inter latin subset, inlined as a data URI."""
+    woff2 = (BRAND_DIR / "inter-latin.woff2").read_bytes()
+    b64 = base64.b64encode(woff2).decode()
+    return (
+        "@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;"
+        "font-display:swap;"
+        f"src:url(data:font/woff2;base64,{b64}) format('woff2')}}"
+    )
+
+
+def snf_logo(width=190):
+    """Starknet Foundation logo, inlined. Class names and gradient ids in the
+    source file are generic (cls-1, linear-gradient), so they get namespaced to
+    keep them from leaking into the report's own SVGs."""
+    svg = (BRAND_DIR / "snf-logo.svg").read_text()
+    svg = svg[svg.index("<svg"):]
+    for old, new in [("cls-", "snfl-"), ("linear-gradient", "snf-lg"),
+                     ("Layer_2", "snf-layer-2"), ("Layer_1-2", "snf-layer-1")]:
+        svg = svg.replace(old, new)
+    height = round(width * 158 / 679.58)
+    return svg.replace(
+        "<svg",
+        f'<svg width="{width}" height="{height}" role="img" '
+        f'aria-label="Starknet Foundation" class="snflogo"', 1
+    )
 
 
 
@@ -66,8 +114,10 @@ def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101)
             others = [s[2][i] for sj, s in enumerate(series) if sj != si]
             on_top = all(v > o for o in others) or (any(v == o for o in others) and si > 0)
             dy = -10 if on_top else 16
+            # the salmon series fill is too light for small text on white
+            label_fill = CORAL_INK if color == CORAL else color
             parts.append(
-                f'<text x="{sx(i):.0f}" y="{sy(v) + dy:.1f}" font-size="11" fill="{color}" '
+                f'<text x="{sx(i):.0f}" y="{sy(v) + dy:.1f}" font-size="11" fill="{label_fill}" '
                 f'text-anchor="middle" font-weight="600">{v:.0f}</text>'
             )
     for xi, y, text in annotations:
@@ -79,8 +129,8 @@ def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101)
 
 
 
-SCI_OPEN_COLOR = "#3D5A96"    # open-weight models
-SCI_CLOSED_COLOR = "#9AA3B2"  # closed-weight models
+SCI_OPEN_COLOR = SNF_BLUE      # open-weight models (brand blue-70)
+SCI_CLOSED_COLOR = SNF_LAVENDER  # closed-weight models (neutral lavender-50)
 
 
 def sci_bar_chart(rows, w=760, h=389):
@@ -185,7 +235,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             parts.append(top_rounded(x, top_m, top_b, bar_w, CORAL))
             # absolute with-tool score (comparable across all bars) + the gain
             parts.append(f'<text x="{cx:.0f}" y="{top_m - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{mcp:.1f}</text>')
-            parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL}" text-anchor="middle">+{mcp - base:.1f}</text>')
+            parts.append(f'<text x="{cx:.0f}" y="{top_m - 8:.0f}" font-size="10.5" font-weight="600" fill="{CORAL_INK}" text-anchor="middle">+{mcp - base:.1f}</text>')
         elif mcp is not None:
             # measured, no gain: bar stays at the (better) baseline; the red
             # sub-line quantifies what the tool would cost this model
@@ -609,7 +659,7 @@ def build(all_runs):
         mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
         delta = mcp_sci - r["sci"] if mcp_sci is not None else None
         delta_td = (
-            f'<td class="r" data-s="{delta:.1f}"><span style="color:{"var(--mcp)" if delta > 0 else "var(--muted)"};'
+            f'<td class="r" data-s="{delta:.1f}"><span style="color:{"var(--mcp-ink)" if delta > 0 else "var(--muted)"};'
             f'font-weight:{600 if delta > 0 else 400}">{"+" if delta > 0 else "−"}{abs(delta):.1f}</span></td>'
             if delta is not None else '<td class="r">n/a</td>'
         )
@@ -693,14 +743,16 @@ def build(all_runs):
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
 
-    return f"""<title>Starknet Coding Index | Cairo Coder Benchmark</title>
-<meta name="description" content="Which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across {len(sci_rows)} models from {len({r["lab"] for r in sci_rows})} labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
+    return f"""<title>Starknet Coding Index | A Starknet Foundation report</title>
+<meta name="description" content="A Starknet Foundation benchmark: which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across {len(sci_rows)} models from {len({r["lab"] for r in sci_rows})} labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
 <style>
+  {inter_font_face()}
   :root{{
-    --ground:#F6F7F9; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
-    --line:{LINE}; --baseline:{SLATE}; --mcp:{CORAL}; --good:{GOOD}; --bad:#B03A3A;
+    --ground:{GROUND}; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
+    --line:{LINE}; --baseline:{SLATE}; --mcp:{CORAL}; --mcp-ink:{CORAL_INK};
+    --accent:{SNF_BLUE}; --link:{SNF_BLUE_LINK}; --good:{GOOD}; --bad:#B03A3A;
     --mono:"SF Mono","Cascadia Code","JetBrains Mono",Consolas,ui-monospace,monospace;
-    --sans:"Avenir Next",-apple-system,"Segoe UI",Roboto,sans-serif;
+    --sans:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
   }}
   *{{box-sizing:border-box}}
   body{{background:var(--ground);color:var(--ink);font-family:var(--sans);margin:0;padding:40px 20px 80px;line-height:1.55}}
@@ -744,7 +796,7 @@ def build(all_runs):
   .scorecards{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 20px}}
   @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
   .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
-  .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--mcp);letter-spacing:-.02em;margin:4px 0 2px}}
+  .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent);letter-spacing:-.02em;margin:4px 0 2px}}
   .faqcard p{{margin:0;font-size:13.5px}}
   @media(max-width:760px){{.faq{{grid-template-columns:1fr}}}}
   .findings{{display:flex;flex-direction:column;gap:18px}}
@@ -752,16 +804,20 @@ def build(all_runs):
   .finding p{{margin:0;font-size:14px}}
   .finding p + p{{margin-top:9px}}
   .tag{{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:3px;margin-right:8px;vertical-align:1px}}
-  .tag.win{{background:#E7F4EE;color:var(--good)}} .tag.cost{{background:#FBEDE8;color:var(--mcp)}} .tag.warn{{background:#F7EFDC;color:#9A7013}}
+  .tag.win{{background:{LINE};color:{SNF_BLUE_DEEP}}} .tag.cost{{background:{SNF_ORANGE_TINT};color:{SNF_ORANGE_INK}}} .tag.warn{{background:{SNF_PINK_TINT};color:{SNF_PINK_INK}}}
   code{{font-family:var(--mono);font-size:.92em;background:var(--ground);border:1px solid var(--line);border-radius:3px;padding:1px 5px}}
   .split{{display:grid;grid-template-columns:1fr 1fr;gap:28px}}
   @media(max-width:760px){{.split{{grid-template-columns:1fr}}}}
   ul.meta{{margin:0;padding-left:20px;font-size:13.5px;color:var(--muted)}}
   ul.meta li{{margin-bottom:7px}}
   ul.meta b{{color:var(--ink)}}
+  .snflogo{{display:block;margin-bottom:18px}}
+  footer{{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding-top:4px}}
+  footer a{{color:var(--link);text-decoration:none}}
 </style>
 <main>
 <header>
+  {snf_logo()}
   <h1>The Starknet Coding Index (SCI)</h1>
   <p class="lede">{len(sci_rows)} models ran the same {len({r["task"] for r in all_runs if r["task"] != "fake"})} Starknet smart-contract tasks: the leading open-weight coders, large and small, alongside the current closed models from Anthropic, Google, OpenAI, xAI, and Alibaba. Every model ran at each useful thinking setting, with and without the <b>Cairo Coder</b> documentation tool.</p>
   <p class="lede">Each run is a bare agentic loop. The model gets the task, a fixed <code>Scarb.toml</code>, a stub <code>lib.cairo</code>, and exactly one tool: <b><code>submit</code></b>. Every submission is compiled with <code>scarb build</code> and run against hidden <code>snforge</code> tests. On failure the model sees the raw compiler errors and failing-test output (never the test code itself) and can resubmit, within a budget of 10 turns and 15 minutes of model time.</p>
@@ -819,6 +875,7 @@ def build(all_runs):
     </div>
   </div>
 </section>
+<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · benchmark snapshot 2026-07-25</footer>
 </main>
 """
 
