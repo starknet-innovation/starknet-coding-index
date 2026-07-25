@@ -488,25 +488,49 @@ def attempts_chart(groups, w=760, h=210, y_max=None, fmt=None, ticks=None):
 
 
 def build(all_runs):
-    # Does the effort pattern generalize? Small-multiple curves — every model
-    # with at least two thinking tiers measured in BOTH conditions qualifies;
-    # per-family y_min because Qwen lives far below everyone else's floor.
+    # Does the effort pattern generalize? Small-multiple curves, one per model
+    # with at least two thinking tiers measured in BOTH conditions.
+    #
+    # Tiers are DERIVED from the data, not listed here. The old hardcoded lists
+    # went stale every time a ladder was extended, and a tier with no runs got
+    # solve_pct 0, drawing a line to the floor that was indistinguishable from a
+    # model that genuinely solved nothing at that effort. Deriving them also
+    # means a tier the API rejects (gpt-oss refuses @disabled: "Reasoning is
+    # mandatory") simply never appears.
+    EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "high", "xhigh", "max"]
+    # y_min per family: Qwen's small models live far below everyone else's floor
     FAMILIES = [
-        ("GLM 5.2", "z-ai/glm-5.2@", ["disabled", "low", "medium", "high", "xhigh"], 60),
-        ("Tencent Hy3", "tencent/hy3@", ["disabled", "low", "medium", "high", "xhigh"], 60),
-        ("MiniMax M3", "minimax/minimax-m3@", ["minimal", "low", "medium", "high", "xhigh", "max"], 60),
-        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", ["disabled", "minimal", "low", "medium", "high", "xhigh"], 60),
-        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", ["disabled", "minimal", "low", "medium", "high", "xhigh", "max"], 60),
-        ("Qwen3.6-27B", "qwen/qwen3.6-27b@", ["high", "xhigh", "max"], 0),
+        ("GLM 5.2", "z-ai/glm-5.2@", 60),
+        ("Tencent Hy3", "tencent/hy3@", 60),
+        ("MiniMax M3", "minimax/minimax-m3@", 60),
+        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", 60),
+        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", 60),
+        ("Qwen3.6-27B", "qwen/qwen3.6-27b@", 0),
+        ("Qwen3.6-35B-A3B", "qwen/qwen3.6-35b-a3b@", 0),
     ]
+
+    def measured_tiers(prefix):
+        """Tiers with runs in both conditions, in canonical effort order."""
+        have = {
+            t for t in EFFORT_ORDER
+            if all(any(r["model"] == prefix + t and r["condition"] == c for r in all_runs)
+                   for c in ("baseline", "mcp"))
+        }
+        return [t for t in EFFORT_ORDER if t in have]
+
     multiples = []
-    for name, prefix, tiers, y_min in FAMILIES:
+    curve_points = []
+    for name, prefix, y_min in FAMILIES:
+        tiers = measured_tiers(prefix)
+        if len(tiers) < 2:
+            continue
         series = []
         for cond, color in [("baseline", SLATE), ("mcp", CORAL)]:
             vals = []
             for t in tiers:
                 rs = [r for r in all_runs if r["model"] == prefix + t and r["condition"] == cond]
-                vals.append(solve_pct(rs) if rs else 0)
+                vals.append(solve_pct(rs))
+                curve_points.append(len(rs))
             series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
         labels = ["off" if t == "disabled" else t for t in tiers]
         chart = line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min)
@@ -514,8 +538,11 @@ def build(all_runs):
     generalize_html = f"""
 <section>
   <h2>Does the effort pattern generalize?</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, 26–147 runs per point</span></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}</div>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}
+    <div><h3 style="font-size:13px;margin-bottom:6px">Qwen3 Coder Next</h3>
+    <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the small-models chart above on its single configuration.</p></div>
+  </div>
 </section>"""
 
 
@@ -610,7 +637,7 @@ def build(all_runs):
     small_html = f"""
 <section>
   <h2>Small models</h2>
-  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +15.6). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
+  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
   {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120)}
   {lift_legend_small}
 </section>"""
@@ -684,10 +711,11 @@ def build(all_runs):
          "Sonnet 5 scores highest with reasoning disabled: 67% one-shot at 14 seconds a task. "
          "Its thinking variants bill more time and money for no extra solves, and several models "
          "here get less reliable the more budget you grant them."),
-        ("Where are the small models?", "+15.6 with docs",
+        ("Where are the small models?", "+22.0 with docs",
          "The small class (3B to 31B active) lives at the knowledge floor, so baselines collapse. "
-         "Documentation doubles the Qwen entries (35B-A3B 16.2 to 31.8) and bounces off Gemma 4 "
-         "and gpt-oss. They compare on their own footing in the section below."),
+         "Documentation nearly triples the two Qwen3.6 entries (27B goes 13.3 to 35.3, solving 15% "
+         "of runs without docs and 69% with) and bounces off Gemma 4 and gpt-oss. They compare on "
+         "their own footing in the section below."),
         ("Sol mid-pack? It rivals Fable elsewhere", "25% one-shot",
          "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code). "
          "Its habit is: a median of two submissions per task, at the highest price per task in "
@@ -876,10 +904,11 @@ def build(all_runs):
 <section class="findings">
   <h2>Findings</h2>
   <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness: +15.6 for Qwen3.6-35B-A3B and +12.7 for Qwen3.6-27B at the knowledge floor, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +5.1 for MiniMax M3, +2.8 for Hy3, fading to nothing and then to a penalty at the saturated top (Opus 5 −0.1, K3 −0.3, Fable −1.6, MiMo −2.6, Sonnet 5 −5.4).</p>
-  <p>Three refinements. The law applies per <i>variant</i>, not per model: Terra gains only at its unsaturated tiers (+4.2 at <code>minimal</code>, +1.9 with thinking off, nothing at <code>max</code>), and documentation raises MiniMax at five of its six tiers while costing it 5.6 points at the one tier its baseline happens to win on, which is why the like-for-like gain above understates the tool. The lift is mostly bought in solves, not in polish: at the floor it converts runs that never worked into working ones (Qwen3.6-35B-A3B 11% to 59% solved, Qwen3.6-27B 21% to 58%, Coder Next 0% to 17%). And the law has a competence floor, because a model has to be able to exploit what it reads: Gemma 4 31B (−1.8) and gpt-oss-120b (−1.7, zero solves with documentation or without) sit below it.</p></div>
+  <p>Documentation lift lines up with baseline weakness: +22.0 for Qwen3.6-27B and +15.6 for Qwen3.6-35B-A3B at the knowledge floor, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +5.2 for MiniMax M3, +2.3 for Hy3, fading to nothing and then to a penalty at the saturated top (Opus 5 &minus;0.1, K3 &minus;0.3, Fable &minus;1.6, MiMo &minus;2.6, Sonnet 5 &minus;5.4).</p>
+  <p>Three refinements. The law applies per <i>variant</i>, not per model: Terra gains only at its unsaturated tiers (+4.2 at <code>minimal</code>, +1.9 with thinking off, nothing at <code>max</code>), and documentation raises MiniMax at four of its six tiers (+13.0, +12.3, +7.1, +3.2) while costing it 5.5 points at the one tier its baseline happens to win on, which is why the like-for-like gain above understates the tool. The lift is mostly bought in solves, not in polish: at the floor it converts runs that never worked into working ones (Qwen3.6-27B 15% to 69% solved, Qwen3.6-35B-A3B 11% to 59%, Coder Next 0% to 17%). And the law has a competence floor, because a model has to be able to exploit what it reads: Gemma 4 31B (−1.8) and gpt-oss-120b (−1.7, zero solves with documentation or without) sit below it.</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness, but it can buy first-try delivery</h3>
-  <p>Four patterns across the field (small models effectively join the first: at the knowledge floor the dial moves time and tokens, barely correctness): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models up their own ladders (Gemini, Sol, Terra, GLM to their top tiers, MiniMax down to <code>medium</code>).</p></div>
+  <p>Four patterns across the field (the small models are their own case, below): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models up their own ladders (Gemini, Sol, Terra, GLM to their top tiers, MiniMax down to <code>medium</code>).</p>
+  <p>The two small Qwen models invert the question: for them the dial is not neutral, it is harmful. Both score highest with thinking switched <b>off</b> and worst near the top of the ladder (Qwen3.6-27B 13.3 off against 9.3 at <code>xhigh</code>; Qwen3.6-35B-A3B 16.2 against 6.3, a 4% solve rate). Documentation follows the same shape, paying most where thinking is off (27B +22.0 there, +8 at <code>xhigh</code>). At the knowledge floor, thinking budget spent without the knowledge to spend it on makes things worse, and the fix is reference material, not more reasoning.</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
   <p>GPT-5.6 Sol iterates against the compiler even at flagship scale and price (25% first-submission, a median of two submissions per task), while Opus 5 and Fable 5 deliver on the first try nearly every time (100% and 96%). Documentation barely moves that habit: at the tiers where we ran both conditions, Sol reads Cairo docs and still lands at 19% and 15%. A habit is not a knowledge gap, and it is the habit this index prices.</p>
   <p>Tool use splits the same way. Offered the docs, Anthropic's models never called them once, so the tool is pure schema overhead for them (Opus 5 gave that pattern its cleanest datapoint: zero calls, −0.1 points). Grok 4.5 consults them about once per run it does not obviously need, and no longer pays for the habit: +0.6 points, and a first-submission rate that moves the right way at the same tier, 74% to 88%. Under the previous index that same behaviour scored as a 13-point penalty, because a lookup consumed a turn and turns were what got counted. Nothing about Grok changed; the ruler did. Treat the direction as directional only, though: at the MCP condition's depth these first-submission shifts do not reach significance (Grok p=0.21, Sonnet's 67% to 50% drop p=0.15).</p></div>
@@ -1017,13 +1046,13 @@ def build(all_runs):
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
         <li><b>Models:</b> all served via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
         <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). An <b>attempt is a submission</b>, not a turn, so lookups and extra thinking turns are free and only delivered-and-broken code costs.</li>
-        <li><b>Reps and precision:</b> each model's best variant was sampled until its index confidence interval reached ±5 points (bootstrapped over its runs, 1,000 resamples), taking 2 to 6 passes of the suite depending on how noisy the model is. The interval is printed beside every score above. ±5 is the floor on purpose: most adjacent pairs in the ranking sit under 2 points apart, so they are ties that no affordable sample size resolves, and buying ±3 instead cost roughly 1,300 extra runs to separate a single additional pair. <b>Two exceptions:</b> Hy3 (±6.9) and MiniMax M3 (±7.0) keep wider intervals. Both grind into the 15-minute budget, so precision there costs about ten times more per point than anywhere else, and topping one up can shift which variant wins and reset the problem. The MCP condition keeps its original 2 to 3 passes, so its deltas are less precise than the headline scores.</li>
+        <li><b>Reps and precision:</b> each model's best variant was sampled until its index confidence interval reached &plusmn;5 points (bootstrapped over its runs, 1,000 resamples), which took 2 to 10 passes of the suite depending on how noisy the model is. The interval is printed beside every score above, and <b>every model in the table now meets it</b>: the widest is &plusmn;4.9. &plusmn;5 is the floor on purpose. Most adjacent pairs in the ranking sit under 2 points apart, so they are ties that no affordable sample size resolves, and pricing &plusmn;3 for every variant that could plausibly win came to 2,086 further runs for one extra resolved pair. The MCP condition keeps its original 2 to 3 passes, so its deltas are less precise than the headline scores.</li>
       </ul>
     </div>
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
+        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 25 to 120 runs per variant, deepest where the index was noisiest. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
         <li><b>Eight cells abandoned:</b> host-sleep and network stalls made six unrecoverable (five qwen/minimax baseline cells, one MiMo MCP cell), one qwen@high cell was cut when its batch was stopped manually, and one Hy3 run was killed at 22m43s after grinding far past the 900-second model-time budget, with its last delivered submission taken as the result (it scored zero either way, being over budget). All count as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time and cost medians exclude abandoned cells.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> (38/39 solved on both, same turn counts), so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
         <li><b>Statistics:</b> GLM's confirmation batches raised its low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ~ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>

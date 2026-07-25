@@ -95,7 +95,10 @@ MODEL_REGISTRY = [
                "minimax/minimax-m3@minimal"],
      # @disabled deliberately absent: MiniMax accepts the param but thinks anyway
      "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
-    {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high"],
+    # Full ladder swept 2026-07-25 for the effort-curve section (both conditions).
+    {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high",
+               "qwen/qwen3.6-27b@medium", "qwen/qwen3.6-27b@low",
+               "qwen/qwen3.6-27b@minimal", "qwen/qwen3.6-27b@disabled"],
      # small: rendered in the report's small-models section, not the main charts
      "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
     # Small open-weight batch 2026-07-24. gpt-oss: @disabled REJECTED
@@ -107,7 +110,9 @@ MODEL_REGISTRY = [
                "openai/gpt-oss-120b@high"],
      "label": "gpt-oss-120b", "lab": "OpenAI", "open_weight": True, "small": True},
     {"specs": ["qwen/qwen3.6-35b-a3b", "qwen/qwen3.6-35b-a3b@disabled",
-               "qwen/qwen3.6-35b-a3b@low", "qwen/qwen3.6-35b-a3b@high"],
+               "qwen/qwen3.6-35b-a3b@minimal", "qwen/qwen3.6-35b-a3b@low",
+               "qwen/qwen3.6-35b-a3b@medium", "qwen/qwen3.6-35b-a3b@high",
+               "qwen/qwen3.6-35b-a3b@xhigh", "qwen/qwen3.6-35b-a3b@max"],
      "label": "Qwen3.6-35B-A3B", "lab": "Alibaba", "open_weight": True, "small": True},
     {"specs": ["google/gemma-4-31b-it@disabled", "google/gemma-4-31b-it@low",
                "google/gemma-4-31b-it@high"],
