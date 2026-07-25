@@ -18,7 +18,7 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import SCI_SPEC, leaderboard
+from .sci import SCI_SPEC, attempt_score, attempts, leaderboard
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -310,6 +310,48 @@ def head_to_head_chart(metrics, w=760):
 
 
 
+ATTEMPT_COLORS = [SNF_BLUE, "#7c7ba2", "#bab7df", "#cecde7"]  # 1, 2, 3, 4+ submissions
+
+
+def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
+    """Stacked column per model: height = solve rate, segments = how many
+    submissions it took. A tall, mostly-dark column is a model that just works;
+    the empty space above a column is runs it never solved at all.
+    """
+    pad_r, pad_t, pad_b = 40, 26, 115
+    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    col_w = cw / len(rows)
+    bar_w = min(col_w * 0.62, 80)
+    sy = lambda v: pad_t + (100 - v) / 100 * ch
+    parts = [svg_open(w, h)]
+    for gv in range(0, 101, 25):
+        y = sy(gv)
+        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
+        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}%</text>')
+    for i, r in enumerate(rows):
+        cx = pad_l + col_w * i + col_w / 2
+        x = cx - bar_w / 2
+        base = 0.0  # stack upward from the axis
+        for k, share in enumerate(r["dist"]):
+            if share <= 0:
+                continue
+            y0, y1 = sy(base), sy(base + share)
+            parts.append(f'<rect x="{x:.1f}" y="{y1:.1f}" width="{bar_w:.1f}" '
+                         f'height="{y0 - y1:.1f}" fill="{ATTEMPT_COLORS[k]}"/>')
+            base += share
+        parts.append(f'<text x="{cx:.0f}" y="{sy(base) - 8:.0f}" font-size="10.5" font-weight="600" '
+                     f'fill="{SNF_BLUE}" text-anchor="middle">{r["dist"][0]:.0f}%</text>')
+        ly = sy(0) + 12
+        variant = (f' <tspan fill="{MUTED}" font-family="var(--mono)">({r["variant"]})</tspan>'
+                   if r.get("variant") else "")
+        parts.append(
+            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{variant}</text>'
+        )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
                      pad_l=64):
     """Chart-1-styled column chart for an arbitrary per-model metric: same
@@ -435,9 +477,15 @@ def build(all_runs):
         if not passes:
             continue
         secs = med_of([sum(x["llm_time_s"] + (x.get("assist_time_s") or 0) for x in rs) for rs in passes])
+        # share of ALL runs solved in 1 / 2 / 3 / 4+ submissions (rest unsolved)
+        all_rs = [x for x in all_runs if x["model"] == r["spec"] and x["condition"] == "baseline"]
+        solved = [x for x in all_rs if x["solved"]]
+        r["dist"] = [
+            100 * sum(1 for x in solved if attempts(x) == k) / len(all_rs) for k in (1, 2, 3)
+        ] + [100 * sum(1 for x in solved if attempts(x) >= 4) / len(all_rs)]
         r["tip"] = {
             "passes": len(passes),
-            "oneshot": med_of([100 * sum(1 for x in rs if x["solved"] and x["turns"] == 1) / n_tasks for rs in passes]),
+            "oneshot": med_of([100 * sum(1 for x in rs if x["solved"] and attempts(x) == 1) / n_tasks for rs in passes]),
             "cost": med_of([sum(x["cost_usd"] or 0 for x in rs) for rs in passes]),
             "secs": secs,
             "time": f"{int(secs // 60)}m {int(secs % 60):02d}s",
@@ -519,7 +567,7 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
+  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
   {sci_bar_chart(starred(big_rows))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
   {tip_js}
@@ -534,11 +582,12 @@ def build(all_runs):
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
-  <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked: each model's median complete pass of the 13-task suite (over its 2 to 3 passes, baseline condition). Same numbers as the chart tooltips above; each chart ranks best first.</p>
-  <h3 {h3_style}>One-shot rate</h3>
-  {metric_bar_chart(sorted(starred(big_rows), key=lambda r: -r["tip"]["oneshot"]),
-                    lambda r: r["tip"]["oneshot"], lambda v: f"{v:.0f}%",
-                    100, [(t, f"{t}%") for t in range(0, 101, 25)], pad_l=110)}
+  <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: how often each model's code worked on submission one, two, three, or later, with the empty space above a column being runs it never got working. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
+  <h3 {h3_style}>How many submissions it takes</h3>
+  {attempts_dist_chart(sorted(starred(big_rows), key=lambda r: -r["dist"][0]))}
+  <div class="legend legend-bottom">{"".join(
+      f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
+      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span>empty space above a column: never solved</span></div>
   <h3 {h3_style}>Cost per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
@@ -596,12 +645,12 @@ def build(all_runs):
         return {
             "n": len(rs),
             "solve": solve_pct(rs),
-            "oneshot": 100 * sum(1 for r in rs if r["solved"] and r["turns"] == 1) / len(rs),
+            "oneshot": 100 * sum(1 for r in rs if r["solved"] and attempts(r) == 1) / len(rs),
             "time": med([r["llm_time_s"] + (r.get("assist_time_s") or 0) for r in rs]),
             "cost": med([r["cost_usd"] for r in rs if r["cost_usd"] is not None]),
             "tokens": med([r["completion_tokens"] for r in rs if r["completion_tokens"]]),
-            # attempts = assistant turns used; tasks are tiered by id prefix
-            **{f"turns_{tier}": med([r["turns"] for r in rs if r["task"].startswith(tier)])
+            # attempts = submissions delivered; tasks are tiered by id prefix
+            **{f"turns_{tier}": med([attempts(r) for r in rs if r["task"].startswith(tier)])
                for tier in ("e", "m", "h")},
         }
 
@@ -609,7 +658,7 @@ def build(all_runs):
     pct = lambda v: f"{v:.0f}%"
     h2h_metrics = [
         ("solve rate", sa["solve"], sb["solve"], pct),
-        ("one-shot rate", sa["oneshot"], sb["oneshot"], pct),
+        ("first-submission rate", sa["oneshot"], sb["oneshot"], pct),
         ("med. model time", sa["time"], sb["time"], lambda v: f"{v:.0f}s"),
         ("med. cost / task", sa["cost"], sb["cost"], lambda v: f"${v:.4f}"),
         ("med. output tokens", sa["tokens"], sb["tokens"], lambda v: f"{v:,.0f}"),
@@ -623,7 +672,7 @@ def build(all_runs):
   <h2>Head to head: best closed vs best open weights</h2>
   <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
   {head_to_head_chart(h2h_metrics)}
-  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">Median attempts by task difficulty</h3>
+  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">Median submissions by task difficulty</h3>
   {attempts_chart(h2h_attempts)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>bars scaled per row; all but solve &amp; one-shot: lower is better</span></div>
 </section>"""
@@ -633,13 +682,12 @@ def build(all_runs):
 <section>
   <h2>How the score is built</h2>
   <div class="scorecards">
-    <div class="faqcard"><div class="q">Correctness</div><div class="stat">{w_["correct"]:.0%}</div><p>Average fraction of hidden tests passed per task. Half the index: a fast, cheap model that writes wrong contracts cannot rank well.</p></div>
-    <div class="faqcard"><div class="q">One-shot rate</div><div class="stat">{w_["oneshot"]:.0%}</div><p>Share of runs solved on the very first submission, no compiler feedback needed.</p></div>
-    <div class="faqcard"><div class="q">Speed</div><div class="stat">{w_["speed"]:.0%}</div><p>Median model latency per task, scored on a fixed log scale ({a["speed"][0]}s to {a["speed"][1]}s). Local compile/test time excluded.</p></div>
+    <div class="faqcard"><div class="q">Effectiveness</div><div class="stat">{w_["effective"]:.0%}</div><p>Does it work without sending you back into the loop? A run scores 100 when the very first submission passes, then {SCI_SPEC["attempt_decay"]:.0%} of that per further attempt: 100 / 40 / 16 / 6 for 1 / 2 / 3 / 4 submissions, and 0 if it never works.</p></div>
+    <div class="faqcard"><div class="q">Correctness</div><div class="stat">{w_["correct"]:.0%}</div><p>Average fraction of hidden tests passed per task. Partial credit on what was delivered: 90% passing is still broken, but it is closer than nothing.</p></div>
     <div class="faqcard"><div class="q">Cost</div><div class="stat">{w_["cost"]:.0%}</div><p>Median $ per task, scored on a fixed log scale (${a["cost"][0]} to ${a["cost"][1]}).</p></div>
-    <div class="faqcard"><div class="q">Token efficiency</div><div class="stat">{w_["tokens"]:.0%}</div><p>Median output tokens per task ({a["tokens"][0] // 1000}k to {a["tokens"][1] // 1000}k), penalizing verbosity independent of price.</p></div>
+    <div class="faqcard"><div class="q">Time</div><div class="stat">{w_["speed"]:.0%}</div><p>Median model latency per task, scored on a fixed log scale ({a["speed"][0]}s to {a["speed"][1]}s). Local compile/test time excluded.</p></div>
   </div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). 26–130 runs per entry. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">An attempt is a <b>submission</b>, not a turn: thinking, extra turns and documentation lookups never reach you, so they are free, while code that arrives broken is not. Runs over the 15-minute model-time budget count as failures. Models with one fixed mode show that mode (Kimi K3 always runs at <code>max</code>). The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
 </section>"""
 
     # The models: OpenRouter snapshot (pricing, context, disclosed architecture)
@@ -750,7 +798,7 @@ def build(all_runs):
   <p>Tool discipline is a habit too, and the costliest one to lack: offered the same docs, Anthropic's flagships never called them once (−0.0 to −1.9, pure schema overhead; Opus 5 gave the pattern its cleanest datapoint at exactly zero calls and zero delta) while Grok 4.5 dutifully consulted them about once per run it didn't need, worth −13.1, the largest penalty in the study.</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both measured pro modes (luna-pro, terra-pro) cost 2–3× their model's <code>max</code> tier and scored below it. Neither ever produced the best configuration of its model; sol-pro was not funded on that record.</p></div>
-  <div class="finding"><h3><span class="tag win">effectiveness</span>Why the tool works: baseline failures are training-data lag</h3>
+  <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: baseline failures are training-data lag</h3>
   <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (~1,300 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
@@ -879,7 +927,8 @@ def build(all_runs):
         <li><b>Harness:</b> agentic repair loop, max 10 assistant turns. The model submits <code>src/lib.cairo</code> via a <code>submit</code> tool; the harness runs <code>scarb build</code> + <code>snforge test</code> against hidden tests and returns the output. Conditions are identical except the MCP condition also exposes <code>assist_with_cairo</code>, replicated exactly from <code>@kasarlabs/cairo-coder-mcp</code> v0.2.5.</li>
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
         <li><b>Model:</b> z-ai/glm-5.2 via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
-        <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). 2–3 reps per cell: a third rep breaks 1–1 ties (entries benchmarked before 2026-07-24 used a fixed 3).</li>
+        <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). An <b>attempt is a submission</b>, not a turn, so lookups and extra thinking turns are free and only delivered-and-broken code costs.</li>
+        <li><b>Reps and precision:</b> every charted model's best variant was sampled until its index confidence interval reached ±3 points (bootstrapped over runs, 400 resamples), which took 3 to 17 passes of the suite depending on how noisy the model is. The MCP condition keeps its original 2 to 3 passes, so its deltas are less precise than the headline scores.</li>
       </ul>
     </div>
     <div>

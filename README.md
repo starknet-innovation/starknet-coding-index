@@ -68,12 +68,31 @@ resume, results, and report grouping.
 ## Starknet Coding Index (SCI)
 
 One composite score per model for "how good is this LLM at Starknet contracts":
-`SCI = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost + 0.05*TokenEff`,
-computed by `bench/sci.py` (weights + fixed log anchors versioned in `SCI_SPEC`,
-currently v2). Speed scores median **model latency** (`llm_time_s`, anchors
-10s→1200s) — not wall time, which includes local compile/test that scales with
-runner concurrency and says nothing about the model. Print the leaderboard with
+`SCI = 0.50*Effectiveness + 0.25*Correctness + 0.15*Cost + 0.10*Time`,
+computed by `bench/sci.py` (weights, decay and fixed log anchors versioned in
+`SCI_SPEC`, currently **v3**). Print the leaderboard with
 `uv run python -m bench.sci`.
+
+- **Effectiveness** is the point of the index: does the model deliver working
+  code without sending the human back into the loop? Per run, `0` if unsolved or
+  over budget, else `100 * 0.4**(submissions-1)`, so 1/2/3/4 submissions score
+  100/40/16/6. **An attempt is a submission, not a turn**: thinking, extra
+  assistant turns and documentation lookups never reach the user and are free;
+  only code that arrives broken costs, because that is when a person has to read
+  the output and re-prompt. Some models emit several `submit` calls in one turn,
+  which this counts correctly and a turn count would hide.
+- **Correctness** is per-test partial credit on the delivered code. 90% of tests
+  passing is still broken, but it separates "nearly worked" from "garbage".
+- **Cost/Time** use median $ per task and median **model latency**
+  (`llm_time_s`, anchors 10s→1200s) — not wall time, which includes local
+  compile/test that scales with runner concurrency and says nothing about the
+  model.
+
+v2.1 → v3 (2026-07-25): v2.1 weighted correctness at 50% with a binary one-shot
+bonus, so a model that ground out a fix over ten turns of privileged
+failing-test feedback scored nearly as well as one that got it right first try.
+Real users have no hidden test suite: they prompt, compile, and ship. Scores are
+**not comparable across the v2.1 boundary**.
 
 **Adding a model** (budget-aware protocol):
 

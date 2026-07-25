@@ -2,17 +2,23 @@
 
   uv run python -m bench.sci [runs.jsonl ...]
 
-SCI v2.1 = 0.50*Correctness + 0.15*OneShot + 0.15*Speed + 0.15*Cost
-           + 0.05*TokenEfficiency        (0-100, higher is better)
+SCI v3 = 0.50*Effectiveness + 0.25*Correctness + 0.15*Cost + 0.10*Time
+         (0-100, higher is better)
 
+- Effectiveness: how often the model delivers working code WITHOUT sending the
+  human back into the loop. Per run: 0 if unsolved or over budget, else
+  100 * 0.4**(submissions-1), so 1/2/3/4 submissions score 100/40/16/6.
+  An ATTEMPT IS A SUBMISSION, NOT A TURN: thinking, extra assistant turns and
+  documentation lookups are invisible to the user and therefore free. Only
+  delivering code that turns out to be broken costs, because in real use that
+  is the moment a person has to read the output and re-prompt.
 - Correctness: mean over tasks of mean over reps of hidden-test pass fraction.
-- OneShot: % of runs solved on the first submission.
-- Speed: median MODEL latency (llm_time_s: time spent streaming from the API).
+  Partial credit on what was delivered: 90% of tests passing is still broken,
+  but it is closer than nothing, and it separates the floor of the field.
+- Cost/Time: median $ per task and median MODEL latency (llm_time_s), mapped
+  to 0-100 on FIXED log anchors so adding a model never reshuffles old scores.
   Deliberately not wall time — wall includes local scarb/snforge compile+test,
-  which scales with runner concurrency (~3s/run at <=20 concurrent, ~25s at 50)
-  and says nothing about the model. llm_time_s is concurrency-invariant.
-- Speed/Cost/Tokens: medians mapped to 0-100 on FIXED log anchors, so adding
-  a model later never reshuffles existing scores.
+  which scales with runner concurrency and says nothing about the model.
 - Baseline condition; per-run budget: 10 turns AND 15 min of model time.
 
 v1 -> v2 (2026-07-23): speed input wall_time_s -> llm_time_s; speed best
@@ -22,10 +28,14 @@ v2 -> v2.1 (2026-07-23): 15-min model-time budget joins the 10-turn budget
 in the run definition — a run over budget earns no correctness/solve credit
 (load_runs flips solved; compute_sci zeroes the test fraction). The runner
 also enforces it live (agent.py stops starting turns past the budget).
-Sampling note (2026-07-24, no version bump — formula unchanged): new sweeps
-use adaptive reps (2 + tiebreaker third on solved-disagreement) instead of
-a fixed 3. Slight majority-vote bias (<~1 SCI point, mid-band models only)
-accepted for ~30% cost savings; earlier entries keep their fixed-3 data.
+v2.1 -> v3 (2026-07-25): the index stopped measuring convergence under an
+oracle. v2.1 gave correctness 50% and a binary one-shot bonus 15%, so a model
+that ground out a fix across ten turns of privileged failing-test feedback
+scored nearly as well as one that got it right immediately — feedback a real
+user never has. v3 makes graded first-submission delivery the largest term,
+keeps correctness at 25% as partial credit on the delivered code, and drops
+the token-efficiency component (cost already prices verbosity). Scores are NOT
+comparable across the v2.1 boundary.
 
 Adding a model to the leaderboard = benchmark it with the standard runner,
 then add one MODEL_REGISTRY entry; the report picks it up on regeneration.
@@ -41,14 +51,16 @@ from . import config
 from .report import load_runs
 
 SCI_SPEC = {
-    "version": "v2.1",
+    "version": "v3",
     "condition": "baseline",
     "turn_budget": 10,
     "model_time_budget_s": config.MODEL_TIME_BUDGET_S,  # over budget = failed
-    "weights": {"correct": 0.50, "oneshot": 0.15, "speed": 0.15, "cost": 0.15, "tokens": 0.05},
+    "weights": {"effective": 0.50, "correct": 0.25, "cost": 0.15, "speed": 0.10},
+    # per-submission decay: 1 submission = 100, then x0.4 each further attempt
+    "attempt_decay": 0.4,
     # (best, worst): score 100 at <= best, 0 at >= worst, log-interpolated
     # speed anchors apply to llm_time_s (model latency), not wall time
-    "anchors": {"speed": (10, 1200), "cost": (0.003, 0.60), "tokens": (1000, 40000)},
+    "anchors": {"speed": (10, 1200), "cost": (0.003, 0.60)},
 }
 
 # Candidate variants per model; the leaderboard scores every candidate with
@@ -201,6 +213,24 @@ def log_anchor(value, best, worst):
     return 100 * (math.log(worst) - math.log(value)) / (math.log(worst) - math.log(best))
 
 
+def attempts(run):
+    """Delivery attempts the user would have lived through.
+
+    Submissions, not turns: a lookup or extra thinking turn never reaches the
+    user, while every submission after the first means broken code went out and
+    somebody had to read it. Some models emit several submit calls inside one
+    turn, which this counts correctly and a turn count would hide.
+    """
+    return max(1, run.get("n_submissions") or run["turns"])
+
+
+def attempt_score(run):
+    """0-100 for a single run: 100 for a one-submission solve, decaying fast."""
+    if run.get("over_time_budget") or not run["solved"]:
+        return 0.0
+    return 100 * SCI_SPEC["attempt_decay"] ** (attempts(run) - 1)
+
+
 def compute_sci(runs_for_model):
     """Composite SCI for one model's baseline runs. Returns dict with
     sci, per-component scores (0-100), and the raw medians behind them."""
@@ -214,9 +244,7 @@ def compute_sci(runs_for_model):
         total = r["tests_passed"] + r["tests_failed"]
         per_task[r["task"]].append(r["tests_passed"] / total if total else 0.0)
     correct = 100 * statistics.mean(statistics.mean(v) for v in per_task.values())
-    oneshot = 100 * statistics.mean(
-        1 if (r["solved"] and r["turns"] == 1) else 0 for r in runs_for_model
-    )
+    effective = statistics.mean(attempt_score(r) for r in runs_for_model)
 
     def med(key):
         vals = [r[key] for r in runs_for_model if r.get(key) is not None]
@@ -228,15 +256,19 @@ def compute_sci(runs_for_model):
         r["llm_time_s"] + (r.get("assist_time_s") or 0)
         for r in runs_for_model if r.get("llm_time_s") is not None
     ]
+    solved = [r for r in runs_for_model if r["solved"]]
     raw = {"med_llm": statistics.median(svc_times) if svc_times else None,
            "med_cost": med("cost_usd"),
-           "med_ctok": med("completion_tokens"), "n_runs": len(runs_for_model)}
+           "med_ctok": med("completion_tokens"),
+           "med_attempts": statistics.median([attempts(r) for r in solved]) if solved else None,
+           "one_sub_pct": 100 * statistics.mean(
+               1 if (r["solved"] and attempts(r) == 1) else 0 for r in runs_for_model),
+           "n_runs": len(runs_for_model)}
     components = {
+        "effective": effective,
         "correct": correct,
-        "oneshot": oneshot,
-        "speed": log_anchor(raw["med_llm"], *anchors["speed"]),
         "cost": log_anchor(raw["med_cost"], *anchors["cost"]),
-        "tokens": log_anchor(raw["med_ctok"], *anchors["tokens"]),
+        "speed": log_anchor(raw["med_llm"], *anchors["speed"]),
     }
     sci = sum(w[k] * components[k] for k in w)
     return {"sci": sci, "components": components, "raw": raw}
@@ -272,12 +304,14 @@ def main():
     w = SCI_SPEC["weights"]
     print(f"Starknet Coding Index {SCI_SPEC['version']} — baseline, weights "
           + " ".join(f"{k}={v}" for k, v in w.items()))
-    print(f"{'#':>2} {'Model':16} {'variant':>9} {'SCI':>6} | {'corr':>5} {'1shot':>5} {'speed':>5} {'cost':>5} {'tok':>5} | {'open':>6} {'n':>3}")
+    print(f"{'#':>2} {'Model':16} {'variant':>9} {'SCI':>6} | {'effec':>5} {'corr':>5} {'cost':>5} {'speed':>5} | "
+          f"{'1sub%':>6} {'med.att':>7} | {'open':>6} {'n':>4}")
     for i, r in enumerate(rows, 1):
-        c = r["components"]
-        print(f"{i:>2} {r['label']:16} {r['variant']:>9} {r['sci']:6.1f} | {c['correct']:5.1f} {c['oneshot']:5.0f} "
-              f"{c['speed']:5.0f} {c['cost']:5.0f} {c['tokens']:5.0f} | "
-              f"{'open' if r['open_weight'] else 'closed':>6} {r['raw']['n_runs']:>3}")
+        c, raw = r["components"], r["raw"]
+        print(f"{i:>2} {r['label']:16} {r['variant']:>9} {r['sci']:6.1f} | {c['effective']:5.1f} {c['correct']:5.1f} "
+              f"{c['cost']:5.0f} {c['speed']:5.0f} | {raw['one_sub_pct']:5.0f}% "
+              f"{(raw['med_attempts'] or 0):7.1f} | "
+              f"{'open' if r['open_weight'] else 'closed':>6} {raw['n_runs']:>4}")
 
 
 if __name__ == "__main__":
