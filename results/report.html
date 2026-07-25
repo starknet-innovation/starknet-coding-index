@@ -46,8 +46,12 @@
   td{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
   th.r,td.r{text-align:right}
   .ci{color:var(--muted);font-size:11px}
+  /* 48/4 is not arbitrary: the title sat 22px under the legend above and 26px
+     above its own chart's first drawn pixel (the svg carries ~26px of internal
+     top padding for the value labels), so it read as belonging to the chart
+     above. Measured, the gap above is now ~2x the gap below. */
   .chart-title{font-size:12px;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--muted);margin:22px 0 4px;text-align:center}
+    color:var(--muted);margin:48px 0 4px;text-align:center}
   .wchip{font-family:var(--mono);font-size:11px;font-weight:600}
   .wchip.ow{color:#2e64d7} .wchip.cw{color:#8f8ebb}
   .scibar:hover{filter:brightness(1.08)}
