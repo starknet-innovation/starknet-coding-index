@@ -387,11 +387,13 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
             if share <= 0:
                 continue
             y0, y1 = sy(base), sy(base + share)
-            # hairline on the hatch only, so the band closes against the 100%
-            # gridline instead of fading into the panel
-            edge = f' stroke="{UNSOLVED_HATCH_INK}"' if fills[k] == UNSOLVED_FILL else ""
+            # No outline on the hatched band. An SVG stroke straddles the edge it
+            # sits on, so it made the band a pixel wider than the solid segments
+            # under it, and even inset it framed the band as a separate object.
+            # The hatch carries itself: the 100% gridline closes the column, and
+            # the darker hatch ink keeps a 2% band visible without help.
             parts.append(f'<rect x="{x:.1f}" y="{y1:.1f}" width="{bar_w:.1f}" '
-                         f'height="{y0 - y1:.1f}" fill="{fills[k]}"{edge}/>')
+                         f'height="{y0 - y1:.1f}" fill="{fills[k]}"/>')
             base += share
         # The number is the FIRST-submission share, so it is drawn inside that
         # segment wherever the segment can hold it. Floating every label at the
@@ -667,7 +669,7 @@ def build(all_runs):
   {attempts_dist_chart(sorted(starred(big_rows), key=lambda r: -r["dist"][0]))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
-      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_HATCH_CSS};border:1px solid {UNSOLVED_HATCH_INK};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
+      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_HATCH_CSS};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
   <h3 {h3_style}>Cost per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
