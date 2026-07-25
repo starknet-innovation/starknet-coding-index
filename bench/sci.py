@@ -207,13 +207,22 @@ MODEL_REGISTRY = [
 #   claude-sonnet-5 default_enabled TRUE, default_effort high -> was labelled
 #     "off", which was wrong: we never sent a reasoning param, so these runs are
 #     the default, not disabled (we never ran sonnet@disabled at all). Our own
-#     data agrees the dial is inert rather than off: bare and @minimal/@low/
-#     @medium/@high all land at 1.73-1.82k output tokens, 13-15s, 100% solved.
+#     data agrees, twice over: the dial is inert rather than off (bare and
+#     @minimal/@low/@medium/@high all land at 1.73-1.82k output tokens, 13-15s,
+#     100% solved), and the explicit @disabled cell we later ran scores 80.5,
+#     BELOW the default's 83.4.
+#
+# Label the effort the default maps to, not the word "default", which tells a
+# reader nothing: every value here is the level OpenRouter documents as that
+# model's default_effort, so "high" for a bare Sonnet run is a claim about the
+# provider's behaviour and not our own shorthand.
 BARE_VARIANT_LABELS = {
-    "moonshotai/kimi-k3": "max",   # always-thinking; Moonshot maps default to max
-    "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
-    "anthropic/claude-sonnet-5": "default",  # provider default = reasoning on at high
-    "anthropic/claude-haiku-4.5": "default",  # same family, same default surface
+    "moonshotai/kimi-k3": "max",   # documented default_effort: max
+    "tencent/hy3": "high",         # documented default_effort: high, and bare
+                                   # measured identical to its explicit high tier
+    "anthropic/claude-sonnet-5": "high",   # documented default_effort: high
+    "anthropic/claude-haiku-4.5": "high",  # deprecated; OpenRouter documents no
+                                           # default_effort for it, high assumed
     "openai/gpt-5.6-luna-pro": "pro",    # same model as luna, reasoning.mode=pro
     "openai/gpt-5.6-terra-pro": "pro",   # same model as terra, reasoning.mode=pro
     "qwen/qwen3.6-35b-a3b": "dynamic",   # bare = hybrid auto-thinking, distinct from @disabled
