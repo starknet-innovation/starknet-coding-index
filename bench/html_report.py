@@ -339,31 +339,20 @@ def head_to_head_chart(metrics, w=760):
 
 
 ATTEMPT_COLORS = [SNF_BLUE, "#7c7ba2", "#bab7df", "#cecde7"]  # 1, 2, 3, 4+ submissions
-# Never-solved runs top the stack. Hatched rather than a fifth tone: the four
-# submission buckets already spend a blue-to-lavender ramp, so another pale
-# solid would soften the 4+/never boundary, and hatching reads as absence
-# without spending a colour (warm/coral means "added by the MCP" elsewhere).
-UNSOLVED_FILL = "url(#unsolved)"
-# Neutral grey, not another lavender: the hatch has to survive a band only 2%
-# tall (DeepSeek fails 1 run in 52) and it should read as absence rather than as
-# a fifth step of the ramp. LINE on white vanished at that size.
-UNSOLVED_HATCH_INK = "#c3c2d0"
-UNSOLVED_HATCH_CSS = (f"repeating-linear-gradient(-45deg,{UNSOLVED_HATCH_INK} 0 1.2px,"
-                      f"#FFFFFF 1.2px 3px)")
-UNSOLVED_HATCH_DEF = (
-    '<defs><pattern id="unsolved" width="4" height="4" patternUnits="userSpaceOnUse" '
-    'patternTransform="rotate(-45)"><rect width="4" height="4" fill="#FFFFFF"/>'
-    f'<line x1="0" y1="0" x2="0" y2="4" stroke="{UNSOLVED_HATCH_INK}" stroke-width="1.5"/>'
-    "</pattern></defs>"
-)
+UNSOLVED_COLOR = "#bdb5ad"  # never solved: the band that tops every column
+# Warm neutral on purpose. It has to be legible in a band 2% tall (DeepSeek
+# fails 1 run in 52), which ruled out the diagonal hatch tried first: at that
+# height it was invisible. It also has to stay off the lavender ramp, so it
+# cannot be misread as a fifth submission bucket, and off coral, which means
+# "added by the MCP" in the charts below.
 
 
 def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
     """Stacked column per model, covering 100% of that model's runs.
 
-    Segments are how many submissions the working code took; the hatched band
-    on top is runs that never worked at all, so solve rate reads as everything
-    below the hatch. A column that is mostly dark blue is a model that just
+    Segments are how many submissions the working code took; the grey band on
+    top is runs that never worked at all, so solve rate reads as everything
+    below the grey. A column that is mostly dark blue is a model that just
     works.
     """
     pad_r, pad_t = 40, 26
@@ -373,8 +362,8 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
     col_w = cw / len(rows)
     bar_w = min(col_w * 0.62, 80)
     sy = lambda v: pad_t + (100 - v) / 100 * ch
-    fills = ATTEMPT_COLORS + [UNSOLVED_FILL]
-    parts = [svg_open(w, h), UNSOLVED_HATCH_DEF]
+    fills = ATTEMPT_COLORS + [UNSOLVED_COLOR]
+    parts = [svg_open(w, h)]
     for gv in range(0, 101, 25):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -387,11 +376,6 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
             if share <= 0:
                 continue
             y0, y1 = sy(base), sy(base + share)
-            # No outline on the hatched band. An SVG stroke straddles the edge it
-            # sits on, so it made the band a pixel wider than the solid segments
-            # under it, and even inset it framed the band as a separate object.
-            # The hatch carries itself: the 100% gridline closes the column, and
-            # the darker hatch ink keeps a 2% band visible without help.
             parts.append(f'<rect x="{x:.1f}" y="{y1:.1f}" width="{bar_w:.1f}" '
                          f'height="{y0 - y1:.1f}" fill="{fills[k]}"/>')
             base += share
@@ -404,8 +388,8 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
             ly_pct, fill = (sy(first) + sy(0)) / 2 + 4, "#FFFFFF"
         elif solved_share >= 14:            # too thin to fill: sits on the axis,
             ly_pct, fill = sy(0) - 7, "#FFFFFF"     # over a solid segment
-        else:                               # barely solves: the axis is hatched,
-            ly_pct, fill = sy(0) - 7, SNF_BLUE      # so ink instead of white
+        else:                               # barely solves: the axis sits in the
+            ly_pct, fill = sy(0) - 7, SNF_BLUE      # grey band, so ink not white
         parts.append(f'<text x="{cx:.0f}" y="{ly_pct:.0f}" font-size="10.5" font-weight="600" '
                      f'fill="{fill}" text-anchor="middle">{first:.0f}%</text>')
         ly = sy(0) + 12
@@ -664,12 +648,12 @@ def build(all_runs):
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
-  <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a hatched band for the runs that never worked. Solve rate is everything below the hatch. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
+  <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a grey band for the runs that never worked. Solve rate is everything below the grey. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
   <h3 {h3_style}>How many submissions it takes</h3>
   {attempts_dist_chart(sorted(starred(big_rows), key=lambda r: -r["dist"][0]))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
-      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_HATCH_CSS};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
+      for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_COLOR};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
   <h3 {h3_style}>Cost per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
