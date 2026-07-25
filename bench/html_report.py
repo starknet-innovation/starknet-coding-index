@@ -26,14 +26,16 @@ SNF_BLUE = "#2e64d7"       # brand blue-70: primary accent, open-weight series
 SNF_BLUE_LINK = "#3f8cff"  # blue-60
 SNF_BLUE_DEEP = "#1c1c84"  # blue-90: tag text
 SNF_LAVENDER = "#8f8ebb"   # neutral lavender-50: closed-weight series
-SNF_ORANGE = "#f18f7e"     # orange-50: MCP gain fills
+SNF_CORAL = "#ec796b"      # warm stop of the SNF logo gradient, also in the
+                           # site's own gradient set: deeper than orange-50, so
+                           # fill and label can share it and still read on white
 SNF_ORANGE_INK = "#a8524c" # orange-80: MCP gain text (contrast on white)
 SNF_ORANGE_TINT = "#fddecf"
 SNF_PINK_INK = "#573166"   # pink-100
 SNF_PINK_TINT = "#fdd2fc"
 
 SLATE = "#7c7ba2"          # lavender-60: baseline series in the effort curves
-CORAL = SNF_ORANGE         # "added by MCP" fills
+CORAL = SNF_CORAL          # "added by MCP": fills AND their labels
 INK = "#080435"            # blue-110
 MUTED = "#696989"          # lavender-70
 LINE = "#e6e3f3"           # lavender-10
