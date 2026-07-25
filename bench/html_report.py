@@ -12,6 +12,7 @@ publishes anything.
 
 import base64
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -133,9 +134,33 @@ SCI_OPEN_COLOR = SNF_BLUE      # open-weight models (brand blue-70)
 SCI_CLOSED_COLOR = SNF_LAVENDER  # closed-weight models (neutral lavender-50)
 
 
+# Angled column labels: one angle and one left margin for every chart in the
+# report, because per-chart values drift. The three "Behind the score" charts
+# ran at pad_l=110 while chart 1 ran at 64, which is 46px of plot width thrown
+# away for a reason no reader can see.
+#
+# Those charts sort by cost and by time rather than by score, so a long name can
+# land in column 0 where its label has nowhere to sweep: "MiMo-V2.5-Pro (xhigh)"
+# is 139px and reaches W*cos(angle) to the left of cx_0=87. At -45 that is 98px,
+# hence the old 110. The floor for a shared 64px margin is 53.1 degrees; 55
+# clears it by 7.6px and costs 18px of label depth, where 60 would cost 25px for
+# slack nothing needs. Below 64 the y-axis ticks ("$2.50", ~41px) start to bind.
+#
+# assert_output_is_portable enforces this geometry, so a future name long enough
+# to break it fails the build instead of rendering clipped.
+LABEL_ANGLE = 55
+AXIS_PAD_L = 64
+_LABEL_CH = 11 * 0.60      # px per character at font-size 11, measured exact
+                           # against getComputedTextLength (scratchpad/measure_labels.py)
+
+
+def label_width(text, font_px=11):
+    """Rendered advance width of a chart label, in px."""
+    return len(text) * font_px * 0.60
+
+
 def rotated_label_pad(labels, font_px=11, gap=12, extra=0):
-    """Bottom padding a block of -45 degree column labels needs, from the
-    longest one.
+    """Bottom padding a block of angled column labels needs, from the longest.
 
     Every hardcoded pad_b in this file has been wrong at least once. A label
     that descends to the left puts the START of its text at the lowest point,
@@ -146,8 +171,8 @@ def rotated_label_pad(labels, font_px=11, gap=12, extra=0):
     extra: pixels of non-text furniture on the label line (the rank-delta
     arrow and number in the MCP chart).
     """
-    widest = max((len(s) for s in labels), default=0) * font_px * 0.60 + extra
-    return int(gap + widest * 0.7071 + 10)
+    widest = max((label_width(s, font_px) for s in labels), default=0) + extra
+    return int(gap + widest * math.sin(math.radians(LABEL_ANGLE)) + 10)
 
 
 def variant_suffixed(rows):
@@ -201,7 +226,7 @@ def sci_bar_chart(rows, w=760, h=389):
             if r.get("variant") else ""
         )
         parts.append(
-            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'<text transform="rotate(-{LABEL_ANGLE} {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
             f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{variant}</text>'
         )
     parts.append("</svg>")
@@ -228,7 +253,7 @@ def effort_suffix(efforts, label):
     return f" ({base} / {mcp})"
 
 
-def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85, efforts=None):
+def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None):
     """Baseline-vs-MCP columns: solid bar = best baseline SCI, stacked coral
     segment = the gain when the best MCP config scores higher. No segment
     means the tool doesn't improve that model's best configuration (no
@@ -316,7 +341,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85, efforts=None):
         if rank_delta > 0:
             tri_x, num_x = cx - 15, cx
             parts.append(
-                f'<g transform="rotate(-45 {cx:.0f} {ly:.0f})">'
+                f'<g transform="rotate(-{LABEL_ANGLE} {cx:.0f} {ly:.0f})">'
                 f'<text x="{cx - 24:.0f}" y="{ly:.0f}" font-size="11" fill="{INK}" '
                 f'text-anchor="end">{label}{eff}</text>'
                 f'<polygon points="{tri_x:.1f},{ly - 8.5:.1f} {tri_x - 3.5:.1f},{ly - 2:.1f} '
@@ -327,7 +352,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85, efforts=None):
             )
         else:
             parts.append(
-                f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+                f'<text transform="rotate(-{LABEL_ANGLE} {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
                 f'font-size="11" fill="{INK}" text-anchor="end">{label}{eff}</text>'
             )
     parts.append("</svg>")
@@ -378,7 +403,7 @@ UNSOLVED_COLOR = "#bdb5ad"  # never solved: the band that tops every column
 # "added by the MCP" in the charts below.
 
 
-def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
+def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L):
     """Stacked column per model, covering 100% of that model's runs.
 
     Segments are how many submissions the working code took; the grey band on
@@ -427,7 +452,7 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
         variant = (f' <tspan fill="{MUTED}" font-family="var(--mono)">({r["variant"]})</tspan>'
                    if r.get("variant") else "")
         parts.append(
-            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'<text transform="rotate(-{LABEL_ANGLE} {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
             f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{variant}</text>'
         )
     parts.append("</svg>")
@@ -435,7 +460,7 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=110):
 
 
 def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
-                     pad_l=64):
+                     pad_l=AXIS_PAD_L):
     """Chart-1-styled column chart for an arbitrary per-model metric: same
     geometry, angled "Model (variant)" labels, value above each column,
     open/closed palette. y runs 0..y_max with (value, label) ticks supplied
@@ -477,7 +502,7 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
             if r.get("variant") else ""
         )
         parts.append(
-            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+            f'<text transform="rotate(-{LABEL_ANGLE} {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
             f'font-size="11" fill="{INK}" text-anchor="end">{r["label"]}{variant}</text>'
         )
     parts.append("</svg>")
@@ -663,10 +688,16 @@ def build(all_runs):
     key_open = f'<span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span>'
     key_closed = f'<span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span>'
     key_mcp = f'<span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span>'
-    key_effort = ('<span>effort in parentheses; two values are baseline then '
-                  'with-MCP</span>')
-    keys_for = lambda rows: (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
-                             + key_mcp + key_effort)
+    # the pair convention is only worth explaining where a pair appears: every
+    # small model wants the same effort in both conditions, so that chart says
+    # nothing about a second value the reader cannot see
+    def keys_for(rows):
+        pairs = [lift_efforts.get(r["label"]) for r in rows]
+        two = any(p and p[0] != p[1] for p in pairs)
+        effort_key = ('<span>effort in parentheses; two values are baseline then '
+                      'with-MCP</span>' if two else '<span>effort in parentheses</span>')
+        return (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
+                + key_mcp + effort_key)
     lift_legend = f'<div class="legend legend-bottom">{keys_for(big_rows)}{pending_note}</div>'
     lift_legend_small = f'<div class="legend legend-bottom">{keys_for(small_rows)}</div>'
     lift_html = f"""
@@ -680,7 +711,7 @@ def build(all_runs):
 <section>
   <h2>Small models</h2>
   <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only. Every one of them wants the same thinking level in both conditions, which the labels show.</p>
-  {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120, efforts=lift_efforts)}
+  {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_b=120, efforts=lift_efforts)}
   {lift_legend_small}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
@@ -726,12 +757,11 @@ def build(all_runs):
   <h3 {h3_style}>Cost per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
-                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)], pad_l=110)}
+                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)])}
   <h3 {h3_style}>Model time per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
-                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)],
-                    pad_l=110)}
+                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)])}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
@@ -1165,6 +1195,39 @@ def assert_output_is_portable(html):
             + "\nDraw the symbol (polygon/path) instead of typing it: chart text "
               "renders in whatever mono font the reader happens to have."
         )
+    clipped = angled_labels_overhanging(html)
+    if clipped:
+        raise SystemExit(
+            "angled chart labels run off the left edge:\n  "
+            + "\n  ".join(f"{t!r} needs {need:.0f}px, has {have:.0f}px" for t, need, have in clipped)
+            + f"\nA label reaches width*cos({LABEL_ANGLE}deg) left of its column centre. "
+              "Steepen LABEL_ANGLE, raise AXIS_PAD_L, or shorten the label; the old "
+              "answer was a per-chart pad_l, which is how they drifted apart."
+        )
+
+
+def angled_labels_overhanging(html, margin=4):
+    """Angled labels whose text would cross the left edge of their own SVG.
+
+    Third time this class of bug has come up (pad_b clipped "Gemini 3.6 Flash"
+    twice, pad_l once), so it is checked rather than commented. Same width
+    estimator the padding uses, verified exact against getComputedTextLength.
+    """
+    bad = []
+    for svg in re.findall(r"<svg.*?</svg>", html, re.S):
+        for m in re.finditer(
+            r'rotate\(-[\d.]+ ([\d.]+) [\d.]+\)"[^>]*(?:x="([\d.]+)")?[^>]*>(.*?)</text>',
+            svg, re.S,
+        ):
+            cx = float(m.group(1))
+            anchor = float(m.group(2)) if m.group(2) else cx
+            text = re.sub(r"<[^>]+>", "", m.group(3)).strip()
+            if not text:
+                continue
+            need = label_width(text) * math.cos(math.radians(LABEL_ANGLE))
+            if need > anchor - margin:
+                bad.append((text, need, anchor - margin))
+    return bad
 
 
 def main():
