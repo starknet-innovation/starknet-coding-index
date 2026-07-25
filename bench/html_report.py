@@ -757,7 +757,7 @@ def build(all_runs):
     # charset first: without it a browser guesses the encoding (file:// has no
     # Content-Type header to consult) and renders every multi-byte character as
     # mojibake, e.g. "9x cheaper" arriving as "9A- cheaper"
-    return f"""<meta charset="utf-8">
+    return anchor_headings(f"""<meta charset="utf-8">
 <title>Starknet Coding Index | A Starknet Foundation report</title>
 <meta name="description" content="A Starknet Foundation benchmark: which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across {len(sci_rows)} models from {len({r["lab"] for r in sci_rows})} labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
 <style>
@@ -775,7 +775,9 @@ def build(all_runs):
   /* no text-wrap:balance anywhere: it hangs some Chromium builds on these headings */
   h1,h2,h3{{font-family:var(--mono);font-weight:600;margin:0}}
   h1{{font-size:27px;letter-spacing:-.02em}}
-  h2{{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}}
+  h2{{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;scroll-margin-top:24px}}
+  h2 a.anchor{{color:inherit;text-decoration:none}}
+  h2 a.anchor:hover::after,h2 a.anchor:focus-visible::after{{content:" #";color:var(--link)}}
   header p.lede{{font-size:17px;margin:14px 0 0}}
   .chips{{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}}
   .chip{{font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line);padding:4px 10px;border-radius:3px;color:var(--muted)}}
@@ -892,7 +894,33 @@ def build(all_runs):
 </section>
 <footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · benchmark snapshot 2026-07-25</footer>
 </main>
-"""
+""")
+
+
+def anchor_headings(html):
+    """Give every section title a stable id and make it a copyable link.
+
+    Done as one pass over the assembled document rather than by editing a dozen
+    section literals, and the id goes on the h2 (not the section) so the two
+    headings nested in the Methodology/Caveats grid work the same way.
+    """
+    used = {}
+
+    def slug_for(inner):
+        text = re.sub(r"<span.*?</span>", "", inner, flags=re.S)  # drop subtitles
+        text = re.sub(r"<[^>]+>", "", text)
+        text = re.sub(r"\([^)]*\)\s*$", "", text)      # any leftover parenthetical
+        text = text.split(":")[0].strip(" ?.!")        # "Head to head: ..." -> "Head to head"
+        base = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "section"
+        used[base] = used.get(base, 0) + 1
+        return base if used[base] == 1 else f"{base}-{used[base]}"
+
+    def sub(m):
+        inner = m.group(1)
+        sid = slug_for(inner)
+        return f'<h2 id="{sid}"><a class="anchor" href="#{sid}">{inner}</a></h2>'
+
+    return re.sub(r"<h2>(.*?)</h2>", sub, html, flags=re.S)
 
 
 def assert_output_is_portable(html):
