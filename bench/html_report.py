@@ -654,11 +654,11 @@ def build(all_runs):
 <section>
   <h2>The models</h2>
   <div class="tablewrap"><table id="modeltable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Obs. tok/s</th></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Obs. tok/s is measured in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
     findings_html = """
