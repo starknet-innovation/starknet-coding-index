@@ -739,7 +739,6 @@ def build(all_runs):
   {tip_js}
 </section>"""
     import math
-    h3_style = 'style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 4px"'
     cost_max = math.ceil(max(r["tip"]["cost"] for r in big_rows) / 0.5) * 0.5
     time_max_m = math.ceil(max(r["tip"]["secs"] for r in big_rows) / 60 / 20) * 20
     # compact decimal minutes ("2.5m", "72m"): narrow enough that neighbors
@@ -749,16 +748,16 @@ def build(all_runs):
 <section>
   <h2>Behind the score</h2>
   <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a grey band for the runs that never worked. Solve rate is everything below the grey. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
-  <h3 {h3_style}>How many submissions it takes</h3>
+  <h3 class="chart-title">How many submissions it takes</h3>
   {attempts_dist_chart(sorted(starred(big_rows), key=lambda r: -r["dist"][0]))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
       for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_COLOR};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
-  <h3 {h3_style}>Cost per pass</h3>
+  <h3 class="chart-title">Cost per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
                     cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)])}
-  <h3 {h3_style}>Model time per pass</h3>
+  <h3 class="chart-title">Model time per pass</h3>
   {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
                     time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)])}
@@ -843,7 +842,7 @@ def build(all_runs):
   <h2>Head to head: best closed vs best open weights</h2>
   <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.{" * K3's weights are announced but not yet published, as noted in the table below." if best_open.get("weights_pending") else ""}</p>
   {head_to_head_chart(h2h_metrics)}
-  <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 4px">First-submission rate by task difficulty</h3>
+  <h3 class="chart-title">First-submission rate by task difficulty</h3>
   {attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
                   ticks=[(t * 25, f"{t * 25}%") for t in range(5)])}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>top chart: bars scaled per row, and lower is better on every row but the two rates</span></div>
@@ -1044,6 +1043,8 @@ def build(all_runs):
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .ci{{color:var(--muted);font-size:11px}}
+  .chart-title{{font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);margin:22px 0 4px;text-align:center}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
   .scibar:hover{{filter:brightness(1.08)}}
