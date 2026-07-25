@@ -55,7 +55,11 @@ SCI_SPEC = {
 # data and keeps the best (policy: "best foot forward", variant labeled on
 # the chart). The extension point for future models.
 MODEL_REGISTRY = [
-    {"specs": ["moonshotai/kimi-k3"], "label": "Kimi K3", "lab": "Moonshot", "open_weight": True},
+    # weights_pending: Moonshot announced a weights release for 2026-07-27 but
+    # has not published them as of 2026-07-25 — the report stars K3's open
+    # classification until they ship; drop this flag when they do
+    {"specs": ["moonshotai/kimi-k3"], "label": "Kimi K3", "lab": "Moonshot",
+     "open_weight": True, "weights_pending": True},
     {"specs": ["xiaomi/mimo-v2.5-pro@max", "xiaomi/mimo-v2.5-pro@xhigh",
                "xiaomi/mimo-v2.5-pro@high", "xiaomi/mimo-v2.5-pro@medium",
                "xiaomi/mimo-v2.5-pro@low", "xiaomi/mimo-v2.5-pro@minimal",

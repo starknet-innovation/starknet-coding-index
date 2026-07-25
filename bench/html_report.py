@@ -388,6 +388,17 @@ def build(all_runs):
     big_rows = [r for r in sci_rows if not r.get("small") and r.get("charted", True)]
     small_rows = [r for r in sci_rows if r.get("small")]
 
+    # weights_pending models (K3) get a display-time star on their label;
+    # raw labels stay untouched because they key the mcp_rows lookups
+    starred = lambda rows: [
+        dict(r, label=r["label"] + "*") if r.get("weights_pending") else r for r in rows
+    ]
+    pending_note = (
+        '<span>* open classification based on an announced weights release '
+        '(Kimi K3: promised 2026-07-27, not yet published)</span>'
+        if any(r.get("weights_pending") for r in big_rows) else ""
+    )
+
     # Chart 2: best-without vs best-with the MCP, per model. Each condition
     # picks its own best thinking variant (deployment framing), so labels
     # carry no effort. Models without MCP runs are omitted, not shown empty.
@@ -399,17 +410,19 @@ def build(all_runs):
         delta is places moved vs the subset's baseline-only ranking."""
         pairs = [
             (r["label"], r["sci"], mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None,
-             r["open_weight"])
+             r["open_weight"], r.get("weights_pending", False))
             for r in rows
         ]
         rank = {r["label"]: i for i, r in enumerate(rows)}
         pairs.sort(key=lambda p: max(p[1], p[2] or p[1]), reverse=True)
         return [
-            (label, base, mcp, open_w, rank[label] - i)
-            for i, (label, base, mcp, open_w) in enumerate(pairs)
+            (label + ("*" if pending else ""), base, mcp, open_w, rank[label] - i)
+            for i, (label, base, mcp, open_w, pending) in enumerate(pairs)
         ]
 
-    lift_legend = f'<div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span></div>'
+    lift_keys = f'<span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span><span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span>'
+    lift_legend = f'<div class="legend legend-bottom">{lift_keys}{pending_note}</div>'
+    lift_legend_small = f'<div class="legend legend-bottom">{lift_keys}</div>'
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
@@ -422,7 +435,7 @@ def build(all_runs):
   <h2>Small models</h2>
   <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+10.8 to +29.1). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
   {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120)}
-  {lift_legend}
+  {lift_legend_small}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
 (function () {
@@ -444,8 +457,8 @@ def build(all_runs):
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today". Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
-  {sci_bar_chart(big_rows)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
+  {sci_bar_chart(starred(big_rows))}
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
   {tip_js}
 </section>"""
     import math
@@ -460,15 +473,15 @@ def build(all_runs):
   <h2>Behind the score</h2>
   <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked: each model's median complete pass of the 13-task suite (over its 2 to 3 passes, baseline condition). Same numbers as the chart tooltips above; each chart ranks best first.</p>
   <h3 {h3_style}>One-shot rate</h3>
-  {metric_bar_chart(sorted(big_rows, key=lambda r: -r["tip"]["oneshot"]),
+  {metric_bar_chart(sorted(starred(big_rows), key=lambda r: -r["tip"]["oneshot"]),
                     lambda r: r["tip"]["oneshot"], lambda v: f"{v:.0f}%",
                     100, [(t, f"{t}%") for t in range(0, 101, 25)], pad_l=110)}
   <h3 {h3_style}>Cost per pass</h3>
-  {metric_bar_chart(sorted(big_rows, key=lambda r: r["tip"]["cost"]),
+  {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
                     cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)], pad_l=110)}
   <h3 {h3_style}>Model time per pass</h3>
-  {metric_bar_chart(sorted(big_rows, key=lambda r: r["tip"]["secs"]),
+  {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
                     time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)],
                     pad_l=110)}
@@ -592,7 +605,7 @@ def build(all_runs):
         tps = sorted(x["completion_tokens"] / x["llm_time_s"] for x in rs)
         tps_med = tps[len(tps) // 2] if tps else None
         wcls = "ow" if r["open_weight"] else "cw"
-        wtxt = "open" if r["open_weight"] else "closed"
+        wtxt = ("open" if r["open_weight"] else "closed") + ("*" if r.get("weights_pending") else "")
         mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
         delta = mcp_sci - r["sci"] if mcp_sci is not None else None
         delta_td = (
@@ -658,7 +671,7 @@ def build(all_runs):
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant. * Kimi K3 is classed open on the strength of Moonshot's announced weights release (promised 2026-07-27); as of this snapshot the weights are not yet published. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
     findings_html = """
