@@ -34,7 +34,6 @@ SNF_PINK_TINT = "#fdd2fc"
 
 SLATE = "#7c7ba2"          # lavender-60: baseline series in the effort curves
 CORAL = SNF_ORANGE         # "added by MCP" fills
-CORAL_INK = SNF_ORANGE_INK # table Δ cells only: chart labels match their bar
 INK = "#080435"            # blue-110
 MUTED = "#696989"          # lavender-70
 LINE = "#e6e3f3"           # lavender-10
@@ -671,7 +670,7 @@ def build(all_runs):
         mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
         delta = mcp_sci - r["sci"] if mcp_sci is not None else None
         delta_td = (
-            f'<td class="r" data-s="{delta:.1f}"><span style="color:{"var(--mcp-ink)" if delta > 0 else "var(--muted)"};'
+            f'<td class="r" data-s="{delta:.1f}"><span style="color:{"var(--mcp)" if delta > 0 else "var(--muted)"};'
             f'font-weight:{600 if delta > 0 else 400}">{"+" if delta > 0 else "−"}{abs(delta):.1f}</span></td>'
             if delta is not None else '<td class="r">n/a</td>'
         )
@@ -765,7 +764,7 @@ def build(all_runs):
   {inter_font_face()}
   :root{{
     --ground:{GROUND}; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
-    --line:{LINE}; --baseline:{SLATE}; --mcp:{CORAL}; --mcp-ink:{CORAL_INK};
+    --line:{LINE}; --baseline:{SLATE}; --mcp:{CORAL};
     --accent:{SNF_BLUE}; --link:{SNF_BLUE_LINK}; --good:{GOOD}; --bad:#B03A3A;
     --mono:"SF Mono","Cascadia Code","JetBrains Mono",Consolas,ui-monospace,monospace;
     --sans:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
