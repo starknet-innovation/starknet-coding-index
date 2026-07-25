@@ -189,13 +189,23 @@ MODEL_REGISTRY = [
 ]
 
 
-# Bare specs (no @effort) map to a model-specific fixed thinking level —
-# label that level explicitly; "default" means nothing to a reader.
+# Bare specs (no @effort) run at whatever the provider defaults to. Where
+# OpenRouter documents that default, label the level; where it documents thinking
+# as ON by default, "off" would be a lie.
+#
+# Checked against OpenRouter's per-model `reasoning` block on 2026-07-25:
+#   kimi-k3        default_effort max   -> "max" stands
+#   hy3            default_effort high  -> "high" stands
+#   claude-sonnet-5 default_enabled TRUE, default_effort high -> was labelled
+#     "off", which was wrong: we never sent a reasoning param, so these runs are
+#     the default, not disabled (we never ran sonnet@disabled at all). Our own
+#     data agrees the dial is inert rather than off: bare and @minimal/@low/
+#     @medium/@high all land at 1.73-1.82k output tokens, 13-15s, 100% solved.
 BARE_VARIANT_LABELS = {
     "moonshotai/kimi-k3": "max",   # always-thinking; Moonshot maps default to max
     "tencent/hy3": "high",         # bare hy3 measured identical to its high tier
-    "anthropic/claude-sonnet-5": "off",  # no reasoning param = thinking fully off
-    "anthropic/claude-haiku-4.5": "off",  # same: bare = thinking off (probe-confirmed)
+    "anthropic/claude-sonnet-5": "default",  # provider default = reasoning on at high
+    "anthropic/claude-haiku-4.5": "default",  # same family, same default surface
     "openai/gpt-5.6-luna-pro": "pro",    # same model as luna, reasoning.mode=pro
     "openai/gpt-5.6-terra-pro": "pro",   # same model as terra, reasoning.mode=pro
     "qwen/qwen3.6-35b-a3b": "dynamic",   # bare = hybrid auto-thinking, distinct from @disabled
