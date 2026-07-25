@@ -18,7 +18,7 @@ import time
 
 from . import config
 from .report import load_runs
-from .sci import SCI_SPEC, active_models, compute_sci, index_ci, variant_label
+from .sci import SCI_SPEC, compute_sci, index_ci, leaderboard, variant_label
 
 # Points of SCI. Not tighter than 5 on purpose: almost every adjacent pair in
 # the ranking is under 2 points apart, so those models are ties at any budget we
@@ -38,16 +38,13 @@ def bar(frac, width=14):
 def snapshot(runs):
     n_tasks = len({r["task"] for r in runs if r["task"] != "fake"})
     rows, done, pending = [], 0, 0
-    for e in active_models():   # never touch deprecated models
-        scored = []
-        for spec in e["specs"]:
-            rs = [x for x in runs if x["model"] == spec and x["condition"] == "baseline"]
-            if rs:
-                scored.append((compute_sci(rs)["sci"], spec, rs))
-        if not scored:
-            continue
-        sci, spec, rs = max(scored)
-        ci = boot_ci(rs)
+    # leaderboard() owns "which variant is this model's best", including the
+    # tie-break; picking a winner here as well let the two disagree (this tool
+    # showed Kimi at @low while the report showed its default)
+    for r in leaderboard(runs):
+        e, spec, sci = r, r["spec"], r["sci"]
+        rs = [x for x in runs if x["model"] == spec and x["condition"] == "baseline"]
+        ci = r["ci"]
         met = ci is not None and ci <= CI_TARGET
         # runs needed for this CI to reach the target, assuming CI ~ 1/sqrt(n)
         need = len(rs) if met or ci is None else int(len(rs) * (ci / CI_TARGET) ** 2)

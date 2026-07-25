@@ -71,7 +71,10 @@ MODEL_REGISTRY = [
     # weights_pending: Moonshot announced a weights release for 2026-07-27 but
     # has not published them as of 2026-07-25 — the report stars K3's open
     # classification until they ship; drop this flag when they do
-    {"specs": ["moonshotai/kimi-k3"], "label": "Kimi K3", "lab": "Moonshot",
+    # bare = provider default (max); @high/@low added 2026-07-25 after OpenRouter
+    # showed K3 accepts them and we had only ever measured one configuration
+    {"specs": ["moonshotai/kimi-k3", "moonshotai/kimi-k3@high", "moonshotai/kimi-k3@low"],
+     "label": "Kimi K3", "lab": "Moonshot",
      "open_weight": True, "weights_pending": True},
     {"specs": ["xiaomi/mimo-v2.5-pro@max", "xiaomi/mimo-v2.5-pro@xhigh",
                "xiaomi/mimo-v2.5-pro@high", "xiaomi/mimo-v2.5-pro@medium",
@@ -121,6 +124,9 @@ MODEL_REGISTRY = [
      "label": "Qwen3 Coder Next", "lab": "Alibaba", "open_weight": True, "small": True},
     # Probe 2026-07-24: full surface honored incl. @disabled; real curve with
     # overshoot (correct 79 off -> 99 low -> 88 high); low = interior winner.
+    # @medium and @max are listed in OpenRouter's supported_efforts but return
+    # "Internal server error" on every request (11/11 on 2026-07-25, while @high
+    # solved in the same minute), so the ladder really is three tiers wide.
     {"specs": ["thinkingmachines/inkling@disabled", "thinkingmachines/inkling@low",
                "thinkingmachines/inkling@high"],
      "label": "Inkling", "lab": "Thinking Machines", "open_weight": True},
@@ -129,7 +135,8 @@ MODEL_REGISTRY = [
     # interior winner (91.5, 100% one-shot, speed 96). -fast serving tier
     # skipped per the Opus 4.8 precedent and pro-modes-dominated finding.
     {"specs": ["anthropic/claude-opus-5@disabled", "anthropic/claude-opus-5@low",
-               "anthropic/claude-opus-5@high"],
+               "anthropic/claude-opus-5@high", "anthropic/claude-opus-5@xhigh",
+               "anthropic/claude-opus-5@max"],
      "label": "Opus 5", "lab": "Anthropic", "open_weight": False},
     # Probe 2026-07-24: full reasoning surface accepted incl. @disabled; output
     # and latency scale with the dial. Max: flat correctness, off wins on SCI
@@ -143,9 +150,10 @@ MODEL_REGISTRY = [
      # charted False: one Qwen 3.7 bar is enough (David); Plus stays in the
      # roster table and prose but not in charts 1-2
      "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False, "deprecated": True},
-    {"specs": ["anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
+    {"specs": ["anthropic/claude-sonnet-5@max", "anthropic/claude-sonnet-5@xhigh",
+               "anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
                "anthropic/claude-sonnet-5@low", "anthropic/claude-sonnet-5@minimal",
-               "anthropic/claude-sonnet-5"],
+               "anthropic/claude-sonnet-5@disabled", "anthropic/claude-sonnet-5"],
      "label": "Sonnet 5", "lab": "Anthropic", "open_weight": False},
     {"specs": ["google/gemini-3.6-flash@max", "google/gemini-3.6-flash@xhigh",
                "google/gemini-3.6-flash@high", "google/gemini-3.6-flash@medium",
@@ -322,8 +330,18 @@ def active_models():
 def leaderboard(all_runs, condition=None):
     """SCI rows for every active registry model present in the data, best first.
 
-    Each model is scored at every benchmarked candidate variant; the row
-    carries the best-scoring one (spec + variant fields say which)."""
+    Each model is scored at every benchmarked candidate variant; the row carries
+    the best one (spec + variant fields say which).
+
+    "Best" resolves ties by measurement, not by raw score. Two variants within
+    TIE_POINTS whose intervals also overlap are a tie, and the report says as much
+    in as many words, so deciding between them on hundredths of a point would
+    contradict it and hand a visible label to noise: Kimi K3's @low scored 83.19
+    against its default's 83.07, which would have relabelled it everywhere and
+    rebuilt the head-to-head section around a configuration with 71% one-shot
+    instead of 87%. Among the tied, the one with the most runs wins, since it is
+    the one we know most about.
+    """
     condition = condition or SCI_SPEC["condition"]
     by_model = defaultdict(list)
     for r in all_runs:
@@ -332,15 +350,37 @@ def leaderboard(all_runs, condition=None):
     rows = []
     for entry in active_models():
         scored = [
-            {"spec": spec, **compute_sci(by_model[spec])}
+            {"spec": spec, **compute_sci(by_model[spec]), "n": len(by_model[spec]),
+             "ci": index_ci(by_model[spec])}
             for spec in entry["specs"]
             if by_model.get(spec)
         ]
         if not scored:
             continue
-        best = max(scored, key=lambda s: s["sci"])
+        top = max(scored, key=lambda s: s["sci"])
+        tied = [s for s in scored if _tied(s, top)]
+        best = max(tied, key=lambda s: (s["n"], s["sci"]))
         rows.append({**entry, **best, "variant": variant_label(best["spec"])})
     return sorted(rows, key=lambda r: -r["sci"])
+
+
+# A tie has to be indistinguishable AND practically identical. Overlapping
+# intervals alone are far too loose at the floor of the field, where intervals
+# are wide next to the gaps: letting any overlap count pulled five models DOWN
+# to a deeper-but-worse cell (Qwen3.6-27B from 13.3 off to 10.1 at high, on a
+# 4-point gap "tied" by +/-3.3 intervals). 0.5 points is the width of the
+# problem this rule exists to fix, which is a label flipping on hundredths.
+TIE_POINTS = 0.5
+
+
+def _tied(a, b):
+    """Same score for practical purposes, and statistically indistinguishable."""
+    if a is b:
+        return True
+    if a["ci"] is None or b["ci"] is None:
+        return False
+    return (abs(a["sci"] - b["sci"]) <= TIE_POINTS
+            and abs(a["sci"] - b["sci"]) <= a["ci"] + b["ci"])
 
 
 def main():
