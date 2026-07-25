@@ -19,7 +19,8 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import SCI_SPEC, attempt_score, attempts, index_ci, leaderboard
+from .sci import (SCI_SPEC, active_models, attempt_score, attempts, index_ci,
+                  leaderboard)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -553,53 +554,6 @@ def build(all_runs):
     # model that genuinely solved nothing at that effort. Deriving them also
     # means a tier the API rejects (gpt-oss refuses @disabled: "Reasoning is
     # mandatory") simply never appears.
-    EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "high", "xhigh", "max"]
-    # y_min per family: Qwen's small models live far below everyone else's floor
-    FAMILIES = [
-        ("GLM 5.2", "z-ai/glm-5.2@", 60),
-        ("Tencent Hy3", "tencent/hy3@", 60),
-        ("MiniMax M3", "minimax/minimax-m3@", 60),
-        ("DeepSeek V4-Pro", "deepseek/deepseek-v4-pro@", 60),
-        ("MiMo-V2.5-Pro", "xiaomi/mimo-v2.5-pro@", 60),
-        ("Qwen3.6-27B", "qwen/qwen3.6-27b@", 0),
-        ("Qwen3.6-35B-A3B", "qwen/qwen3.6-35b-a3b@", 0),
-    ]
-
-    def measured_tiers(prefix):
-        """Tiers with runs in both conditions, in canonical effort order."""
-        have = {
-            t for t in EFFORT_ORDER
-            if all(any(r["model"] == prefix + t and r["condition"] == c for r in all_runs)
-                   for c in ("baseline", "mcp"))
-        }
-        return [t for t in EFFORT_ORDER if t in have]
-
-    multiples = []
-    curve_points = []
-    for name, prefix, y_min in FAMILIES:
-        tiers = measured_tiers(prefix)
-        if len(tiers) < 2:
-            continue
-        series = []
-        for cond, color in [("baseline", SLATE), ("mcp", CORAL)]:
-            vals = []
-            for t in tiers:
-                rs = [r for r in all_runs if r["model"] == prefix + t and r["condition"] == cond]
-                vals.append(solve_pct(rs))
-                curve_points.append(len(rs))
-            series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
-        labels = ["off" if t == "disabled" else t for t in tiers]
-        chart = line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min)
-        multiples.append(f'<div><h3 style="font-size:13px;margin-bottom:6px">{name}</h3>{chart}</div>')
-    generalize_html = f"""
-<section>
-  <h2>Does the effort pattern generalize?</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span><span>x-axis is the effort we requested; some neighbours are the same setting (see methodology)</span></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}
-    <div><h3 style="font-size:13px;margin-bottom:6px">Qwen3 Coder Next</h3>
-    <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the small-models chart above on its single configuration.</p></div>
-  </div>
-</section>"""
 
 
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
@@ -636,6 +590,77 @@ def build(all_runs):
             "secs": secs,
             "time": f"{int(secs // 60)}m {int(secs % 60):02d}s",
         }
+    EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "high", "xhigh", "max"]
+    # Five, not two or three. This section plots SOLVE RATE, which only carries a
+    # model's story if most of the ladder is measured in both conditions. Sol and
+    # Terra qualified at three tiers and were charted for one build; the result was
+    # misleading on the page. Sol solves 100% at every tier in both conditions, so
+    # its curve was two flat lines, and Terra's coral line DIPPED at max (92% vs
+    # 97%) while the findings state +9.1 there, because its gain is entirely in
+    # first submissions (0% to 27%), not in solves. A chart that contradicts the
+    # prose two sections later is worse than an absence, and the absence is
+    # explained in the section note.
+
+    def measured_tiers(prefix):
+        """Tiers with runs in both conditions, in canonical effort order."""
+        have = {
+            t for t in EFFORT_ORDER
+            if all(any(r["model"] == prefix + t and r["condition"] == c for r in all_runs)
+                   for c in ("baseline", "mcp"))
+        }
+        return [t for t in EFFORT_ORDER if t in have]
+
+    # Which models appear is DERIVED, like the tiers inside each chart. The old
+    # hardcoded list silently dropped models as coverage grew: Sol and Terra both
+    # earned a curve tonight, and they are the two carrying the finding that the
+    # tool's gain appears at the TOP of the ladder, so leaving them out hid the
+    # evidence for the claim the law card makes. Gemini and Grok reach two tiers
+    # and stay out on MIN_CURVE_TIERS; Gemini's pair does not even include the
+    # tier its own winner uses.
+    #
+    # y_min keeps each family's shape readable: the small Qwen models live far
+    # below everyone else's floor, so they get a 0 baseline instead of 60.
+    # ordered by index score, like every other section, so a reader moving down
+    # the page meets the models in the same sequence
+    rank = {r["label"]: i for i, r in enumerate(sci_rows)}
+    families = []
+    for entry in sorted(active_models(), key=lambda e: rank.get(e["label"], 99)):
+        # the prefix comes from a spec that HAS an effort, not specs[0]: Terra's
+        # list starts with its pro serving mode, whose id is a different model
+        effort_specs = [sp for sp in entry["specs"] if "@" in sp]
+        if not effort_specs:
+            continue                      # no dial at all (Coder Next)
+        prefix = effort_specs[0].split("@")[0] + "@"
+        tiers = measured_tiers(prefix)
+        if len(tiers) < 5:
+            continue
+        families.append((entry["label"], prefix, 0 if entry.get("small") else 60, tiers))
+
+    multiples = []
+    curve_points = []
+    for name, prefix, y_min, tiers in families:
+        series = []
+        for cond, color in [("baseline", SLATE), ("mcp", CORAL)]:
+            vals = []
+            for t in tiers:
+                rs = [r for r in all_runs if r["model"] == prefix + t and r["condition"] == cond]
+                vals.append(solve_pct(rs))
+                curve_points.append(len(rs))
+            series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
+        labels = ["off" if t == "disabled" else t for t in tiers]
+        chart = line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min)
+        multiples.append(f'<div><h3 style="font-size:13px;margin-bottom:6px">{name}</h3>{chart}</div>')
+    generalize_html = f"""
+<section>
+  <h2>Does the effort pattern generalize?</h2>
+  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span><span>x-axis is the effort we requested; some neighbours are the same setting (see methodology)</span><span>a model appears here when most of its ladder was run in both conditions</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}
+    <div><h3 style="font-size:13px;margin-bottom:6px">Qwen3 Coder Next</h3>
+    <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the small-models chart above on its single configuration.</p></div>
+  </div>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:16px 0 0">The two OpenAI models whose documentation gain arrives at full effort, Sol (+7.9) and Terra (+9.1), are deliberately not here: this chart measures solve rate and theirs barely moves. Sol already solves every task at every tier, and Terra's solve rate <i>falls</i> at <code>max</code> even as its score rises, because the tool buys it first-try delivery (0% to 27%) rather than more solves. The findings section carries that result.</p>
+</section>"""
+
     a = SCI_SPEC["anchors"]
     w_ = SCI_SPEC["weights"]
 
@@ -982,7 +1007,7 @@ def build(all_runs):
   <p>Three refinements. The law applies per <i>variant</i>, and not in the direction we first reported: Terra's gain <i>grows</i> up its ladder (+2.0 with thinking off, +4.2 at <code>minimal</code>, <b>+9.1</b> at <code>max</code>), so a model can be saturated on its own and still have room the tool fills at full effort, and Sol behaves the same way (+7.9 at <code>max</code>). That is not a vendor effect, though: we ran the same test on a third OpenAI model we sweep but do not chart, and Luna's top tier gains +3.0, which its own interval cannot separate from zero, against +0.0 and &minus;0.4 at the two tiers of its own we had already measured. Also documentation raises MiniMax at four of its six tiers (+13.0, +12.3, +7.1, +3.2) while costing it 5.5 points at the one tier its baseline happens to win on, which is why the like-for-like gain above understates the tool. The lift is mostly bought in solves, not in polish: at the floor it converts runs that never worked into working ones (Qwen3.6-27B 15% to 69% solved, Qwen3.6-35B-A3B 11% to 59%, Coder Next 0% to 17%). And the law has a competence floor, because a model has to be able to exploit what it reads: Gemma 4 31B (−1.8) and gpt-oss-120b (−1.7, zero solves with documentation or without) sit below it.</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness, but it can buy first-try delivery</h3>
   <p>Four patterns across the field (the small models are their own case, below): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models along their own ladders: Gemini and Sol up to <code>max</code>, GLM to <code>xhigh</code>, Terra to <code>max</code>, MiniMax down to <code>medium</code>. Up is not the same as topmost, though: GLM's <code>max</code> tier is its worst, 10 points below the <code>xhigh</code> that wins.</p>
-  <p>The top of the ladder is where Anthropic's three models change character, and every one of them pays for it. <code>max</code> lifts first-submission delivery (Fable to 100%, Sonnet to 88% from 67%) while spending three to thirty times the tokens: Opus 92.0 at <code>low</code> against 85.0 at <code>max</code>, Fable 88.4 against 83.7, Sonnet 83.4 against 73.2 on 61k output tokens and nine minutes a task. Buying reliability that way costs more than the reliability is worth here, which is the same trade the small models lose at the other end of the field. Kimi K3 shows the mirror image: its <code>low</code> tier ties its default (83.2 against 83.1, intervals well overlapped) at a third of the price and a third of the time, so the cheap setting is the one to run.</p>
+  <p>The top of the ladder is where Anthropic's three models change character, and every one of them pays for it. <code>max</code> lifts first-submission delivery (Fable to 100%, Sonnet to 88% from 67%) while spending three to thirty-four times the tokens: Opus 92.0 at <code>low</code> against 85.0 at <code>max</code>, Fable 88.4 against 83.7, Sonnet 83.4 against 73.2 on 61k output tokens and nine minutes a task. Buying reliability that way costs more than the reliability is worth here, which is the same trade the small models lose at the other end of the field. Kimi K3 shows the mirror image: its <code>low</code> tier ties its default (83.2 against 83.1, intervals well overlapped) at a third of the price and a third of the time, so the cheap setting is the one to run.</p>
   <p>The two small Qwen models invert the question, and not the way the index alone suggests. Thinking does buy them solves: Qwen3.6-27B goes from 15% of runs solved with thinking off to <b>31% at <code>low</code></b>, and 35B-A3B from 11% to 23% at <code>high</code>. What it cannot buy is value. Those extra solves cost three to five times the output tokens and four to fourteen times the wall clock (27B: 10.8k tokens and 181s off, against 51.5k and 864s at <code>low</code>), so the index refuses to pay and thinking off still wins on score. One tier is genuinely self-defeating rather than merely expensive: 35B-A3B at <code>xhigh</code> burns 94k tokens to solve 4% of runs. Documentation is the better purchase at this end of the field, and it pays most exactly where thinking is off (27B +22.0 there, +8 at <code>xhigh</code>).</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
   <p>GPT-5.6 Sol iterates against the compiler even at flagship scale and price: at its best tier it delivers on the first submission 40% of the time and takes a median of two submissions per task, where Opus 5 and Fable 5 land first-try nearly always (100% and 96%). But this is the one habit documentation does buy. Given the tool at that same tier, Sol jumps to <b>72% first-submission</b> (p=0.014, the only shift in this study that clears significance) and its score rises 69.5 to 77.4. We reported the opposite earlier from its two weakest tiers, which were the only ones we had measured in both conditions: at 19% and 15% the tool looked useless to it. Measured where the model is actually good, it is worth more to Sol than to almost anyone.</p>
