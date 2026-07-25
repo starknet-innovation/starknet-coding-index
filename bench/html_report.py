@@ -208,25 +208,51 @@ def sci_bar_chart(rows, w=760, h=389):
     return "".join(parts)
 
 
-def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
+def effort_suffix(efforts, label):
+    """The '(low)' / '(xhigh / low)' parenthetical for one bar, as plain text.
+
+    Each condition picks its own best thinking variant, so a bar can carry two.
+    Baseline first, with-MCP second. Half the big models differ, and they almost
+    all move DOWN the ladder with documentation, which is the point of showing
+    this. ASCII only: assert_output_is_portable rejects non-ASCII inside an
+    <svg>, so the separator is a slash, not an arrow.
+    """
+    pair = (efforts or {}).get(label.rstrip("*"))
+    if not pair:
+        return ""
+    base, mcp = pair
+    if not base and not mcp:
+        return " (no dial)"   # Coder Next: no reasoning params exist at all, and
+    if base == mcp:           # a blank where every sibling has one reads as a bug
+        return f" ({base})"
+    return f" ({base} / {mcp})"
+
+
+def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85, efforts=None):
     """Baseline-vs-MCP columns: solid bar = best baseline SCI, stacked coral
     segment = the gain when the best MCP config scores higher. No segment
     means the tool doesn't improve that model's best configuration (no
-    downward marks by design). Each condition uses its own best thinking
-    variant, so labels carry the model name only.
+    downward marks by design).
+
+    Each condition uses its own best thinking variant, so a label carries one
+    effort when both conditions agree on it and two when they don't.
 
     pairs: (label, sci_base, sci_mcp_or_None, open_weight, rank_delta) where
     rank_delta is places moved vs the baseline-only ranking (+ = up).
+    efforts: {label: (baseline_variant, mcp_variant)}; None labels bars by name
+    only. Passed as its own argument rather than a sixth tuple field so the
+    shape of `pairs` (and both call sites) stays put.
     """
-    # pad_r balances the whitespace left of the tick labels (see sci_bar_chart);
-    # pad_b is smaller than chart 1's — these labels carry no effort suffix, so
-    # their rotated extent is shorter and 130 left a blank band above the legend.
+    # pad_r balances the whitespace left of the tick labels (see sci_bar_chart).
     # pad_l/pad_b are params: the small-models chart carries longer names than
     # chart 2 (its rotated labels clipped at pad_b 85 and its first column at
-    # pad_l 64), so it passes larger pads and a taller h to keep bar height
+    # pad_l 64), so it passes larger pads and a taller h to keep bar height.
     pad_r, pad_t = 40, 26
+    # measured on the strings actually drawn, suffix included: pad from the bare
+    # names would shave the first characters off the longest label
+    shown = {p[0]: p[0] + effort_suffix(efforts, p[0]) for p in pairs}
     pad_b_arg, pad_b = pad_b, rotated_label_pad(
-        [p[0] for p in pairs], extra=26 if any(p[4] > 0 for p in pairs) else 0)
+        list(shown.values()), extra=26 if any(p[4] > 0 for p in pairs) else 0)
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b_arg
     h = pad_t + ch + pad_b
     n = len(pairs)
@@ -278,6 +304,11 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
+        # the effort rides in the axis label, mono and muted, exactly as it does
+        # in chart 1 and the "Behind the score" charts
+        suffix = effort_suffix(efforts, label)
+        eff = (f'<tspan fill="{MUTED}" font-family="var(--mono)">{suffix}</tspan>'
+               if suffix else "")
         # Only upward moves are annotated (downward is mostly being overtaken).
         # The arrow is DRAWN, not typed. The garbling that prompted this was an
         # encoding bug (see assert_output_is_portable), but geometry is still the
@@ -287,7 +318,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             parts.append(
                 f'<g transform="rotate(-45 {cx:.0f} {ly:.0f})">'
                 f'<text x="{cx - 24:.0f}" y="{ly:.0f}" font-size="11" fill="{INK}" '
-                f'text-anchor="end">{label}</text>'
+                f'text-anchor="end">{label}{eff}</text>'
                 f'<polygon points="{tri_x:.1f},{ly - 8.5:.1f} {tri_x - 3.5:.1f},{ly - 2:.1f} '
                 f'{tri_x + 3.5:.1f},{ly - 2:.1f}" fill="{GOOD}"/>'
                 f'<text x="{num_x:.0f}" y="{ly:.0f}" font-size="11" font-weight="600" '
@@ -297,7 +328,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
         else:
             parts.append(
                 f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
-                f'font-size="11" fill="{INK}" text-anchor="end">{label}</text>'
+                f'font-size="11" fill="{INK}" text-anchor="end">{label}{eff}</text>'
             )
     parts.append("</svg>")
     return "".join(parts)
@@ -621,24 +652,35 @@ def build(all_runs):
             for i, (label, base, mcp, open_w, pending) in enumerate(pairs)
         ]
 
+    # Which thinking variant won, per condition, keyed by raw label. Half the big
+    # models pick a different one with the tool than without, so the chart labels
+    # carry both and effort_suffix decides how to render the pair.
+    lift_efforts = {
+        r["label"]: (r["variant"], mcp_rows[r["label"]]["variant"])
+        for r in sci_rows if r["label"] in mcp_rows
+    }
+
     key_open = f'<span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span>'
     key_closed = f'<span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span>'
     key_mcp = f'<span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span>'
-    keys_for = lambda rows: (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "") + key_mcp)
+    key_effort = ('<span>effort in parentheses; two values are baseline then '
+                  'with-MCP</span>')
+    keys_for = lambda rows: (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
+                             + key_mcp + key_effort)
     lift_legend = f'<div class="legend legend-bottom">{keys_for(big_rows)}{pending_note}</div>'
     lift_legend_small = f'<div class="legend legend-bottom">{keys_for(small_rows)}</div>'
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. The best thinking level may differ per condition, so bars carry no effort label.</p>
-  {mcp_lift_chart(build_lift_pairs(big_rows))}
+  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>half the field wins at a different effort with the tool than without</b>, and six of those seven move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.</p>
+  {mcp_lift_chart(build_lift_pairs(big_rows), efforts=lift_efforts)}
   {lift_legend}
 </section>"""
     small_html = f"""
 <section>
   <h2>Small models</h2>
-  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only.</p>
-  {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120)}
+  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only. Every one of them wants the same thinking level in both conditions, which the labels show.</p>
+  {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_l=110, pad_b=120, efforts=lift_efforts)}
   {lift_legend_small}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
@@ -915,7 +957,8 @@ def build(all_runs):
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both pro serving modes we funded cost 2 to 3× their model's <code>max</code> tier and scored below it (terra-pro 51.2 against terra@max 52.6). Neither ever produced the best configuration of its model, so sol-pro was not funded on that record.</p></div>
   <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: baseline failures are training-data lag</h3>
-  <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (~1,300 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p></div>
+  <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (~1,300 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.5/run at high effort, ~1.8/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p>
+  <p>The substitution is visible in which configuration wins. Half the large field picks a different thinking level with the tool than without, and six of those seven pick a <i>cheaper</i> one: Gemini <code>xhigh</code> to <code>low</code>, Sol <code>high</code> to <code>low</code>, MiniMax <code>medium</code> to <code>low</code>, Terra <code>max</code> to <code>minimal</code>, Hy3 <code>high</code> to off, GLM <code>xhigh</code> to off. Only DeepSeek goes the other way. Reference material buys what thinking budget was being spent on.</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
