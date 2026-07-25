@@ -114,10 +114,9 @@ def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101)
             others = [s[2][i] for sj, s in enumerate(series) if sj != si]
             on_top = all(v > o for o in others) or (any(v == o for o in others) and si > 0)
             dy = -10 if on_top else 16
-            # the salmon series fill is too light for small text on white
-            label_fill = CORAL_INK if color == CORAL else color
+            # labels take their series colour: line, dots and numbers read as one
             parts.append(
-                f'<text x="{sx(i):.0f}" y="{sy(v) + dy:.1f}" font-size="11" fill="{label_fill}" '
+                f'<text x="{sx(i):.0f}" y="{sy(v) + dy:.1f}" font-size="11" fill="{color}" '
                 f'text-anchor="middle" font-weight="600">{v:.0f}</text>'
             )
     for xi, y, text in annotations:
@@ -241,7 +240,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             # sub-line quantifies what the tool would cost this model
             if mcp < base:
                 parts.append(f'<text x="{cx:.0f}" y="{top_b - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
-                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="10.5" fill="{MUTED}" text-anchor="middle">−{base - mcp:.1f}</text>')
+                parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="10.5" fill="{MUTED}" text-anchor="middle">-{base - mcp:.1f}</text>')
             else:
                 parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
         else:
@@ -249,15 +248,26 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=64, pad_b=85):
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 20:.0f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{base:.1f}</text>')
             parts.append(f'<text x="{cx:.0f}" y="{top_b - 8:.0f}" font-size="9" fill="{MUTED}" text-anchor="middle">no MCP</text>')
         ly = sy(0) + 12
-        # only upward moves are annotated — downward is mostly being overtaken
-        move = (
-            f' <tspan fill="{GOOD}" font-weight="600">▲{rank_delta}</tspan>'
-            if rank_delta > 0 else ""
-        )
-        parts.append(
-            f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
-            f'font-size="11" fill="{INK}" text-anchor="end">{label}{move}</text>'
-        )
+        # Only upward moves are annotated (downward is mostly being overtaken).
+        # The arrow is DRAWN, not typed: SF Mono and friends lack U+25B2, and a
+        # per-glyph font fallback rendered it at foreign metrics on macOS.
+        if rank_delta > 0:
+            tri_x, num_x = cx - 15, cx
+            parts.append(
+                f'<g transform="rotate(-45 {cx:.0f} {ly:.0f})">'
+                f'<text x="{cx - 24:.0f}" y="{ly:.0f}" font-size="11" fill="{INK}" '
+                f'text-anchor="end">{label}</text>'
+                f'<polygon points="{tri_x:.1f},{ly - 8.5:.1f} {tri_x - 3.5:.1f},{ly - 2:.1f} '
+                f'{tri_x + 3.5:.1f},{ly - 2:.1f}" fill="{GOOD}"/>'
+                f'<text x="{num_x:.0f}" y="{ly:.0f}" font-size="11" font-weight="600" '
+                f'fill="{GOOD}" text-anchor="end">{rank_delta}</text>'
+                f"</g>"
+            )
+        else:
+            parts.append(
+                f'<text transform="rotate(-45 {cx:.0f} {ly:.0f})" x="{cx:.0f}" y="{ly:.0f}" '
+                f'font-size="11" fill="{INK}" text-anchor="end">{label}</text>'
+            )
     parts.append("</svg>")
     return "".join(parts)
 
@@ -828,7 +838,7 @@ def build(all_runs):
     <span class="chip">runs <b>{len(all_runs)}</b></span>
     <span class="chip">hidden tests <b>106</b></span>
     <span class="chip">total LLM spend <b>${sum(r["cost_usd"] or 0 for r in all_runs):.0f}</b></span>
-    <span class="chip">2026-07-22 → 24</span>
+    <span class="chip">2026-07-22 to 07-25</span>
   </div>
 </header>
 
@@ -869,7 +879,7 @@ def build(all_runs):
         <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (~1,300 runs across five efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 26–39 runs per variant. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
         <li><b>Six cells abandoned, one batch truncated:</b> host-sleep/network stalls made 5 qwen/minimax baseline cells unrecoverable, and 1 qwen@high cell was cut when its batch was stopped manually; all are counted as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time/cost medians exclude abandoned cells.</li>
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> (38/39 solved on both, same turn counts), so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
-        <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ≈ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
+        <li><b>Statistics:</b> confirmation batches raised low/medium/high baseline cells to n=130 (others n=39). The apparent "low beats high" ordering at 3 reps did not survive: low ~ medium (p=0.83), high trails non-significantly (p=0.09). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>
       </ul>
     </div>
@@ -880,14 +890,39 @@ def build(all_runs):
 """
 
 
+def assert_charts_are_ascii(html):
+    """Chart text must not depend on the viewer's fonts.
+
+    SVG chart text renders in the mono stack, which resolves to SF Mono on
+    macOS; SF Mono has no U+25B2, so a typed arrow fell back per-glyph to
+    another font at foreign metrics and looked broken on David's machine. This
+    sandbox cannot reproduce that (no SF Mono here, and its DejaVu Sans Mono
+    covers the glyph), so screenshots are not a sufficient check: the rule is
+    enforced here instead. Draw symbols as geometry rather than typing them.
+    """
+    offenders = []
+    for svg in re.findall(r"<svg.*?</svg>", html, re.S):
+        for ch in set(svg):
+            if ord(ch) > 127:
+                offenders.append(f"U+{ord(ch):04X} {ch!r}")
+    if offenders:
+        raise SystemExit(
+            "non-ASCII characters in chart SVG: " + ", ".join(sorted(set(offenders)))
+            + "\nDraw the symbol (polygon/path) instead of typing it: mono fonts "
+              "vary by platform and fall back at the wrong metrics."
+        )
+
+
 def main():
     paths = [Path(p) for p in sys.argv[1:]] or [config.RUNS_DIR / "main.jsonl"]
     runs = load_runs(paths)
     if not runs:
         print("no runs found")
         sys.exit(1)
+    html = build(runs)
+    assert_charts_are_ascii(html)
     out = config.RESULTS_DIR / "report.html"
-    out.write_text(build(runs))
+    out.write_text(html)
     print(f"{len(runs)} runs -> {out}")
 
 
