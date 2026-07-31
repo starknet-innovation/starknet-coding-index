@@ -9,6 +9,7 @@ every findings claim, the methodology and caveat numbers, and the chips. If you
 change the data, run this before believing the report.
 """
 import math
+import re
 import statistics as st
 import sys
 
@@ -254,6 +255,42 @@ check("five of fourteen differ, four downward", len(diff) == 5 and len(down) == 
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))
+
+# The README quotes the top of the leaderboard, and it is the first thing anyone
+# reads. Nothing else regenerates it, so a sweep that moves a score would leave it
+# silently contradicting the report: check it against the same leaderboard() the
+# report uses, row by row.
+print("\n== README front page")
+readme = open("README.md", encoding="utf-8").read()
+ROW = re.compile(r"^\| *(\d+) *\| *(.+?) *\| *(.*?) *\| *([\d.]+) ±([\d.]+) *\| *(\d+)% *\|$", re.M)
+rows = ROW.findall(readme)
+check("README quotes a top-5 table", len(rows) == 5, f"{len(rows)} rows")
+for rank, label, variant, score, ci, onesub in rows:
+    i = int(rank) - 1
+    r = lb[i] if i < len(lb) else None
+    ok = bool(r) and r["label"] == label and (r["variant"] or "") == variant \
+        and abs(r["sci"] - float(score)) < 0.05 \
+        and r["ci"] is not None and abs(r["ci"] - float(ci)) < 0.05 \
+        and round(r["raw"]["one_sub_pct"]) == int(onesub)
+    check(f"README row {rank}: {label} {variant} {score} +/-{ci} {onesub}%", ok,
+          (f"data: {r['label']} {r['variant']} {r['sci']:.1f} +/-{r['ci']:.1f} "
+           f"{r['raw']['one_sub_pct']:.0f}%") if r else "no such rank")
+# the lede's scale numbers, and the record counts the data section promises
+n_lines = sum(1 for _ in open("results/runs/main.jsonl", encoding="utf-8"))
+# Modal count, not max: three runs shipped a #[test] inside lib.cairo, which
+# snforge collects, so their totals sit one above the task's real test count.
+n_tests = sum(st.mode([x["tests_passed"] + x["tests_failed"] for x in runs
+                       if x["task"] == t and x["compiled"]])
+              for t in {x["task"] for x in runs if x["task"] != "fake"})
+for claim, want in [
+    ("README lede: models", f"{len(lb)} models from"),
+    ("README lede: labs", f"from {len({r['lab'] for r in lb})} labs"),
+    ("README lede: runs", f"{len(runs):,}\nagentic runs**"),
+    ("README lede: tasks", f"{NT} hand-written contract tasks"),
+    ("README lede: hidden tests", f"{n_tests} hidden `snforge` tests"),
+    ("README data: records vs analysed", f"holds {n_lines:,} records, the {len(runs):,} analysed"),
+]:
+    check(claim, want in readme, want.replace("\n", " "))
 
 print(f"\n{'ALL CLAIMS VERIFY' if not fails else str(len(fails)) + ' FAILED: ' + '; '.join(fails)}")
 sys.exit(1 if fails else 0)

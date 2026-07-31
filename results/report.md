@@ -1,4 +1,4 @@
-# Cairo Coder MCP benchmark — results
+# The Starknet Coding Index — results
 
 Runs aggregated: 7338
 

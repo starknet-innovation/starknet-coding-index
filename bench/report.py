@@ -1,4 +1,4 @@
-"""Aggregate results/runs/*.jsonl into a markdown report.
+"""Aggregate run records into a markdown report (main.jsonl unless told otherwise).
 
   uv run python -m bench.report [runs.jsonl ...]
 """
@@ -85,7 +85,7 @@ def aggregate(runs):
 
 def markdown(rows, runs):
     lines = [
-        "# Cairo Coder MCP benchmark — results",
+        "# The Starknet Coding Index — results",
         "",
         f"Runs aggregated: {len(runs)}",
         "",

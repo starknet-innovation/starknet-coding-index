@@ -1,7 +1,7 @@
 [project]
 name = "cairo-coder-benchmark"
 version = "0.1.0"
-description = "Benchmark: LLMs with vs without the Cairo Coder MCP on Starknet contract tasks"
+description = "The Starknet Coding Index: how well LLMs write Starknet contracts, with and without documentation access"
 requires-python = ">=3.11"
 dependencies = [
     "openai>=1.50",
