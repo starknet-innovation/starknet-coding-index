@@ -999,9 +999,12 @@ def build(all_runs):
             + cells + "</tr>"
         )
 
+    # every sortable table on the page, not one by id: the open-weight table
+    # shipped unsortable because the sorter named "modeltable" directly
     sorter_js = """<script>
-(function () {
-  var table = document.getElementById("modeltable");
+/* on DOMContentLoaded so it does not matter where on the page this lands */
+document.addEventListener("DOMContentLoaded", function () {
+document.querySelectorAll("table.sortable").forEach(function (table) {
   var headers = table.querySelectorAll("th");
   headers.forEach(function (th, col) {
     th.tabIndex = 0;
@@ -1031,12 +1034,13 @@ def build(all_runs):
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); }
     });
   });
-})();
+});
+});
 </script>"""
     models_html = f"""
 <section>
   <h2>The models</h2>
-  <div class="tablewrap"><table id="modeltable">
+  <div class="tablewrap"><table id="modeltable" class="sortable">
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
@@ -1047,7 +1051,7 @@ def build(all_runs):
 <section>
   <h2>Open weights in detail</h2>
   <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. Cells past <b>{LOCAL_WEIGHT_BUDGET_GB} GB</b> are greyed: that is the weights budget on a {LOCAL_VRAM_GB} GB machine once the OS and a KV cache are paid for, and it is the line the local-inference class above is drawn on.</p>
-  <div class="tablewrap"><table id="opentable">
+  <div class="tablewrap"><table id="opentable" class="sortable">
     <tr><th>Model</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r">Experts</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in QUANT_LADDER)}</tr>
     {"".join(open_rows_html)}
   </table></div>
@@ -1119,11 +1123,11 @@ def build(all_runs):
   .tablewrap{{overflow-x:auto}}
   table{{border-collapse:collapse;width:100%;min-width:900px;font-variant-numeric:tabular-nums}}
   th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}}
-  #modeltable td:first-child{{white-space:nowrap}}
-  #modeltable th{{cursor:pointer;user-select:none;white-space:nowrap}}
-  #modeltable th:hover,#modeltable th:focus-visible{{color:var(--ink)}}
-  #modeltable th.asc::after{{content:" \\25B2";font-size:9px}}
-  #modeltable th.desc::after{{content:" \\25BC";font-size:9px}}
+  table.sortable td:first-child{{white-space:nowrap}}
+  table.sortable th{{cursor:pointer;user-select:none;white-space:nowrap}}
+  table.sortable th:hover,table.sortable th:focus-visible{{color:var(--ink)}}
+  table.sortable th.asc::after{{content:" \\25B2";font-size:9px}}
+  table.sortable th.desc::after{{content:" \\25BC";font-size:9px}}
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .ci{{color:var(--muted);font-size:11px}}
