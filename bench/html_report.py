@@ -405,6 +405,7 @@ QUANT_LADDER = ["IQ4_XS", "Q4_K_M", "Q6_K", "Q8_0", "BF16"]
 
 ATTEMPT_COLORS = [SNF_BLUE, "#7c7ba2", "#bab7df", "#cecde7"]  # 1, 2, 3, 4+ submissions
 UNSOLVED_COLOR = "#bdb5ad"  # never solved: the band that tops every column
+FITS_BG = "#dbe7fc"         # blue-05 wash: a quant that fits one local machine
 # Warm neutral on purpose. It has to be legible in a band 2% tall (DeepSeek
 # fails 1 run in 52), which ruled out the diagonal hatch tried first: at that
 # height it was invisible. It also has to stay off the lavender ramp, so it
@@ -982,8 +983,12 @@ def build(all_runs):
                 cells += '<td class="r"></td>'
                 continue
             v = gb or r["vram_gb"]
-            over = ' style="color:var(--muted)"' if v > LOCAL_WEIGHT_BUDGET_GB else ""
-            cells += f'<td class="r" data-s="{v:.1f}"{over}>{"~" if est else ""}{v:,.0f}</td>'
+            # two channels, not one: a lightness-only difference between "fits"
+            # and "does not" was unreadable at this digit size. The wash also
+            # draws a waterline across each row, so how far along the ladder a
+            # model stays runnable reads without comparing any two numbers.
+            fit = "fits" if v <= LOCAL_WEIGHT_BUDGET_GB else "nofit"
+            cells += f'<td class="r {fit}" data-s="{v:.1f}">{"~" if est else ""}{v:,.0f}</td>'
         open_rows_html.append(
             f'<tr><td>{r["label"]}</td><td>{mm["type"] or "n/a"}</td>'
             + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
@@ -1043,7 +1048,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 
 <section>
   <h2>Open weights in detail</h2>
-  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. Cells past <b>{LOCAL_WEIGHT_BUDGET_GB} GB</b> are greyed: that is the weights budget on a {LOCAL_VRAM_GB} GB machine once the OS and a KV cache are paid for, and it is the line the local-inference class above is drawn on.</p>
+  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. <span class="swatch" style="background:{FITS_BG}"></span> marks a quantization that <b>fits one {LOCAL_VRAM_GB} GB machine</b>, meaning it lands inside the {LOCAL_WEIGHT_BUDGET_GB} GB left for weights once the OS and a KV cache are paid for; grey is out of reach. The waterline across each row is how far down the ladder that model stays runnable, and the <code>{LOCAL_QUANT}</code> column is the line the local-inference class above is drawn on.</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
     <tr><th>Model</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in QUANT_LADDER)}</tr>
     {"".join(open_rows_html)}
@@ -1121,6 +1126,11 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   table.sortable th:hover,table.sortable th:focus-visible{{color:var(--ink)}}
   table.sortable th.asc::after{{content:" \\25B2";font-size:9px}}
   table.sortable th.desc::after{{content:" \\25BC";font-size:9px}}
+  /* runs on one machine vs does not: shaded ground plus ink, against no ground
+     and muted text. Colour alone was too close to read at this size. */
+  #opentable td.fits{{background:{FITS_BG};color:var(--ink);font-weight:600}}
+  #opentable td.nofit{{color:var(--muted)}}
+  .swatch{{display:inline-block;width:22px;height:12px;border-radius:2px;vertical-align:-1px}}
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .ci{{color:var(--muted);font-size:11px}}
