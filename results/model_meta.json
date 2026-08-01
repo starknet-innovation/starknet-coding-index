@@ -20,7 +20,7 @@
   "moonshotai/kimi-k3": {
    "name": "MoonshotAI: Kimi K3",
    "context_length": 1048576,
-   "hugging_face_id": null,
+   "hugging_face_id": "moonshotai/Kimi-K3",
    "price_per_m": {
     "input": 3.0,
     "output": 15.0,
@@ -30,7 +30,7 @@
    "pricing_note": null,
    "type": "MoE",
    "params_total": "2.8T",
-   "params_active": null
+   "params_active": "104B"
   },
   "openai/gpt-5.6-luna": {
    "name": "OpenAI: GPT-5.6 Luna",
@@ -363,5 +363,5 @@
    "params_active": "3B"
   }
  },
- "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T lab-stated, repo gated; Hy3 295B/21B and Qwen 27B dense lab-stated."
+ "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T/104B lab-stated on the model card, published 2026-07-27 as moonshotai/Kimi-K3; Hy3 295B/21B and Qwen 27B dense lab-stated."
 }

@@ -670,14 +670,16 @@ def build(all_runs):
     big_rows = [r for r in sci_rows if not r.get("small")]
     small_rows = [r for r in sci_rows if r.get("small")]
 
-    # weights_pending models (K3) get a display-time star on their label;
-    # raw labels stay untouched because they key the mcp_rows lookups
+    # A model whose weights are announced but not yet downloadable is classed
+    # open with a display-time star on its label; raw labels stay untouched
+    # because they key the mcp_rows lookups. No model carries the flag today
+    # (K3's weights published 2026-07-27), so this renders nothing until one does.
     starred = lambda rows: [
         dict(r, label=r["label"] + "*") if r.get("weights_pending") else r for r in rows
     ]
     pending_note = (
-        '<span>* open classification based on an announced weights release '
-        '(Kimi K3: promised 2026-07-27, not yet published)</span>'
+        '<span>* open classification based on an announced weights release, '
+        'not yet published</span>'
         if any(r.get("weights_pending") for r in big_rows) else ""
     )
 
@@ -868,7 +870,7 @@ def build(all_runs):
     h2h_html = f"""
 <section>
   <h2>Head to head: best closed vs best open weights</h2>
-  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.{" * K3's weights are announced but not yet published, as noted in the table below." if best_open.get("weights_pending") else ""}</p>
+  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.{" * Weights announced but not yet published, as noted in the table below." if best_open.get("weights_pending") else ""}</p>
   {head_to_head_chart(h2h_metrics)}
   <h3 class="chart-title">First-submission rate by task difficulty</h3>
   {attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
@@ -996,7 +998,7 @@ def build(all_runs):
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. * Kimi K3 is classed open on the strength of Moonshot's announced weights release (promised 2026-07-27); as of this snapshot the weights are not yet published. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
     findings_html = """

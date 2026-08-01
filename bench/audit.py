@@ -14,7 +14,7 @@ import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import attempts, compute_sci, index_ci, leaderboard
+from bench.sci import active_models, attempts, compute_sci, index_ci, leaderboard
 
 runs = load_runs(["results/runs/main.jsonl"])
 lb = leaderboard(runs)
@@ -255,6 +255,20 @@ check("five of fourteen differ, four downward", len(diff) == 5 and len(down) == 
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))
+
+# The star on a label and the footnote explaining it are set in two different
+# places, so they can drift apart: K3's footnote was hardcoded prose while the
+# star came from a registry flag, and clearing the flag would have left the
+# report explaining an asterisk it no longer printed.
+print("\n== weights-pending annotation")
+report_html = open("results/report.html", encoding="utf-8").read()
+pending = [e["label"] for e in active_models() if e.get("weights_pending")]
+noted = "announced weights release" in report_html
+check("pending-weights note appears only when a model is flagged", noted == bool(pending),
+      f"flagged: {', '.join(pending) or 'none'}; note in report: {noted}")
+starred = [e["label"] for e in active_models()
+           if e["label"] + "*" in report_html and not e.get("weights_pending")]
+check("no unexplained star on a model label", not starred, ", ".join(starred) or "none")
 
 # The README quotes the top of the leaderboard, and it is the first thing anyone
 # reads. Nothing else regenerates it, so a sweep that moves a score would leave it

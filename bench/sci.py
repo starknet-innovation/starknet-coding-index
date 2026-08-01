@@ -68,14 +68,13 @@ SCI_SPEC = {
 # data and keeps the best (policy: "best foot forward", variant labeled on
 # the chart). The extension point for future models.
 MODEL_REGISTRY = [
-    # weights_pending: Moonshot announced a weights release for 2026-07-27 but
-    # has not published them as of 2026-07-25 — the report stars K3's open
-    # classification until they ship; drop this flag when they do
+    # weights published 2026-07-27 as moonshotai/Kimi-K3 (96 safetensors shards,
+    # public and ungated), so the weights_pending star this entry used to carry
+    # is gone; OpenRouter now points this id at that repo
     # bare = provider default (max); @high/@low added 2026-07-25 after OpenRouter
     # showed K3 accepts them and we had only ever measured one configuration
     {"specs": ["moonshotai/kimi-k3", "moonshotai/kimi-k3@high", "moonshotai/kimi-k3@low"],
-     "label": "Kimi K3", "lab": "Moonshot",
-     "open_weight": True, "weights_pending": True},
+     "label": "Kimi K3", "lab": "Moonshot", "open_weight": True},
     {"specs": ["xiaomi/mimo-v2.5-pro@max", "xiaomi/mimo-v2.5-pro@xhigh",
                "xiaomi/mimo-v2.5-pro@high", "xiaomi/mimo-v2.5-pro@medium",
                "xiaomi/mimo-v2.5-pro@low", "xiaomi/mimo-v2.5-pro@minimal",
