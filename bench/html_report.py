@@ -1154,7 +1154,9 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .scibar:hover{{filter:brightness(1.08)}}
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
   #tip b{{font-weight:700}}
-  .faq{{display:grid;grid-template-columns:1fr 1fr;gap:26px 28px}}
+  /* align-items:start so a short card keeps its own height: stretched to match
+     its taller neighbour, the tinted ground left a void under the text */
+  .faq{{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;align-items:start}}
   .scorecards{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 20px}}
   .scorecards>:first-child{{grid-column:span 2}}
   @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
@@ -1163,7 +1165,10 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .scorecard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent);letter-spacing:-.02em;margin:4px 0 2px}}
   .scorecard p{{margin:0;font-size:13.5px}}
   /* Question cards: the opposite. Sentence case, not caps: caps read as a label
-     and mangle a question with punctuation inside it. */
+     and mangle a question with punctuation inside it. The ground and the accent
+     rule carry the visual rhythm the big number used to, without taking the
+     question's place: they are furniture, so they cannot outrank the text. */
+  .qcard{{background:var(--ground);border-left:3px solid var(--accent);border-radius:0 5px 5px 0;padding:15px 18px}}
   .qcard h3{{font-size:16px;color:var(--ink);margin:0 0 6px}}
   .qcard p{{margin:0;font-size:13.5px}}
   .qcard .ans{{font-family:var(--mono);font-weight:600;color:var(--accent)}}
