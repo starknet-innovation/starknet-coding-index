@@ -129,6 +129,17 @@ LOCAL_FALLBACK_BITS = 4.92
 LOCAL_RESERVE_GB = 64
 LOCAL_WEIGHT_BUDGET_GB = LOCAL_VRAM_GB - LOCAL_RESERVE_GB
 
+# How many models the headline charts draw. Rank decides membership and nothing
+# else: the charts used to show every model that did NOT fit the local class,
+# which sorted the page by memory footprint rather than by how good the model is
+# and left a 9th-place model off the leaderboard for being small enough to run.
+# The local class keeps its own section below, so a model outside this cut is
+# still measured; it is just not in the headline comparison.
+#
+# Lives here rather than in html_report because the audit checks chart
+# membership and the two must not disagree about who is in.
+CHART_TOP_N = 12
+
 _META = None
 
 

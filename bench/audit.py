@@ -15,9 +15,9 @@ import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import (LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS,
-                       active_models, attempts, compute_sci, index_ci, leaderboard,
-                       price_ratio, run_cost)
+from bench.sci import (CHART_TOP_N, LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB,
+                       PRICE_REVISIONS, active_models, attempts, compute_sci,
+                       index_ci, leaderboard, price_ratio, run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
 # a few claims are about the rendered prose, not just the data behind it
@@ -26,6 +26,11 @@ lb = leaderboard(runs)
 by = {r["label"]: r for r in lb}
 mcp = {r["label"]: r for r in leaderboard(runs, condition="mcp")}
 NT = len({x["task"] for x in runs if x["task"] != "fake"})
+# Who the headline charts draw. Several claims are scoped to the charts rather
+# than to the field ("Opus has the fastest median pass"), and they used to be
+# written as "not local", which was only ever a proxy for charted and stopped
+# being one when the charts moved to the top CHART_TOP_N by index.
+charted = {r["label"] for r in lb[:CHART_TOP_N]}
 
 C = lambda s, c="baseline": [x for x in runs if x["model"] == s and x["condition"] == c]
 one = lambda rs: 100 * sum(1 for x in rs if x["solved"] and attempts(x) == 1) / len(rs)
@@ -97,8 +102,9 @@ print("\n== FAQ cards")
 o, f, g, k, mi, s5, sol = (by[n] for n in
     ["Opus 5", "Fable 5", "Grok 4.5", "Kimi K3", "MiMo-V2.5-Pro", "Sonnet 5", "GPT-5.6 Sol"])
 check("Opus 100% one-shot", one(C(o["spec"])) == 100, f"{one(C(o['spec'])):.0f}%")
-check("Opus has the fastest median pass",
-      min((pass_time(by[r["label"]]["spec"]), r["label"]) for r in lb if not r.get("local"))[1] == "Opus 5")
+check("Opus has the fastest median pass of the charted models",
+      min((pass_time(by[r["label"]]["spec"]), r["label"])
+          for r in lb if r["label"] in charted)[1] == "Opus 5")
 check("Opus is 3.7 clear of second", abs(o["sci"] - f["sci"] - 3.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
 check("Fable/Grok 0.4 apart", abs(f["sci"] - g["sci"] - 0.4) < 0.06, f"{f['sci']-g['sci']:.2f}")
 check("Fable 96% vs Grok 74% one-shot",
@@ -134,8 +140,8 @@ check("Luna's top tier gains +3.0, inside its own noise",
       abs((sci(lm_) - sci(lb_)) - 3.0) < 0.06 and (index_ci(lm_) + index_ci(lb_)) > 3.0,
       f"{sci(lm_)-sci(lb_):+.1f} vs interval sum {index_ci(lm_)+index_ci(lb_):.1f}")
 check("Luna is charted, and is the third OpenAI model",
-      any(r["label"] == "GPT-5.6 Luna" for r in lb)
-      and len([r for r in lb if r["lab"] == "OpenAI" and not r.get("local")]) == 3,
+      "GPT-5.6 Luna" in charted
+      and len([r for r in lb if r["lab"] == "OpenAI" and r["label"] in charted]) == 3,
       f"{[r['label'] for r in lb if r['lab'] == 'OpenAI']}")
 check("Terra +9.1 with the tool at max", abs(mcp["GPT-5.6 Terra"]["sci"] - by["GPT-5.6 Terra"]["sci"] - 9.1) < 0.06,
       f"{mcp['GPT-5.6 Terra']['sci']-by['GPT-5.6 Terra']['sci']:+.1f}")
@@ -242,6 +248,98 @@ for k, v in _mm.items():
     sizes = [(q, s) for q, s in sizes if s]
     nonmono += [f"{k}:{qb}" for (qa, a), (qb, b) in zip(sizes, sizes[1:]) if b <= a]
 check("GGUF sizes increase with quant level", not nonmono, ", ".join(nonmono) or "none")
+
+# Who each chart actually draws, read off the shipped SVG rather than inferred
+# from the code that wrote it. Membership is a claim the prose makes ("the top
+# twelve"), and the failure mode is silent: a chart drawn from the wrong row set
+# still renders perfectly. Text checks would not have caught it either.
+def section_html(prefix):
+    for sec in re.findall(r"<section.*?</section>", report_html, re.S):
+        h = re.search(r"<h2[^>]*>(.*?)</h2>", sec, re.S)
+        if h and re.sub(r"<[^>]+>", "", h.group(1)).strip().startswith(prefix):
+            return sec
+    return ""
+
+
+def chart_labels(svg):
+    """Model names off a chart's angled axis labels, in drawn order.
+
+    Two shapes: a bare rotated <text>, and a rotated <g> wrapping the label plus
+    a rank-delta arrow and number (the number is dropped as non-label).
+    """
+    out = []
+    for g, t in re.findall(r'<g transform="rotate\([^"]*\)">(.*?)</g>'
+                           r'|<text transform="rotate\([^"]*\)"[^>]*>(.*?)</text>',
+                           svg, re.S):
+        inner = g or t
+        if g:
+            m = re.search(r"<text[^>]*>(.*?)</text>", g, re.S)
+            inner = m.group(1) if m else ""
+        txt = re.sub(r"<[^>]+>", "", inner).replace("&plusmn;", "").strip()
+        txt = re.sub(r"\s*\([^)]*\)$", "", txt).rstrip("*").strip()
+        if txt and not txt.replace(".", "").isdigit():
+            out.append(txt)
+    return out
+
+
+svgs = lambda prefix: re.findall(r"<svg.*?</svg>", section_html(prefix), re.S)
+top_n = [r["label"] for r in lb[:CHART_TOP_N]]
+sci_svg = svgs("Starknet Coding Index")
+check(f"index chart draws the top {CHART_TOP_N}, in rank order",
+      len(sci_svg) == 1 and chart_labels(sci_svg[0]) == top_n,
+      " > ".join(chart_labels(sci_svg[0])) if sci_svg else "no chart found")
+behind = svgs("Behind the score")
+check("all three 'Behind the score' charts draw the same top models",
+      len(behind) == 3 and all(sorted(chart_labels(s)) == sorted(top_n) for s in behind),
+      f"{len(behind)} charts, sizes {[len(chart_labels(s)) for s in behind]}")
+mcp_svg = svgs("What does the Cairo Coder MCP add")
+check("the MCP chart draws the same top models",
+      len(mcp_svg) == 1 and sorted(chart_labels(mcp_svg[0])) == sorted(top_n),
+      ", ".join(sorted(set(chart_labels(mcp_svg[0])) ^ set(top_n)) or ["exact"]) if mcp_svg else "no chart")
+local_svg = svgs("Local-inference class")
+check(f"the local chart draws all {len(loc)} models that fit one machine",
+      len(local_svg) == 1 and sorted(chart_labels(local_svg[0])) == sorted(r["label"] for r in loc),
+      ", ".join(sorted(set(chart_labels(local_svg[0])) ^ {r["label"] for r in loc}) or ["exact"])
+      if local_svg else "no chart")
+# and the six that are only there: a model below the cut and outside the class
+# appears in no chart at all, which the leaderboard note is required to say
+only_local = [r["label"] for r in loc if r["label"] not in charted]
+check("the local section is the only chart for the small models",
+      len(only_local) == 6 and not (set(only_local) & charted),
+      ", ".join(only_local))
+cut_note = re.search(r"Below the cut, in order: (.*?)\.\s", report_html)
+check("the leaderboard names every model below the cut",
+      bool(cut_note) and [s.rsplit(" ", 1)[0] for s in cut_note.group(1).split(", ")]
+      == [r["label"] for r in lb[CHART_TOP_N:]],
+      cut_note.group(1) if cut_note else "no note")
+
+# The local table's two derived columns, recomputed from the same inputs the
+# page had: headroom is arithmetic, and "best quant that fits" is a two-way
+# claim (the named quant fits, and nothing above it does).
+local_tbl = re.search(r'<table id="localtable".*?</table>', report_html, re.S)
+rows_tbl = re.findall(r"<tr>(?!<th)(.*?)</tr>", local_tbl.group(0), re.S) if local_tbl else []
+cells = [[re.sub(r"<[^>]+>", "", c).strip() for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
+         for r in rows_tbl]
+cells = [c for c in cells if c and c[0] in {r["label"] for r in loc}]
+bad_head = [c[0] for c in cells
+            if abs(float(c[2].replace(",", ""))
+                   - (LOCAL_WEIGHT_BUDGET_GB - by[c[0]]["vram_gb"])) > 0.5]
+check(f"local table: {len(loc)} rows, headroom = {LOCAL_WEIGHT_BUDGET_GB:.0f} GB minus the weights",
+      len(cells) == len(loc) and not bad_head, ", ".join(bad_head) or f"{len(cells)} rows")
+bad_quant = []
+for c in cells:
+    gg = _mm[by[c[0]]["spec"].partition("@")[0]].get("gguf") or {}
+    fit = [q for q in LADDER if gg.get(q) and gg[q] <= LOCAL_WEIGHT_BUDGET_GB]
+    named = c[3].split()[0] if c[3].strip() else ""
+    if named != (fit[-1] if fit else ""):
+        bad_quant.append(f"{c[0]}: says {named or 'blank'}, data says {fit[-1] if fit else 'blank'}")
+    elif named and any(gg[q] <= LOCAL_WEIGHT_BUDGET_GB for q in LADDER[LADDER.index(named) + 1:] if gg.get(q)):
+        bad_quant.append(f"{c[0]}: a higher quant also fits")
+check("local table: the named quant is the highest published one that fits",
+      not bad_quant,
+      "; ".join(bad_quant) or ", ".join(f"{c[0]} {c[3].split()[0] if c[3].strip() else '-'}"
+                                        for c in cells))
+
 measured = [r["label"] for r in lb if r["open_weight"] and r.get("vram_measured")]
 check("8 of 13 open models have a measured Q4_K_M", len(measured) == 8,
       f"{len(measured)} measured, estimated: "

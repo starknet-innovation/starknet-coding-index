@@ -19,10 +19,10 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import (LOCAL_FALLBACK_BITS, LOCAL_QUANT, LOCAL_RESERVE_GB,
-                  LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB, SCI_SPEC, active_models,
-                  attempt_score, attempts, index_ci, leaderboard, param_count,
-                  run_cost)
+from .sci import (CHART_TOP_N, LOCAL_FALLBACK_BITS, LOCAL_QUANT,
+                  LOCAL_RESERVE_GB, LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB,
+                  SCI_SPEC, active_models, attempt_score, attempts, index_ci,
+                  leaderboard, param_count, run_cost)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -145,14 +145,20 @@ SCI_CLOSED_COLOR = SNF_LAVENDER  # closed-weight models (neutral lavender-50)
 # Those charts sort by cost and by time rather than by score, so a long name can
 # land in column 0 where its label has nowhere to sweep: "MiMo-V2.5-Pro (xhigh)"
 # is 139px and reaches W*cos(angle) to the left of cx_0=87. At -45 that is 98px,
-# hence the old 110. The floor for a shared 64px margin is 53.1 degrees; 55
+# hence the old 110. The floor for the then-64px margin is 53.1 degrees; 55
 # clears it by 7.6px and costs 18px of label depth, where 60 would cost 25px for
 # slack nothing needs. Below 64 the y-axis ticks ("$2.50", ~41px) start to bind.
 #
 # assert_output_is_portable enforces this geometry, so a future name long enough
 # to break it fails the build instead of rendering clipped.
+# Raised from 64 when the charts moved to the top twelve: fewer columns make
+# each one wider, but the label that lands in column 0 of the cost chart is now
+# "DeepSeek V4 Flash (off)" at 152px, which reaches 87.1px left of its centre
+# against 87px of clearance. The build guard caught it at 0.1px. 72 restores an
+# 8px margin without touching the angle, which is already steep enough that
+# every extra degree costs more label depth than it buys.
 LABEL_ANGLE = 55
-AXIS_PAD_L = 64
+AXIS_PAD_L = 72
 _LABEL_CH = 11 * 0.60      # px per character at font-size 11, measured exact
                            # against getComputedTextLength (scratchpad/measure_labels.py)
 
@@ -176,6 +182,21 @@ def rotated_label_pad(labels, font_px=11, gap=12, extra=0):
     """
     widest = max((label_width(s, font_px) for s in labels), default=0) + extra
     return int(gap + widest * math.sin(math.radians(LABEL_ANGLE)) + 10)
+
+
+WORDS = ("zero one two three four five six seven eight nine ten eleven twelve "
+         "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty "
+         "twenty-one twenty-two twenty-three twenty-four").split()
+
+
+def word(n):
+    """Small counts spelled out, for prose that must track the data.
+
+    Counts the report states in words ("eight models clear it") went stale every
+    time the roster changed, and an audit check is a poor substitute for the
+    number being derived in the first place.
+    """
+    return WORDS[n] if n < len(WORDS) else str(n)
 
 
 def variant_suffixed(rows):
@@ -679,12 +700,20 @@ def build(all_runs):
     a = SCI_SPEC["anchors"]
     w_ = SCI_SPEC["weights"]
 
-    # Models that fit one 512 GB machine at 4-bit get their own section (the
-    # class is derived in sci.fits_locally, never hand-set); the main charts
-    # show everything else; deprecated models are already gone from sci_rows
-    # entirely (see sci.active_models)
-    big_rows = [r for r in sci_rows if not r.get("local")]
+    # The headline charts draw the top CHART_TOP_N by index, and nothing about
+    # a model's size or license affects whether it is in. They used to draw
+    # every model that did NOT fit one 512 GB machine, which ranked the page by
+    # memory footprint: MiniMax M3 placed 9th and was still kept off the
+    # leaderboard for being runnable at home.
+    #
+    # Models that fit that machine keep their own section (the class is derived
+    # in sci.fits_locally, never hand-set), so six of the nine models below the
+    # cut are still charted there; deprecated models are already gone from
+    # sci_rows entirely (see sci.active_models).
+    chart_rows = sci_rows[:CHART_TOP_N]
     local_rows = [r for r in sci_rows if r.get("local")]
+    charted_labels = {r["label"] for r in chart_rows}
+    n_below = sum(1 for r in local_rows if r["label"] not in charted_labels)
 
     # A model whose weights are announced but not yet downloadable is classed
     # open with a display-time star on its label; raw labels stay untouched
@@ -696,13 +725,30 @@ def build(all_runs):
     pending_note = (
         '<span>* open classification based on an announced weights release, '
         'not yet published</span>'
-        if any(r.get("weights_pending") for r in big_rows) else ""
+        if any(r.get("weights_pending") for r in chart_rows) else ""
     )
 
     # Chart 2: best-without vs best-with the MCP, per model. Each condition
     # picks its own best thinking variant (deployment framing), so labels
     # carry no effort. Models without MCP runs are omitted, not shown empty.
     mcp_rows = {r["label"]: r for r in leaderboard(all_runs, condition="mcp")}
+
+    # Shared by the local-inference table and the models table further down, so
+    # the two cannot print different throughput for the same model. Median
+    # output tokens per second of model time, best baseline variant.
+    def tokens_per_s(spec):
+        tps = sorted(x["completion_tokens"] / x["llm_time_s"] for x in all_runs
+                     if x["model"] == spec and x["condition"] == "baseline"
+                     and x["completion_tokens"] and x["llm_time_s"])
+        return tps[len(tps) // 2] if tps else None
+
+    tps_by_label = {r["label"]: tokens_per_s(r["spec"]) for r in sci_rows}
+    meta = json.loads((config.REPO_ROOT / "results" / "model_meta.json").read_text())
+
+    # numeric cells carry their raw value in data-s so the sorter never has
+    # to parse display strings; n/a cells carry none and always sort last
+    num_td = lambda v, txt: (f'<td class="r" data-s="{v}">{txt}</td>' if v is not None
+                             else '<td class="r">n/a</td>')
 
     def build_lift_pairs(rows):
         """(label, base, mcp, open_weight, rank_delta) per row, ordered by the
@@ -741,21 +787,83 @@ def build(all_runs):
                       'with-MCP</span>' if two else '<span>effort in parentheses</span>')
         return (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
                 + key_mcp + effort_key)
-    lift_legend = f'<div class="legend legend-bottom">{keys_for(big_rows)}{pending_note}</div>'
+    lift_legend = f'<div class="legend legend-bottom">{keys_for(chart_rows)}{pending_note}</div>'
     lift_legend_local = f'<div class="legend legend-bottom">{keys_for(local_rows)}</div>'
+
+    # The substitution count is field-wide and always was; the sentence below
+    # used to justify it with "counting this chart and the local one together",
+    # which stopped being true when the charts moved to the top twelve. Two of
+    # the switchers now change effort where no chart shows it, so the count is
+    # derived here and the prose says where they are rather than implying the
+    # charts cover everyone.
+    VARIANT_ORDER = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+    vpos = lambda v: VARIANT_ORDER.index(v) if v in VARIANT_ORDER else -1
+    switched = [(lbl, b, m) for lbl, (b, m) in lift_efforts.items() if b != m]
+    switched_down = [s for s in switched if vpos(s[2]) < vpos(s[1])]
+    switched_offchart = [s for s in switched
+                         if s[0] not in charted_labels
+                         and s[0] not in {r["label"] for r in local_rows}]
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>seven of the twenty-one models win at a different effort with the tool than without</b>, counting this chart and the local-inference one below together, and four of those seven move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.</p>
-  {mcp_lift_chart(build_lift_pairs(big_rows), efforts=lift_efforts)}
+  <p class="takeaway" style="margin:0 0 10px">Same index and the same top {word(CHART_TOP_N)}, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget. {word(len(switched_offchart)).capitalize()} of the {word(len(switched))} switchers ({" and ".join(s[0] for s in switched_offchart)}) rank below the cut and change effort where no chart on this page shows it.</p>
+  {mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts)}
   {lift_legend}
 </section>"""
+    # Local-inference deep dive. Six of these eight sit below the headline cut,
+    # so this is the only chart they appear in; the table answers the questions
+    # the charts above cannot (how much memory, how much room is left, how far
+    # up the quant ladder you can go, how fast it serves).
+    #
+    # Deliberately NOT a copy of "Open weights in detail": that table is
+    # architecture and the full ladder for all 13 open models, including the
+    # ones that do not fit. This one is about running the eight that do.
+    smallest, largest = min(local_rows, key=lambda r: r["vram_gb"]), max(local_rows, key=lambda r: r["vram_gb"])
+    near = min((r for r in sci_rows if not r.get("local") and r["open_weight"] and r["vram_gb"]),
+               key=lambda r: r["vram_gb"])
+    near_iq4 = (meta["models"][near["spec"].partition("@")[0]].get("gguf") or {}).get("IQ4_XS")
+
+    local_table_rows = []
+    for r in local_rows:
+        gg = meta["models"][r["spec"].partition("@")[0]].get("gguf") or {}
+        # the highest PUBLISHED quant inside the budget, which is not always the
+        # one the class is drawn on: V4 Flash's repo skips Q4_K_M entirely, and
+        # Hy3 publishes no GGUF at all, so its cell stays honestly empty
+        fits = [(i, q) for i, q in enumerate(QUANT_LADDER)
+                if gg.get(q) and gg[q] <= LOCAL_WEIGHT_BUDGET_GB]
+        best = (f'<td class="r" data-s="{fits[-1][0]}">{fits[-1][1]}'
+                f' <span class="ci">{gg[fits[-1][1]]:,.0f} GB</span></td>') if fits else '<td class="r"></td>'
+        mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
+        d = mcp_sci - r["sci"] if mcp_sci is not None else None
+        local_table_rows.append(
+            f'<tr><td>{r["label"]}</td>'
+            + num_td(round(r["vram_gb"], 1),
+                     f'{"~" if not r["vram_measured"] else ""}{r["vram_gb"]:,.0f}')
+            + num_td(round(LOCAL_WEIGHT_BUDGET_GB - r["vram_gb"], 1),
+                     f'{LOCAL_WEIGHT_BUDGET_GB - r["vram_gb"]:,.0f}')
+            + best
+            + num_td(tps_by_label[r["label"]] and round(tps_by_label[r["label"]], 1),
+                     f'{tps_by_label[r["label"]]:.0f}' if tps_by_label[r["label"]] else "n/a")
+            + num_td(r["sci"], f'{r["sci"]:.1f}')
+            + num_td(mcp_sci, f"{mcp_sci:.1f}" if mcp_sci is not None else "n/a")
+            + (f'<td class="r" data-s="{d:.1f}"><span style="color:{"var(--mcp)" if d > 0 else "var(--muted)"};'
+               f'font-weight:{600 if d > 0 else 400}">{"+" if d > 0 else "−"}{abs(d):.1f}</span></td>'
+               if d is not None else '<td class="r">n/a</td>')
+            + "</tr>"
+        )
     local_html = f"""
 <section>
-  <h2>Local-inference class <span style="text-transform:none">(runs on one 512 GB machine)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same chart, for the models you could run yourself. The test is memory rather than parameter count: the published <code>Q4_K_M</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. Eight models clear it, from Qwen3.6-27B at 17 GB up to <b>MiniMax M3 at 264 GB</b>. <b>GLM 5.2 is the nearest miss</b>, at 466 GB, though it comes within reach at <code>IQ4_XS</code> (365 GB); no closed model qualifies at all, since there are no weights to download. Two regimes show up inside the class: the Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
+  <h2>Local-inference class <span style="text-transform:none">(runs on one {LOCAL_VRAM_GB} GB machine)</span></h2>
+  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself, in detail. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near["vram_gb"]:.0f} GB, though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB); no closed model qualifies at all, since there are no weights to download.</p>
+  <p class="takeaway" style="margin:0 0 10px">{word(n_below).capitalize()} of the {word(len(local_rows))} rank below the top {word(CHART_TOP_N)}, so this is where they are measured. The chart is the one above, same index and same question: best configuration without the documentation tool against best with it. Two regimes show up inside the class. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
   {mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts)}
   {lift_legend_local}
+  <h3 class="chart-title">What it takes to run them</h3>
+  <div class="tablewrap"><table id="localtable" class="sortable">
+    <tr><th>Model</th><th class="r" data-num>{LOCAL_QUANT} GB</th><th class="r" data-num>Headroom</th><th class="r" data-num>Best quant that fits</th><th class="r" data-num>Tok/s</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>&Delta;</th></tr>
+    {"".join(local_table_rows)}
+  </table></div>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Headroom is what is left of the {LOCAL_WEIGHT_BUDGET_GB} GB weight budget once that model is resident, and it is the room a long context has to live in. "Best quant that fits" is the highest quantization <i>published</i> for that model whose file still lands inside the budget, so it reads as how much precision the machine can afford rather than the minimum it demands: {largest["label"]} has room for <code>Q6_K</code>, and the small models fit at full <code>BF16</code>. Hy3's cell is empty because it publishes no GGUF at all, and <b>~</b> marks a {LOCAL_QUANT} size estimated at {LOCAL_FALLBACK_BITS} bits per weight rather than measured. Tok/s is observed here, not advertised: median output tokens over model time in this benchmark's best baseline variant, so reasoning and provider queueing both count against it, and it is the hosted endpoint's throughput rather than what the same weights would do on your desk. The full quantization ladder, including the models that do not fit, is in "Open weights in detail" below.</p>
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
 (function () {
@@ -776,32 +884,33 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
-  {sci_bar_chart(starred(big_rows))}
+  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task. This chart and the three below it show the <b>top {word(CHART_TOP_N)} of {word(len(sci_rows))}</b>; the rest are in the models table, and the ones you could run yourself have their own section either way.</p>
+  {sci_bar_chart(starred(chart_rows))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Below the cut, in order: {", ".join(f'{r["label"]} {r["sci"]:.1f}' for r in sci_rows[CHART_TOP_N:])}. {word(n_below).capitalize()} of those {word(len(sci_rows) - CHART_TOP_N)} run on one machine and are charted in the local-inference section; every one of them keeps a row in the models table and a place in the findings.</p>
   {tip_js}
 </section>"""
     import math
-    cost_max = math.ceil(max(r["tip"]["cost"] for r in big_rows) / 0.5) * 0.5
-    time_max_m = math.ceil(max(r["tip"]["secs"] for r in big_rows) / 60 / 20) * 20
+    cost_max = math.ceil(max(r["tip"]["cost"] for r in chart_rows) / 0.5) * 0.5
+    time_max_m = math.ceil(max(r["tip"]["secs"] for r in chart_rows) / 60 / 20) * 20
     # compact decimal minutes ("2.5m", "72m"): narrow enough that neighbors
     # never collide at 16 columns
     mins = lambda s: (f"{s / 60:.1f}m" if s < 600 else f"{s / 60:.0f}m")
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
-  <p class="takeaway" style="margin:0 0 10px">The winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a grey band for the runs that never worked. Solve rate is everything below the grey. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
+  <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a grey band for the runs that never worked. Solve rate is everything below the grey. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
   <h3 class="chart-title">How many submissions it takes</h3>
-  {attempts_dist_chart(sorted(starred(big_rows), key=lambda r: -r["dist"][0]))}
+  {attempts_dist_chart(sorted(starred(chart_rows), key=lambda r: -r["dist"][0]))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
       for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_COLOR};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
   <h3 class="chart-title">Cost per pass</h3>
-  {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["cost"]),
+  {metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
                     cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)])}
   <h3 class="chart-title">Model time per pass</h3>
-  {metric_bar_chart(sorted(starred(big_rows), key=lambda r: r["tip"]["secs"]),
+  {metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
                     time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)])}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
@@ -926,23 +1035,15 @@ def build(all_runs):
                     key=lambda lab: -max(r["sci"] for r in sci_rows if r["lab"] == lab))
     closed_labs = ", ".join(closed[:-1]) + f" and {closed[-1]}"
 
-    meta = json.loads((config.REPO_ROOT / "results" / "model_meta.json").read_text())
     fmt_price = lambda v: "n/a" if v is None else (f"${v:,.2f}" if v >= 0.01 else f"${v:.4f}")
     fmt_ctx = lambda v: "1M" if v >= 10**6 else f"{v // 1000}k"
 
-    # numeric cells carry their raw value in data-s so the sorter never has
-    # to parse display strings; n/a cells carry none and always sort last
-    num_td = lambda v, txt: (f'<td class="r" data-s="{v}">{txt}</td>' if v is not None
-                             else '<td class="r">n/a</td>')
     model_rows = []
     for r in sci_rows:
         api_id = r["spec"].partition("@")[0]
         mm = meta["models"][api_id]
         pm = mm["price_per_m"]
-        rs = [x for x in all_runs if x["model"] == r["spec"] and x["condition"] == "baseline"
-              and x["completion_tokens"] and x["llm_time_s"]]
-        tps = sorted(x["completion_tokens"] / x["llm_time_s"] for x in rs)
-        tps_med = tps[len(tps) // 2] if tps else None
+        tps_med = tps_by_label[r["label"]]
         wcls = "ow" if r["open_weight"] else "cw"
         wtxt = ("open" if r["open_weight"] else "closed") + ("*" if r.get("weights_pending") else "")
         mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
@@ -1046,7 +1147,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">The full field, including the {word(len(sci_rows) - CHART_TOP_N)} models below the chart cut. Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
 </section>
 
 <section>

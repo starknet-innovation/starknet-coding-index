@@ -84,6 +84,13 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending
   money on models that had been dropped.
+- **The headline charts draw the top `CHART_TOP_N` (12) by index, and nothing else
+  decides membership.** The index chart, the three in "Behind the score" and the MCP
+  chart all take `chart_rows = sci_rows[:CHART_TOP_N]`. `bench.audit` reads the shipped
+  SVG back and checks that each of those charts drew exactly those models, because a
+  chart built from the wrong row set still renders perfectly. Models below the cut keep
+  their table rows, their effort curves and their findings; the ones that also run
+  locally are charted in the local-inference section.
 - **The local-inference class is derived, never hand-set.** `fits_locally()` asks
   whether a model's **published `Q4_K_M` file** fits `LOCAL_VRAM_GB` minus the reserve.
   Sizes come from the `gguf` block in `model_meta.json`, snapshotted from real repos;
@@ -165,7 +172,7 @@ Two helpers keep charts consistent rather than gating them:
   hardcoded padding in that file has been wrong at least once, and because labels
   rotate anticlockwise the clipping eats the *first* characters, which reads like a
   font bug rather than a geometry bug.
-- `LABEL_ANGLE = 55` and `AXIS_PAD_L = 64` are shared across charts deliberately, so
+- `LABEL_ANGLE = 55` and `AXIS_PAD_L = 72` are shared across charts deliberately, so
   they stay visually consistent. Change them in one place or not at all.
 
 For anything visual, run `bench.screenshot` and **look at the PNGs** before committing.
