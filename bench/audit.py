@@ -68,7 +68,7 @@ print("   " + "  ".join(f"{r['label']}={r['sci']:.1f}({r['variant']})" for r in 
 
 print("\n== chips and coverage")
 check("13 tasks", NT == 13, f"{NT}")
-check("20 charted models", len(lb) == 20, f"{len(lb)}")
+check("21 charted models", len(lb) == 21, f"{len(lb)}")
 
 print("\n== price revisions")
 # A revision is applied as one multiplier to a recorded total, which is only
@@ -216,8 +216,8 @@ check("caveats: 25 to 120 runs per variant", min(ns) == 25 and max(ns) == 120, f
 # the rule: nothing inside it exceeds the weights budget, and nothing outside it
 # would have fitted. A one-way check would pass a class that quietly lost members.
 loc = [r for r in lb if r.get("local")]
-check(f"local class: 7 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
-      len(loc) == 7 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
+check(f"local class: 8 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
+      len(loc) == 8 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
       f"{len(loc)} models, largest {max(r['vram_gb'] for r in loc):.0f} GB "
       f"({max(loc, key=lambda r: r['vram_gb'])['label']})")
 out = [r for r in lb if not r.get("local") and r["open_weight"] and r["vram_gb"]]
@@ -243,7 +243,7 @@ for k, v in _mm.items():
     nonmono += [f"{k}:{qb}" for (qa, a), (qb, b) in zip(sizes, sizes[1:]) if b <= a]
 check("GGUF sizes increase with quant level", not nonmono, ", ".join(nonmono) or "none")
 measured = [r["label"] for r in lb if r["open_weight"] and r.get("vram_measured")]
-check("8 of 12 open models have a measured Q4_K_M", len(measured) == 8,
+check("8 of 13 open models have a measured Q4_K_M", len(measured) == 8,
       f"{len(measured)} measured, estimated: "
       + ", ".join(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured")))
 # head to head
@@ -306,7 +306,7 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("six of twenty differ, four downward", len(diff) == 6 and len(down) == 4,
+check("seven of twenty-one differ, four downward", len(diff) == 7 and len(down) == 4,
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))

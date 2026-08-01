@@ -225,6 +225,13 @@ MODEL_REGISTRY = [
                "deepseek/deepseek-v4-pro@medium", "deepseek/deepseek-v4-pro@low",
                "deepseek/deepseek-v4-pro@minimal", "deepseek/deepseek-v4-pro@disabled"],
      "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
+    # the 0731 release, not the preview: DeepSeek calls it the official one, and
+    # the two expose different ladders (preview xhigh/high, release max/high/low)
+    {"specs": ["deepseek/deepseek-v4-flash-0731@max",
+               "deepseek/deepseek-v4-flash-0731@high",
+               "deepseek/deepseek-v4-flash-0731@low",
+               "deepseek/deepseek-v4-flash-0731@disabled"],
+     "label": "DeepSeek V4 Flash", "lab": "DeepSeek", "open_weight": True},
     {"specs": ["tencent/hy3", "tencent/hy3@max", "tencent/hy3@xhigh", "tencent/hy3@high",
                "tencent/hy3@medium", "tencent/hy3@low", "tencent/hy3@minimal",
                "tencent/hy3@disabled"],

@@ -27,6 +27,8 @@ GGUF = {
     "qwen/qwen3.6-35b-a3b":    ("unsloth/Qwen3.6-35B-A3B-GGUF", "Qwen/Qwen3.6-35B-A3B"),
     "google/gemma-4-31b-it":   ("unsloth/gemma-4-31B-it-GGUF", "google/gemma-4-31B-it"),
     "qwen/qwen3.6-27b":        ("unsloth/Qwen3.6-27B-GGUF", "Qwen/Qwen3.6-27B"),
+    "deepseek/deepseek-v4-flash-0731": ("unsloth/DeepSeek-V4-Flash-0731-GGUF",
+                                        "deepseek-ai/DeepSeek-V4-Flash-0731"),
     # no usable repo: tencent/hy3 and deepseek/deepseek-v4-pro (none published),
     # thinkingmachines/inkling (only Inkling-Small, a different model)
 }
