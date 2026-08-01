@@ -66,8 +66,8 @@ SCI_SPEC = {
 }
 
 # Prices move after the runs are recorded. cost_usd in main.jsonl stays exactly
-# as billed, because it is the audit trail and the report's total-spend figure
-# depends on it; scoring applies the revision here instead.
+# as billed, because it is the audit trail and what bench.status reports as
+# spend; scoring applies the revision here instead.
 #
 # Each entry is (price when the runs were billed, price listed now) per million
 # tokens: input, output, cache read, cache write. A revision is only expressible
