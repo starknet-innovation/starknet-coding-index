@@ -31,6 +31,8 @@ GGUF = {
     # thinkingmachines/inkling (only Inkling-Small, a different model)
 }
 
+# Recorded for provenance, not for display: the report dropped its experts
+# column, but these are what justify calling a model MoE rather than dense.
 ARCH_KEYS = {
     "experts": ("n_routed_experts", "num_experts", "num_local_experts"),
     "experts_per_tok": ("num_experts_per_tok", "num_experts_per_token"),

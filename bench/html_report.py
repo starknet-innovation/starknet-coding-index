@@ -973,13 +973,7 @@ def build(all_runs):
     open_rows_html = []
     for r in open_rows:
         mm = meta["models"][r["spec"].partition("@")[0]]
-        arch, gg = mm.get("arch") or {}, mm.get("gguf") or {}
-        if arch.get("experts"):
-            experts = f'{arch["experts"]} &times; {arch["experts_per_tok"]}'
-            if arch.get("shared_experts"):
-                experts += f' +{arch["shared_experts"]}'
-        else:
-            experts = "&mdash;"
+        gg = mm.get("gguf") or {}
         cells = ""
         for q in QUANT_LADDER:
             gb = gg.get(q)
@@ -994,7 +988,6 @@ def build(all_runs):
             f'<tr><td>{r["label"]}</td><td>{mm["type"] or "n/a"}</td>'
             + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
             + num_td(param_count(mm["params_active"]), mm["params_active"] or "n/a")
-            + f'<td class="r">{experts}</td>'
             + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
             + cells + "</tr>"
         )
@@ -1052,10 +1045,10 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   <h2>Open weights in detail</h2>
   <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. Cells past <b>{LOCAL_WEIGHT_BUDGET_GB} GB</b> are greyed: that is the weights budget on a {LOCAL_VRAM_GB} GB machine once the OS and a KV cache are paid for, and it is the line the local-inference class above is drawn on.</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
-    <tr><th>Model</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r">Experts</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in QUANT_LADDER)}</tr>
+    <tr><th>Model</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in QUANT_LADDER)}</tr>
     {"".join(open_rows_html)}
   </table></div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Four models need that estimate: Hy3, DeepSeek V4-Pro and Inkling have no GGUF at all (Inkling's only quantized repo is a different and much smaller model), and Kimi K3 publishes 1- and 2-bit quants and a <code>Q4_K_XL</code> but no <code>Q4_K_M</code>. Experts read routed &times; active per token, from each lab's own <code>config.json</code>; a shared expert runs on every token in addition. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Four models need that estimate: Hy3, DeepSeek V4-Pro and Inkling have no GGUF at all (Inkling's only quantized repo is a different and much smaller model), and Kimi K3 publishes 1- and 2-bit quants and a <code>Q4_K_XL</code> but no <code>Q4_K_M</code>. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
 </section>"""
 
     findings_html = """
