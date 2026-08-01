@@ -19,7 +19,8 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import (LOCAL_BITS_PER_WEIGHT, LOCAL_VRAM_GB, SCI_SPEC, active_models,
+from .sci import (LOCAL_FALLBACK_BITS, LOCAL_QUANT, LOCAL_RESERVE_GB,
+                  LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB, SCI_SPEC, active_models,
                   attempt_score, attempts, index_ci, leaderboard, param_count,
                   run_cost)
 
@@ -398,6 +399,10 @@ def head_to_head_chart(metrics, w=760):
 
 
 
+# Quantizations shown in the open-weight table, smallest first. IQ4_XS is the
+# floor of what most people still call 4-bit; BF16 is the unquantized weight.
+QUANT_LADDER = ["IQ4_XS", "Q4_K_M", "Q6_K", "Q8_0", "BF16"]
+
 ATTEMPT_COLORS = [SNF_BLUE, "#7c7ba2", "#bab7df", "#cecde7"]  # 1, 2, 3, 4+ submissions
 UNSOLVED_COLOR = "#bdb5ad"  # never solved: the band that tops every column
 # Warm neutral on purpose. It has to be legible in a band 2% tall (DeepSeek
@@ -747,7 +752,7 @@ def build(all_runs):
     local_html = f"""
 <section>
   <h2>Local-inference class <span style="text-transform:none">(runs on one 512 GB machine)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same chart, for the models you could run yourself. The test is memory rather than parameter count: weights at a 4-bit quant, on the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. Eight models clear it, from Qwen3.6-27B at 15 GB up to <b>GLM 5.2 at 424 GB</b>; Inkling is the nearest miss at 548 GB, and no closed model qualifies at all, since there are no weights to download. Two regimes show up inside the class: the Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
+  <p class="takeaway" style="margin:0 0 10px">Same chart, for the models you could run yourself. The test is memory rather than parameter count: the published <code>Q4_K_M</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. Seven models clear it, from Qwen3.6-27B at 17 GB up to <b>MiniMax M3 at 264 GB</b>. <b>GLM 5.2 is the nearest miss</b>, at 466 GB, though it comes within reach at <code>IQ4_XS</code> (365 GB); no closed model qualifies at all, since there are no weights to download. Two regimes show up inside the class: the Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
   {mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts)}
   {lift_legend_local}
 </section>"""
@@ -821,10 +826,10 @@ def build(all_runs):
          "interval of each other on ~1.8k output tokens and 14 seconds. Only <code>max</code> is "
          "different, and it is a cliff, not a step: 88% one-shot, the best of any Sonnet setting, for "
          "61k output tokens at $0.68 a task and nine minutes of thinking."),
-        ("Which of these could I run myself?", "8 of 20",
-         "Eight fit one 512 GB machine at a 4-bit quant, from Qwen3.6-27B at 15 GB of weights to "
-         "GLM 5.2 at 424 GB, and they compare on their own footing in the section below. The rest "
-         "need a rack or are closed. Documentation pays hardest down there: it nearly triples "
+        ("Which of these could I run myself?", "7 of 20",
+         "Seven fit one 512 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
+         "MiniMax M3 at 264 GB, and they compare on their own footing in the section below. The "
+         "rest need a rack or are closed. Documentation pays hardest down there: it nearly triples "
          "Qwen3.6-27B (13.3 to 35.3, solving 15% of runs without docs and 69% with) and doubles "
          "35B-A3B, though it bounces off Gemma 4 and gpt-oss."),
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
@@ -952,16 +957,48 @@ def build(all_runs):
             + delta_td
             + f'<td>{r["lab"]}</td>'
             f'<td><span class="wchip {wcls}">{wtxt}</span></td>'
-            + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
-            + num_td(param_count(mm["params_active"]), mm["params_active"] or "n/a")
-            + num_td(r["vram_gb"] if r["open_weight"] else None,
-                     f'{r["vram_gb"]:,.0f}' if r["open_weight"] and r["vram_gb"] else "n/a")
             + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
             + num_td(pm["input"], fmt_price(pm["input"]))
             + num_td(pm["output"], fmt_price(pm["output"]))
             + num_td(tps_med and round(tps_med, 1), f"{tps_med:.0f}")
             + "</tr>"
         )
+
+    # Open-weight deep dive: architecture and what the published weight files
+    # actually weigh. Only Q4_K_M ever falls back to arithmetic, because that is
+    # the one figure the local-inference class depends on; every other cell is a
+    # real file size or blank, since a ladder of numbers I derived myself would
+    # be worth less than the honest gap.
+    open_rows = [r for r in sci_rows if r["open_weight"]]
+    open_rows_html = []
+    for r in open_rows:
+        mm = meta["models"][r["spec"].partition("@")[0]]
+        arch, gg = mm.get("arch") or {}, mm.get("gguf") or {}
+        if arch.get("experts"):
+            experts = f'{arch["experts"]} &times; {arch["experts_per_tok"]}'
+            if arch.get("shared_experts"):
+                experts += f' +{arch["shared_experts"]}'
+        else:
+            experts = "&mdash;"
+        cells = ""
+        for q in QUANT_LADDER:
+            gb = gg.get(q)
+            est = gb is None and q == LOCAL_QUANT and r["vram_gb"]
+            if gb is None and not est:
+                cells += '<td class="r"></td>'
+                continue
+            v = gb or r["vram_gb"]
+            over = ' style="color:var(--muted)"' if v > LOCAL_WEIGHT_BUDGET_GB else ""
+            cells += f'<td class="r" data-s="{v:.1f}"{over}>{"~" if est else ""}{v:,.0f}</td>'
+        open_rows_html.append(
+            f'<tr><td>{r["label"]}</td><td>{mm["type"] or "n/a"}</td>'
+            + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
+            + num_td(param_count(mm["params_active"]), mm["params_active"] or "n/a")
+            + f'<td class="r">{experts}</td>'
+            + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
+            + cells + "</tr>"
+        )
+
     sorter_js = """<script>
 (function () {
   var table = document.getElementById("modeltable");
@@ -1000,11 +1037,21 @@ def build(all_runs):
 <section>
   <h2>The models</h2>
   <div class="tablewrap"><table id="modeltable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>VRAM GB</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. A model is a mixture of experts wherever its active count is below its total. <b>VRAM GB</b> is what the weights alone need at {LOCAL_BITS_PER_WEIGHT} bits each, a Q4_K_M-class quant; the local-inference class above is everything that leaves room for the OS and a KV cache inside {LOCAL_VRAM_GB} GB. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
+</section>
+
+<section>
+  <h2>Open weights in detail</h2>
+  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. Cells past <b>{LOCAL_WEIGHT_BUDGET_GB} GB</b> are greyed: that is the weights budget on a {LOCAL_VRAM_GB} GB machine once the OS and a KV cache are paid for, and it is the line the local-inference class above is drawn on.</p>
+  <div class="tablewrap"><table id="opentable">
+    <tr><th>Model</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r">Experts</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in QUANT_LADDER)}</tr>
+    {"".join(open_rows_html)}
+  </table></div>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Four models need that estimate: Hy3, DeepSeek V4-Pro and Inkling have no GGUF at all (Inkling's only quantized repo is a different and much smaller model), and Kimi K3 publishes 1- and 2-bit quants and a <code>Q4_K_XL</code> but no <code>Q4_K_M</code>. Experts read routed &times; active per token, from each lab's own <code>config.json</code>; a shared expert runs on every token in addition. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
 </section>"""
 
     findings_html = """

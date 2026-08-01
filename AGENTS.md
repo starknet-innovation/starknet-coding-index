@@ -84,11 +84,14 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending
   money on models that had been dropped.
-- **The local-inference class is derived, never hand-set.** `fits_locally()` reads
-  `params_total` from `model_meta.json` and asks whether the weights fit
-  `LOCAL_VRAM_GB` at `LOCAL_BITS_PER_WEIGHT`. Moving either constant moves models
-  between report sections, so treat it as an editorial change and re-read the prose in
-  the section it feeds.
+- **The local-inference class is derived, never hand-set.** `fits_locally()` asks
+  whether a model's **published `Q4_K_M` file** fits `LOCAL_VRAM_GB` minus the reserve.
+  Sizes come from the `gguf` block in `model_meta.json`, snapshotted from real repos;
+  `LOCAL_FALLBACK_BITS` only covers models with no GGUF. Do not go back to computing
+  from a bit width: it understated every large model by ~10% and was wrong by 2x for
+  gpt-oss-120b, which ships native MXFP4 and weighs the same at every quant. Moving the
+  constants moves models between report sections, so treat it as an editorial change
+  and re-read the prose in the sections it feeds.
 - **v2.1 and v3 scores are not comparable.** If the weights or the decay change again,
   bump the version in `SCI_SPEC` and say so in the report.
 

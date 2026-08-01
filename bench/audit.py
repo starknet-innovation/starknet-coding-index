@@ -8,15 +8,16 @@ against results/runs/main.jsonl: the leaderboard and its intervals, each FAQ car
 every findings claim, the methodology and caveat numbers, and the chips. If you
 change the data, run this before believing the report.
 """
+import json as _json
 import math
 import re
 import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import (LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS, active_models,
-                       attempts, compute_sci, index_ci, leaderboard, price_ratio,
-                       run_cost)
+from bench.sci import (LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS,
+                       active_models, attempts, compute_sci, index_ci, leaderboard,
+                       price_ratio, run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
 # a few claims are about the rendered prose, not just the data behind it
@@ -215,16 +216,36 @@ check("caveats: 25 to 120 runs per variant", min(ns) == 25 and max(ns) == 120, f
 # the rule: nothing inside it exceeds the weights budget, and nothing outside it
 # would have fitted. A one-way check would pass a class that quietly lost members.
 loc = [r for r in lb if r.get("local")]
-check(f"local class: 8 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB of weights",
-      len(loc) == 8 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
+check(f"local class: 7 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
+      len(loc) == 7 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
       f"{len(loc)} models, largest {max(r['vram_gb'] for r in loc):.0f} GB "
       f"({max(loc, key=lambda r: r['vram_gb'])['label']})")
 out = [r for r in lb if not r.get("local") and r["open_weight"] and r["vram_gb"]]
-check("open models outside the class all exceed it",
-      all(r["vram_gb"] > LOCAL_WEIGHT_BUDGET_GB for r in out),
+check("GLM 5.2 is the nearest miss, at 466 GB",
+      all(r["vram_gb"] > LOCAL_WEIGHT_BUDGET_GB for r in out)
+      and min(out, key=lambda r: r["vram_gb"])["label"] == "GLM 5.2"
+      and round(min(r["vram_gb"] for r in out)) == 466,
       f"nearest miss {min(r['vram_gb'] for r in out):.0f} GB "
       f"({min(out, key=lambda r: r['vram_gb'])['label']})")
 check("no closed model is in the class", not any(not r["open_weight"] for r in loc))
+# Sizes are snapshotted from third-party GGUF repos, so the snapshot has to
+# defend itself: every block names where it came from, and quant sizes must
+# increase with quant level. A loose stem match once put Coder Next's Q8_0
+# below its Q6_K, and the Inkling search hit was a different, smaller model.
+LADDER = ["IQ4_XS", "Q4_K_M", "Q6_K", "Q8_0", "BF16"]
+_mm = _json.load(open("results/model_meta.json"))["models"]
+bad_src = [k for k, v in _mm.items() if v.get("gguf") and not v["gguf"].get("repo")]
+check("every GGUF snapshot names its source repo", not bad_src, ", ".join(bad_src) or "none")
+nonmono = []
+for k, v in _mm.items():
+    sizes = [(q, (v.get("gguf") or {}).get(q)) for q in LADDER]
+    sizes = [(q, s) for q, s in sizes if s]
+    nonmono += [f"{k}:{qb}" for (qa, a), (qb, b) in zip(sizes, sizes[1:]) if b <= a]
+check("GGUF sizes increase with quant level", not nonmono, ", ".join(nonmono) or "none")
+measured = [r["label"] for r in lb if r["open_weight"] and r.get("vram_measured")]
+check("8 of 12 open models have a measured Q4_K_M", len(measured) == 8,
+      f"{len(measured)} measured, estimated: "
+      + ", ".join(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured")))
 # head to head
 closed = next(r for r in lb if not r["open_weight"]); openw = next(r for r in lb if r["open_weight"])
 check("head-to-head: 26 and 63 runs",

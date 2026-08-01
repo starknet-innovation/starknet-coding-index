@@ -108,13 +108,24 @@ PRICE_REVISIONS = {
 # parameters, not active, because every weight has to be resident even when a
 # sparse MoE only fires a few experts per token.
 #
-# 4.5 bits/weight is a Q4_K_M-class quant, the usual "good enough locally"
-# setting; the reserve covers the OS, the KV cache and activations. That leaves
-# 448 GB of weights, about 796B parameters. The boundary is not delicate: the
-# nearest models outside it (Inkling 548 GB, MiMo 574 GB) would need a flat
-# 4-bit quant AND essentially no headroom, and nothing else is near the line.
+# The bar is Q4_K_M, the default 4-bit quant, and the size is the one the
+# published GGUF actually weighs rather than one computed from a bit width. That
+# matters: arithmetic at a nominal 4.5 bits/weight understated every large model
+# by about 10% (GLM 5.2 is 466 GB on disk, not 424), and it is simply wrong for
+# gpt-oss-120b, which ships native MXFP4 and weighs ~63 GB at EVERY quant level
+# where the formula would claim 117 GB at 8-bit.
+#
+# LOCAL_FALLBACK_BITS covers the models with no published GGUF (Hy3, DeepSeek
+# V4-Pro, Inkling). It is calibrated on the seven measured Q4_K_M files, which
+# land at 4.77-5.05 bits/weight, mean 4.92; gpt-oss is excluded from that mean
+# because its native 4-bit format makes it unrepresentative.
+#
+# The reserve covers the OS, the KV cache and activations, leaving 448 GB of
+# weights. The boundary is comfortable: the largest member is MiniMax M3 at
+# 264 GB and the nearest miss is GLM 5.2 at 466 GB.
 LOCAL_VRAM_GB = 512
-LOCAL_BITS_PER_WEIGHT = 4.5
+LOCAL_QUANT = "Q4_K_M"
+LOCAL_FALLBACK_BITS = 4.92
 LOCAL_RESERVE_GB = 64
 LOCAL_WEIGHT_BUDGET_GB = LOCAL_VRAM_GB - LOCAL_RESERVE_GB
 
@@ -136,24 +147,27 @@ def param_count(s):
     return float(s.lstrip("~").rstrip("TB")) * (1e12 if s.endswith("T") else 1e9)
 
 
-def weights_gb(params, bits=LOCAL_BITS_PER_WEIGHT):
-    """GB of weights at a given quantization. None passes through."""
+def weights_gb(params, bits=LOCAL_FALLBACK_BITS):
+    """GB of weights at a given bit width. None passes through."""
     return None if params is None else params * bits / 8 / 1e9
 
 
 def local_vram_gb(spec):
-    """Memory this model's weights need at LOCAL_BITS_PER_WEIGHT, or None.
+    """GB the weights need at Q4_K_M, and whether that figure was measured.
 
-    None for closed models and for any open model whose parameter count the lab
-    has not disclosed: you cannot run what you cannot download, and you cannot
-    size what nobody published.
+    Returns (gb, measured). gb is None for closed models and for any open model
+    whose parameter count the lab has not disclosed: you cannot run what you
+    cannot download, and you cannot size what nobody published.
     """
     mm = _model_meta().get(spec.partition("@")[0], {})
-    return weights_gb(param_count(mm.get("params_total")))
+    measured = (mm.get("gguf") or {}).get(LOCAL_QUANT)
+    if measured:
+        return measured, True
+    return weights_gb(param_count(mm.get("params_total"))), False
 
 
 def fits_locally(entry):
-    """True when this model's weights fit one 512 GB machine at 4-bit.
+    """True when this model's Q4_K_M weights fit one 512 GB machine.
 
     Scans the entry's specs rather than trusting specs[0], which for some models
     is a pro serving mode with an id of its own and no metadata row.
@@ -161,7 +175,7 @@ def fits_locally(entry):
     if not entry.get("open_weight"):
         return False
     for spec in entry["specs"]:
-        gb = local_vram_gb(spec)
+        gb, _ = local_vram_gb(spec)
         if gb is not None:
             return gb <= LOCAL_WEIGHT_BUDGET_GB
     return False
@@ -497,10 +511,11 @@ def leaderboard(all_runs, condition=None):
         top = max(scored, key=lambda s: s["sci"])
         tied = [s for s in scored if _tied(s, top)]
         best = max(tied, key=lambda s: (s["n"], s["sci"]))
+        gb, measured = local_vram_gb(best["spec"])
         rows.append({**entry, **best, "variant": variant_label(best["spec"]),
                      # derived, never hand-set: see fits_locally
                      "local": fits_locally(entry),
-                     "vram_gb": local_vram_gb(best["spec"])})
+                     "vram_gb": gb, "vram_measured": measured})
     return sorted(rows, key=lambda r: -r["sci"])
 
 
