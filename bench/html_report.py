@@ -807,7 +807,10 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
-    # Fair questions: the priors readers arrive with, answered by one number
+    # Fair questions: the priors readers arrive with. The QUESTION is the hook a
+    # reader scans for, so it leads the card; the number is evidence and sits
+    # inside the answer. (The weights cards in "How the score is built" are the
+    # opposite case, number-forward, and use .scorecard.)
     FAQ = [
         ("Why does Opus 5 win?", "100% one-shot",
          "Every task in every rep solved on the first submission, at the field's fastest "
@@ -822,25 +825,25 @@ def build(all_runs):
          "and still loses 4.2 points, because it delivers broken code first about three runs in "
          "five. First-submission success carries twice the weight of the bill."),
         ("Sonnet 5 solves everything. Why 4th?", "67% vs 100% one-shot",
-         "It one-shots 67% of runs, against Opus 5's 100%, and that gap is most of the 8.6 points "
-         "between them. Most of its dial does nothing: minimal through xhigh all land within one "
+         "That gap against Opus 5 is most of the 8.6 points between them. Most of its dial "
+         "does nothing: minimal through xhigh all land within one "
          "interval of each other on ~1.8k output tokens and 14 seconds. Only <code>max</code> is "
          "different, and it is a cliff, not a step: 88% one-shot, the best of any Sonnet setting, for "
          "61k output tokens at $0.68 a task and nine minutes of thinking."),
         ("Which of these could I run myself?", "7 of 20",
-         "Seven fit one 512 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
+         "They fit one 512 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
          "MiniMax M3 at 264 GB, and they compare on their own footing in the section below. The "
          "rest need a rack or are closed. Documentation pays hardest down there: it nearly triples "
          "Qwen3.6-27B (13.3 to 35.3, solving 15% of runs without docs and 69% with) and doubles "
          "35B-A3B, though it bounces off Gemma 4 and gpt-oss."),
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
-         "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code). Its "
+         "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code); its "
          "habit is: a median of two submissions per task at $0.0895, about nine times Grok's bill for "
          "half of Grok's first-try rate. Give it the documentation tool and the habit changes, to 72% "
          "and a median of one submission, which is the largest such shift in the study."),
     ]
     faq_cards = "".join(
-        f'<div class="faqcard"><div class="q">{q}</div><div class="stat">{stat}</div><p>{a}</p></div>'
+        f'<div class="qcard"><h3>{q}</h3><p><b class="ans">{stat}.</b> {a}</p></div>'
         for q, stat, a in FAQ
     )
     faq_html = f"""
@@ -900,10 +903,10 @@ def build(all_runs):
 <section>
   <h2>How the score is built</h2>
   <div class="scorecards">
-    <div class="faqcard"><div class="q">Effectiveness</div><div class="stat">{w_["effective"]:.0%}</div><p>Does it work without sending you back into the loop? A run scores 100 when the very first submission passes, then {SCI_SPEC["attempt_decay"]:.0%} of that per further attempt: 100 / 40 / 16 / 6 for 1 / 2 / 3 / 4 submissions, and 0 if it never works.</p></div>
-    <div class="faqcard"><div class="q">Correctness</div><div class="stat">{w_["correct"]:.0%}</div><p>Average fraction of hidden tests passed per task. Partial credit on what was delivered: 90% passing is still broken, but it is closer than nothing.</p></div>
-    <div class="faqcard"><div class="q">Cost</div><div class="stat">{w_["cost"]:.0%}</div><p>Median $ per task, scored on a fixed log scale (${a["cost"][0]} to ${a["cost"][1]}).</p></div>
-    <div class="faqcard"><div class="q">Time</div><div class="stat">{w_["speed"]:.0%}</div><p>Median model latency per task, scored on a fixed log scale ({a["speed"][0]}s to {a["speed"][1]}s). Local compile/test time excluded.</p></div>
+    <div class="scorecard"><div class="q">Effectiveness</div><div class="stat">{w_["effective"]:.0%}</div><p>Does it work without sending you back into the loop? A run scores 100 when the very first submission passes, then {SCI_SPEC["attempt_decay"]:.0%} of that per further attempt: 100 / 40 / 16 / 6 for 1 / 2 / 3 / 4 submissions, and 0 if it never works.</p></div>
+    <div class="scorecard"><div class="q">Correctness</div><div class="stat">{w_["correct"]:.0%}</div><p>Average fraction of hidden tests passed per task. Partial credit on what was delivered: 90% passing is still broken, but it is closer than nothing.</p></div>
+    <div class="scorecard"><div class="q">Cost</div><div class="stat">{w_["cost"]:.0%}</div><p>Median $ per task, scored on a fixed log scale (${a["cost"][0]} to ${a["cost"][1]}).</p></div>
+    <div class="scorecard"><div class="q">Time</div><div class="stat">{w_["speed"]:.0%}</div><p>Median model latency per task, scored on a fixed log scale ({a["speed"][0]}s to {a["speed"][1]}s). Local compile/test time excluded.</p></div>
   </div>
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">An attempt is a <b>submission</b>, not a turn: thinking, extra turns and documentation lookups never reach you, so they are free, while code that arrives broken is not. Runs over the 15-minute model-time budget count as failures. Where we sent no effort parameter, the label is the level OpenRouter documents as that model's default: <code>max</code> for Kimi K3, <code>high</code> for Hy3 and Sonnet 5. The scales are fixed, not relative: adding a new model later never changes an existing score.</p>
 </section>"""
@@ -1151,13 +1154,19 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .scibar:hover{{filter:brightness(1.08)}}
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
   #tip b{{font-weight:700}}
-  .faq{{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}}
+  .faq{{display:grid;grid-template-columns:1fr 1fr;gap:26px 28px}}
   .scorecards{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 20px}}
   .scorecards>:first-child{{grid-column:span 2}}
   @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
-  .faqcard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
-  .faqcard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent);letter-spacing:-.02em;margin:4px 0 2px}}
-  .faqcard p{{margin:0;font-size:13.5px}}
+  /* Weights cards: the number IS the content, so it leads. */
+  .scorecard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
+  .scorecard .stat{{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--accent);letter-spacing:-.02em;margin:4px 0 2px}}
+  .scorecard p{{margin:0;font-size:13.5px}}
+  /* Question cards: the opposite. Sentence case, not caps: caps read as a label
+     and mangle a question with punctuation inside it. */
+  .qcard h3{{font-size:16px;color:var(--ink);margin:0 0 6px}}
+  .qcard p{{margin:0;font-size:13.5px}}
+  .qcard .ans{{font-family:var(--mono);font-weight:600;color:var(--accent)}}
   @media(max-width:760px){{.faq{{grid-template-columns:1fr}}}}
   .findings{{display:flex;flex-direction:column;gap:18px}}
   .finding h3{{font-size:14px;margin-bottom:4px}}
