@@ -2,10 +2,16 @@
 
   uv run python -m bench.screenshot [--no-regen]
 
-Shots land in results/shots/NN-<slug>.png; a .fresh marker records success so
-the commit-gate hook can tell whether the current report was ever looked at.
-After running this, Read the PNGs and iterate until the design is right —
-the screenshots are the gate, not the verdict.
+Every section is shot TWICE: desktop at results/shots/NN-<slug>.png and phone
+at results/shots/m-NN-<slug>.png. Both are the gate. Shooting one width is how
+the report shipped for weeks with no <meta name="viewport"> at all, which made
+a phone lay it out at 980px and scale the whole page to ~40%, and left every
+max-width media query in the stylesheet dead on arrival.
+
+A .fresh marker records success so the commit-gate hook can tell whether the
+current report was ever looked at. After running this, Read the PNGs and
+iterate until the design is right — the screenshots are the gate, not the
+verdict.
 
 Chromium notes (hard-won): the sandbox proxy hangs Chromium, so proxies are
 stripped from the env; /dev/shm is 64MB regardless of host RAM; full-page
@@ -39,6 +45,26 @@ def slug(s, maxlen=40):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:maxlen] or "section"
 
 
+# Full-page screenshots crash Chromium on this report, so every shot is an
+# element shot: header, each section, footer.
+def shoot(page, prefix=""):
+    shots = []
+
+    def snap(el, name):
+        if not el:
+            return
+        path = SHOTS_DIR / f"{prefix}{name}.png"
+        el.screenshot(path=str(path))
+        shots.append(path)
+
+    snap(page.query_selector("header"), "00-hero")
+    for i, sec in enumerate(page.query_selector_all("section"), 1):
+        h2 = sec.query_selector("h2")
+        snap(sec, f"{i:02d}-{slug(h2.inner_text() if h2 else f'section-{i}')}")
+    snap(page.query_selector("footer"), "99-footer")
+    return shots
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-regen", action="store_true", help="shoot the existing report.html as-is")
@@ -59,38 +85,35 @@ def main():
     for old in SHOTS_DIR.glob("*.png"):
         old.unlink()
 
+    # 390x844 is an iPhone 14 in CSS pixels, the narrow end of what people
+    # actually read on; 2x so an element shot comes back legible rather than
+    # 390px of unreadable thumbnail. has_touch so the tap handlers are live.
+    PASSES = [
+        ("", {"viewport": {"width": 1100, "height": 1400}}, "desktop 1100px"),
+        ("m-", {"viewport": {"width": 390, "height": 844}, "device_scale_factor": 2,
+                "has_touch": True, "is_mobile": True}, "phone 390px @2x"),
+    ]
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(args=LAUNCH_ARGS)
-            page = browser.new_page(viewport={"width": 1100, "height": 1400})
-            page.goto(f"file://{report}", wait_until="load", timeout=30000)
-            shots = []
-            header = page.query_selector("header")
-            if header:
-                path = SHOTS_DIR / "00-hero.png"
-                header.screenshot(path=str(path))
-                shots.append(path)
-            for i, sec in enumerate(page.query_selector_all("section"), 1):
-                h2 = sec.query_selector("h2")
-                name = slug(h2.inner_text() if h2 else f"section-{i}")
-                path = SHOTS_DIR / f"{i:02d}-{name}.png"
-                sec.screenshot(path=str(path))
-                shots.append(path)
-            footer = page.query_selector("footer")
-            if footer:
-                path = SHOTS_DIR / "99-footer.png"
-                footer.screenshot(path=str(path))
-                shots.append(path)
+            groups = []
+            for prefix, opts, label in PASSES:
+                page = browser.new_page(**opts)
+                page.goto(f"file://{report}", wait_until="load", timeout=30000)
+                groups.append((label, shoot(page, prefix)))
+                page.close()
             browser.close()
     except Exception as e:
         print(f"{e}\n\n{DEPS_HINT}", file=sys.stderr)
         sys.exit(1)
 
     (SHOTS_DIR / ".fresh").touch()
-    print(f"{len(shots)} shots -> {SHOTS_DIR}")
-    for s in shots:
-        print(f"  {s}")
-    print("Now Read them and iterate until the design is right.")
+    print(f"{sum(len(g) for _, g in groups)} shots -> {SHOTS_DIR}")
+    for label, shots in groups:
+        print(f"\n{label}:")
+        for s in shots:
+            print(f"  {s}")
+    print("\nNow Read them, BOTH widths, and iterate until the design is right.")
 
 
 if __name__ == "__main__":

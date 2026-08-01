@@ -91,6 +91,21 @@ def svg_open(w, h):
     )
 
 
+def chart(svg, small=False):
+    """Wrap a chart so a narrow screen scrolls it instead of shrinking it.
+
+    An SVG at width:100% is happy to render at any size, and on a phone that
+    means a chart drawn for 760px lands at ~0.38 scale with 4px axis labels.
+    The floor in .chartwrap keeps it legible and the reader swipes, which is
+    what the tables on this page already do. small=True is the 380px-wide
+    small multiples, which need a floor of their own.
+
+    assert_output_is_portable counts charts against wrappers, so a new chart
+    that skips this fails the build.
+    """
+    return f'<div class="chartwrap{" small" if small else ""}">{svg}</div>'
+
+
 
 def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101):
     """series: [(name, color, [values]), ...]; annotations: [(xi, y, text)]"""
@@ -684,13 +699,14 @@ def build(all_runs):
                 curve_points.append(len(rs))
             series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
         labels = ["off" if t == "disabled" else t for t in tiers]
-        chart = line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min)
-        multiples.append(f'<div class="multiple"><h3>{name}</h3>{chart}</div>')
+        curve = chart(line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min),
+                      small=True)
+        multiples.append(f'<div class="multiple"><h3>{name}</h3>{curve}</div>')
     generalize_html = f"""
 <section>
   <h2>Does the effort pattern generalize?</h2>
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span><span>x-axis is the effort we requested; some neighbours are the same setting (see methodology)</span><span>a model appears here when most of its ladder was run in both conditions</span></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}
+  <div class="multiples">{"".join(multiples)}
     <div class="multiple"><h3>Qwen3 Coder Next</h3>
     <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the local-inference chart above on its single configuration.</p></div>
   </div>
@@ -807,7 +823,7 @@ def build(all_runs):
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index and the same top {word(CHART_TOP_N)}, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget. {word(len(switched_offchart)).capitalize()} of the {word(len(switched))} switchers ({" and ".join(s[0] for s in switched_offchart)}) rank below the cut and change effort where no chart on this page shows it.</p>
-  {mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts)}
+  {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts))}
   {lift_legend}
 </section>"""
     # Local-inference deep dive. Six of these eight sit below the headline cut,
@@ -856,7 +872,7 @@ def build(all_runs):
   <h2>Local-inference class <span style="text-transform:none">(runs on one {LOCAL_VRAM_GB} GB machine)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">The models you could run yourself, in detail. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near["vram_gb"]:.0f} GB, though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB); no closed model qualifies at all, since there are no weights to download.</p>
   <p class="takeaway" style="margin:0 0 10px">{word(n_below).capitalize()} of the {word(len(local_rows))} rank below the top {word(CHART_TOP_N)}, so this is where they are measured. The chart is the one above, same index and same question: best configuration without the documentation tool against best with it. Two regimes show up inside the class. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
-  {mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts)}
+  {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts))}
   {lift_legend_local}
   <h3 class="chart-title">What it takes to run them</h3>
   <div class="tablewrap"><table id="localtable" class="sortable">
@@ -866,26 +882,37 @@ def build(all_runs):
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Headroom is what is left of the {LOCAL_WEIGHT_BUDGET_GB} GB weight budget once that model is resident, and it is the room a long context has to live in. "Best quant that fits" is the highest quantization <i>published</i> for that model whose file still lands inside the budget, so it reads as how much precision the machine can afford rather than the minimum it demands: {largest["label"]} has room for <code>Q6_K</code>, and the small models fit at full <code>BF16</code>. Hy3's cell is empty because it publishes no GGUF at all, and <b>~</b> marks a {LOCAL_QUANT} size estimated at {LOCAL_FALLBACK_BITS} bits per weight rather than measured. Tok/s is observed here, not advertised: median output tokens over model time in this benchmark's best baseline variant, so reasoning and provider queueing both count against it, and it is the hosted endpoint's throughput rather than what the same weights would do on your desk. The full quantization ladder, including the models that do not fit, is in "Open weights in detail" below.</p>
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
+/* Pointer and touch both open this. The mouse path follows the cursor; a tap
+   has no cursor to follow, so it anchors to the bar's own box and dismisses on
+   the next tap anywhere else. Without the tap path these numbers simply did
+   not exist on a phone. */
 (function () {
   var tip = document.getElementById("tip");
+  function show(bar, x, y) {
+    tip.innerHTML = "<b>1-shot:</b> " + bar.dataset.oneshot + "<br><b>cost:</b> " + bar.dataset.cost
+      + "<br><b>time:</b> " + bar.dataset.time;
+    tip.hidden = false;
+    if (x + tip.offsetWidth > window.innerWidth - 8) x = window.innerWidth - tip.offsetWidth - 8;
+    if (y + tip.offsetHeight > window.innerHeight - 8) y = y - tip.offsetHeight - 28;
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  }
   document.querySelectorAll(".scibar").forEach(function (bar) {
-    bar.addEventListener("mousemove", function (e) {
-      tip.innerHTML = "<b>1-shot:</b> " + bar.dataset.oneshot + "<br><b>cost:</b> " + bar.dataset.cost
-        + "<br><b>time:</b> " + bar.dataset.time;
-      tip.hidden = false;
-      var x = e.clientX + 14, y = e.clientY + 14;
-      if (x + tip.offsetWidth > window.innerWidth - 8) x = e.clientX - tip.offsetWidth - 14;
-      tip.style.left = x + "px"; tip.style.top = y + "px";
-    });
+    bar.addEventListener("mousemove", function (e) { show(bar, e.clientX + 14, e.clientY + 14); });
     bar.addEventListener("mouseleave", function () { tip.hidden = true; });
+    bar.addEventListener("click", function (e) {
+      e.stopPropagation();          /* so the document handler does not close it again */
+      var b = bar.getBoundingClientRect();
+      show(bar, b.left + b.width / 2, b.top - 10);
+    });
   });
+  document.addEventListener("click", function () { tip.hidden = true; });
 })();
 </script>"""
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task. This chart and the three below it show the <b>top {word(CHART_TOP_N)} of {word(len(sci_rows))}</b>; the rest are in the models table, and the ones you could run yourself have their own section either way.</p>
-  {sci_bar_chart(starred(chart_rows))}
+  {chart(sci_bar_chart(starred(chart_rows)))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Below the cut, in order: {", ".join(f'{r["label"]} {r["sci"]:.1f}' for r in sci_rows[CHART_TOP_N:])}. {word(n_below).capitalize()} of those {word(len(sci_rows) - CHART_TOP_N)} run on one machine and are charted in the local-inference section; every one of them keeps a row in the models table and a place in the findings.</p>
   {tip_js}
@@ -901,18 +928,18 @@ def build(all_runs):
   <h2>Behind the score</h2>
   <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a grey band for the runs that never worked. Solve rate is everything below the grey. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
   <h3 class="chart-title">How many submissions it takes</h3>
-  {attempts_dist_chart(sorted(starred(chart_rows), key=lambda r: -r["dist"][0]))}
+  {chart(attempts_dist_chart(sorted(starred(chart_rows), key=lambda r: -r["dist"][0])))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
       for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_COLOR};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
   <h3 class="chart-title">Cost per pass</h3>
-  {metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["cost"]),
+  {chart(metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
-                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)])}
+                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)]))}
   <h3 class="chart-title">Model time per pass</h3>
-  {metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["secs"]),
+  {chart(metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
-                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)])}
+                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)]))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
@@ -1000,10 +1027,10 @@ def build(all_runs):
 <section>
   <h2>Head to head: best closed vs best open weights</h2>
   <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.{" * Weights announced but not yet published, as noted in the table below." if best_open.get("weights_pending") else ""}</p>
-  {head_to_head_chart(h2h_metrics)}
+  {chart(head_to_head_chart(h2h_metrics))}
   <h3 class="chart-title">First-submission rate by task difficulty</h3>
-  {attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
-                  ticks=[(t * 25, f"{t * 25}%") for t in range(5)])}
+  {chart(attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
+                  ticks=[(t * 25, f"{t * 25}%") for t in range(5)]))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>top chart: bars scaled per row, and lower is better on every row but the two rates</span></div>
 </section>"""
 
@@ -1185,7 +1212,12 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     # charset first: without it a browser guesses the encoding (file:// has no
     # Content-Type header to consult) and renders every multi-byte character as
     # mojibake, e.g. "9x cheaper" arriving as "9A- cheaper"
+    # viewport second, and it is not optional: without it a phone lays the page
+    # out at its default 980px and scales the result to ~40%, which also means
+    # every max-width media query below never fires. The report shipped that way
+    # until someone read it on a phone.
     return anchor_headings(f"""<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Starknet Coding Index | A Starknet Foundation report</title>
 <meta name="description" content="A Starknet Foundation benchmark: which LLM writes Starknet contracts best, and what does documentation access add? {len(all_runs)} agentic runs across {len(sci_rows)} models from {len({r["lab"] for r in sci_rows})} labs, on 13 hidden-test Cairo tasks, with and without the Cairo Coder documentation tool.">
 <style>
@@ -1211,12 +1243,29 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .chip{{font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line);padding:4px 10px;border-radius:3px;color:var(--muted)}}
   .chip b{{color:var(--ink);font-weight:600}}
   section{{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:26px 30px}}
-  .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0}}
-  .card{{padding:2px 24px;border-left:1px solid var(--line)}}
-  .card:first-child{{border-left:none;padding-left:0}}
-  .card .big{{font-size:38px;font-weight:600;font-family:var(--mono);letter-spacing:-.02em}}
-  .card .big small{{font-size:20px;color:var(--muted);font-weight:400}}
-  .card .what{{font-size:13px;color:var(--muted);max-width:24ch}}
+  /* Charts scroll rather than shrink below their floor, exactly like the wide
+     tables. An SVG at width:100% will happily render a 760px chart at 290px,
+     where an 11px axis label arrives at 4px; 660 keeps it at ~87% and a phone
+     shows about 60% of the chart at a time. The small multiples are drawn at
+     380 and get a floor to match. */
+  .chartwrap{{overflow-x:auto}}
+  .chartwrap>svg{{min-width:660px}}
+  /* the multiples are drawn at 380 and a 390px phone offers ~338 inside the
+     padding, so their floor sits under that: shrinking one by a tenth beats
+     giving it a scrollbar of its own */
+  .chartwrap.small>svg{{min-width:300px}}
+  /* "there is more to the right", for charts and for the 900px-wide tables.
+     The cover gradients scroll with the content and hide the edge shadow
+     whenever that edge is already in view, so the hint appears only when
+     something really is cut off. Narrow screens only. rgba(255,255,255,0)
+     rather than `transparent`, which Safari interpolates through grey. */
+  @media(max-width:760px){{
+    .chartwrap,.tablewrap{{background:
+      linear-gradient(to right,var(--panel),rgba(255,255,255,0)) 0 0/26px 100% no-repeat local,
+      linear-gradient(to left,var(--panel),rgba(255,255,255,0)) 100% 0/26px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%,rgba(8,4,53,.14),rgba(8,4,53,0)) 0 0/13px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%,rgba(8,4,53,.14),rgba(8,4,53,0)) 100% 0/13px 100% no-repeat scroll}}
+  }}
   .legend{{display:flex;gap:18px;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap}}
   .legend-bottom{{justify-content:center;margin:10px 0 0}}
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
@@ -1245,6 +1294,8 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   /* small multiples: title centred over its own chart, which means centring the
      wrapper so the inline svg moves with it. The note cell keeps its paragraph
      left-aligned, since centred body text reads badly. */
+  .multiples{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}
+  @media(max-width:760px){{.multiples{{grid-template-columns:1fr}}}}
   .multiple{{text-align:center}}
   .multiple h3{{font-size:13px;margin-bottom:6px}}
   .multiple>p{{text-align:left}}
@@ -1252,6 +1303,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     color:var(--muted);margin:48px 0 4px;text-align:center}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
+  .scibar{{touch-action:manipulation}}
   .scibar:hover{{filter:brightness(1.08)}}
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}
   #tip b{{font-weight:700}}
@@ -1286,6 +1338,16 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .snflogo{{display:block;margin-bottom:18px}}
   footer{{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding-top:4px}}
   footer a{{color:var(--link);text-decoration:none}}
+  /* Phones. The padding is the point: 20px of body and 30px of section on each
+     side costs 100px of a 390px screen, which is a third of the width the
+     charts and tables have to work with. */
+  @media(max-width:600px){{
+    body{{padding:20px 12px 60px}}
+    section{{padding:18px 14px}}
+    h1{{font-size:22px}}
+    header p.lede{{font-size:15.5px}}
+    .takeaway{{font-size:14px}}
+  }}
 </style>
 <main>
 <header>
@@ -1382,7 +1444,7 @@ def anchor_headings(html):
 
 
 def assert_output_is_portable(html):
-    """Two things screenshots in this sandbox cannot check for us.
+    """Four things a screenshot at one width cannot check for us.
 
     1. The encoding declaration. Garbled symbols reported on 2026-07-25
        ("9A- cheaper", a mangled minus and delta in the models table) were
@@ -1390,7 +1452,13 @@ def assert_output_is_portable(html):
        charset, so browsers guessed a single-byte codepage. Chromium here
        sniffs UTF-8 correctly, which is exactly why the local render looked
        fine while David's browser did not.
-    2. ASCII-only chart text. Belt and braces after the same incident: SVG
+    2. The viewport declaration. Same shape of bug, found the same way: without
+       it a phone lays the page out at 980px and scales it down, so the render
+       is uniformly tiny and every max-width media query in the stylesheet is
+       inert. A desktop screenshot cannot see either symptom.
+    3. Every chart inside a scroll container. A bare <svg> at width:100% shrinks
+       to whatever the phone gives it, and an 11px axis label arrives at 4px.
+    4. ASCII-only chart text. Belt and braces after the same incident: SVG
        chart text renders in whatever mono font the reader has, so symbols are
        drawn as geometry (see the rank arrows) rather than typed.
     """
@@ -1398,6 +1466,23 @@ def assert_output_is_portable(html):
         raise SystemExit(
             'missing <meta charset="utf-8"> in the first 1024 bytes: browsers '
             "would guess the encoding and render multi-byte characters as mojibake"
+        )
+    if 'name="viewport"' not in html[:1024]:
+        raise SystemExit(
+            'missing <meta name="viewport"> in the first 1024 bytes: phones would '
+            "lay the page out at 980px and scale it down, and none of the "
+            "max-width media queries would ever fire"
+        )
+    # Charts are the SVGs svg_open() writes; the SNF logo is an SVG too and is
+    # not a chart, so match on the opening tag svg_open produces rather than on
+    # "<svg". The check is that no chart bypassed chart().
+    charts = len(re.findall(r'<svg viewBox="0 0 \d+ \d+" role="img"', html))
+    wrapped = len(re.findall(r'class="chartwrap[^"]*"><svg viewBox=', html))
+    if (unwrapped := charts - wrapped):
+        raise SystemExit(
+            f"{unwrapped} chart SVG(s) not inside a .chartwrap: on a narrow screen "
+            "they would shrink to fit instead of scrolling, and their labels would "
+            "render at a few pixels. Wrap the call site in chart()."
         )
     offenders = {
         f"U+{ord(ch):04X} {ch!r}"

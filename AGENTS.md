@@ -23,7 +23,7 @@ that way.
 | `bench/report.py` | markdown tables, and `load_runs()`, which every consumer shares |
 | `bench/audit.py` | re-checks every published figure against the data; exits non-zero on drift |
 | `bench/status.py` | live progress of a sweep: runs done vs needed, intervals, spend |
-| `bench/screenshot.py` | regenerates the report and shoots every section to `results/shots/` |
+| `bench/screenshot.py` | regenerates the report and shoots every section at two widths to `results/shots/` |
 | `bench/validate_tasks.py` | gate for task packages: reference solution passes, stub fails |
 | `tasks/<id>/` | `prompt.md`, `Scarb.toml`, stub `src/lib.cairo`, hidden `tests/`, `solution/lib.cairo` |
 | `results/runs/main.jsonl` | the dataset, one JSON object per run, append-only |
@@ -35,7 +35,7 @@ uv run python -m bench.html_report     # rebuild results/report.html
 uv run python -m bench.audit           # release gate: every published figure, exit 1 on drift
 uv run python -m bench.sci             # the leaderboard, per model and variant
 uv run python -m bench.status          # per-model intervals vs the precision target (--watch)
-uv run python -m bench.screenshot      # regen + screenshot every section (visual QA)
+uv run python -m bench.screenshot      # regen + shoot every section, desktop and phone (visual QA)
 uv run python -m bench.validate_tasks  # solutions pass, stubs fail
 uv run python -m bench.runner --models <spec,...> --conditions baseline,mcp --reps 1
 ```
@@ -154,12 +154,19 @@ effort the provider's default maps to and name that.
 
 ## The report gates its own build
 
-`assert_output_is_portable()` runs before the file is written and raises on three
+`assert_output_is_portable()` runs before the file is written and raises on five
 things, each of which shipped a broken report first:
 
 - **No `<meta charset="utf-8">` in the first 1024 bytes.** A browser opening `file://`
   has no Content-Type to consult and guesses a codepage, so every multi-byte character
   becomes mojibake on the reader's machine while looking fine here.
+- **No `<meta name="viewport">`.** Without it a phone lays the page out at 980px and
+  scales the whole thing down, which also means every `max-width` media query in the
+  stylesheet never fires. The report shipped that way for weeks because visual QA only
+  ever ran at 1100px.
+- **A chart SVG outside a `.chartwrap`.** Charts scroll on narrow screens rather than
+  shrinking: an SVG at `width:100%` will render a 760px chart at 290px, where an 11px
+  axis label arrives at 4px. Every chart call site goes through `chart()`.
 - **Non-ASCII text inside chart SVG.** This machine's fonts are not the reader's, so a
   symbol that renders here can arrive as a box there. Symbols in charts are drawn as
   polygons or paths, never typed.
@@ -176,9 +183,12 @@ Two helpers keep charts consistent rather than gating them:
   they stay visually consistent. Change them in one place or not at all.
 
 For anything visual, run `bench.screenshot` and **look at the PNGs** before committing.
-Text and geometry checks have passed things that were plainly ugly on screen. The hook
-that blocks a commit while the screenshots are stale lives in `.claude/settings.json`,
-which is untracked, so a fresh clone gets the script but not the enforcement.
+Text and geometry checks have passed things that were plainly ugly on screen. Every
+section is shot twice, `NN-*.png` at 1100px and `m-NN-*.png` at 390px, and **both are
+the gate**: shooting one width is how a report with no viewport tag at all survived
+weeks of visual QA. The hook that blocks a commit while the screenshots are stale lives
+in `.claude/settings.json`, which is untracked, so a fresh clone gets the script but not
+the enforcement.
 
 ## Conventions
 
