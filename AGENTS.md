@@ -84,6 +84,11 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending
   money on models that had been dropped.
+- **The local-inference class is derived, never hand-set.** `fits_locally()` reads
+  `params_total` from `model_meta.json` and asks whether the weights fit
+  `LOCAL_VRAM_GB` at `LOCAL_BITS_PER_WEIGHT`. Moving either constant moves models
+  between report sections, so treat it as an editorial change and re-read the prose in
+  the section it feeds.
 - **v2.1 and v3 scores are not comparable.** If the weights or the decay change again,
   bump the version in `SCI_SPEC` and say so in the report.
 

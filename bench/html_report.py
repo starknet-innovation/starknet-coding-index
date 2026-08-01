@@ -19,8 +19,9 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import (SCI_SPEC, active_models, attempt_score, attempts, index_ci,
-                  leaderboard, run_cost)
+from .sci import (LOCAL_BITS_PER_WEIGHT, LOCAL_VRAM_GB, SCI_SPEC, active_models,
+                  attempt_score, attempts, index_ci, leaderboard, param_count,
+                  run_cost)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -270,9 +271,11 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None
     shape of `pairs` (and both call sites) stays put.
     """
     # pad_r balances the whitespace left of the tick labels (see sci_bar_chart).
-    # pad_l/pad_b are params: the small-models chart carries longer names than
-    # chart 2 (its rotated labels clipped at pad_b 85 and its first column at
-    # pad_l 64), so it passes larger pads and a taller h to keep bar height.
+    # pad_l is a param because the local-inference chart's first column carries a
+    # longer name than chart 2's. pad_b is NOT the label clearance: that is always
+    # derived below from the strings actually drawn, so the argument only sets how
+    # much height is left for the bars. Passing a bigger one shortens the plot; it
+    # cannot clip a label.
     pad_r, pad_t = 40, 26
     # measured on the strings actually drawn, suffix included: pad from the bare
     # names would shave the first characters off the longest label
@@ -283,7 +286,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None
     h = pad_t + ch + pad_b
     n = len(pairs)
     col_w = cw / n
-    # cap so a sparse chart (the small-models section) doesn't render slabs;
+    # cap so a sparse chart (the local-inference section) doesn't render slabs;
     # never binds at the main chart's column count
     bar_w = min(col_w * 0.62, 80)
     sy = lambda v: pad_t + (100 - v) / 100 * ch
@@ -618,8 +621,7 @@ def build(all_runs):
     # and stay out on MIN_CURVE_TIERS; Gemini's pair does not even include the
     # tier its own winner uses.
     #
-    # y_min keeps each family's shape readable: the small Qwen models live far
-    # below everyone else's floor, so they get a 0 baseline instead of 60.
+    # y_min keeps each family's shape readable and is derived per family below.
     # ordered by index score, like every other section, so a reader moving down
     # the page meets the models in the same sequence
     rank = {r["label"]: i for i, r in enumerate(sci_rows)}
@@ -634,7 +636,14 @@ def build(all_runs):
         tiers = measured_tiers(prefix)
         if len(tiers) < 5:
             continue
-        families.append((entry["label"], prefix, 0 if entry.get("small") else 60, tiers))
+        # y_min comes from the data, not from the model's class: a floor of 60
+        # keeps a saturated model's shape readable, but the models that live
+        # below it need the full axis. Deriving it also stops chart geometry
+        # depending on a classification that is about memory, not solve rate.
+        lo = min(solve_pct([r for r in all_runs if r["model"] == prefix + t
+                            and r["condition"] == c])
+                 for t in tiers for c in ("baseline", "mcp"))
+        families.append((entry["label"], prefix, 0 if lo < 60 else 60, tiers))
 
     multiples = []
     curve_points = []
@@ -656,7 +665,7 @@ def build(all_runs):
   <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span><span>x-axis is the effort we requested; some neighbours are the same setting (see methodology)</span><span>a model appears here when most of its ladder was run in both conditions</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">{"".join(multiples)}
     <div class="multiple"><h3>Qwen3 Coder Next</h3>
-    <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the small-models chart above on its single configuration.</p></div>
+    <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the local-inference chart above on its single configuration.</p></div>
   </div>
   <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:16px 0 0">The two OpenAI models whose documentation gain arrives at full effort, Sol (+7.9) and Terra (+9.1), are deliberately not here: this chart measures solve rate and theirs barely moves. Sol already solves every task at every tier, and Terra's solve rate <i>falls</i> at <code>max</code> even as its score rises, because the tool buys it first-try delivery (0% to 27%) rather than more solves. The findings section carries that result.</p>
 </section>"""
@@ -664,11 +673,12 @@ def build(all_runs):
     a = SCI_SPEC["anchors"]
     w_ = SCI_SPEC["weights"]
 
-    # Small models (registry small: True) get their own section; the main
-    # charts show the regular-size field; deprecated models are already gone
-    # from sci_rows entirely (see sci.active_models)
-    big_rows = [r for r in sci_rows if not r.get("small")]
-    small_rows = [r for r in sci_rows if r.get("small")]
+    # Models that fit one 512 GB machine at 4-bit get their own section (the
+    # class is derived in sci.fits_locally, never hand-set); the main charts
+    # show everything else; deprecated models are already gone from sci_rows
+    # entirely (see sci.active_models)
+    big_rows = [r for r in sci_rows if not r.get("local")]
+    local_rows = [r for r in sci_rows if r.get("local")]
 
     # A model whose weights are announced but not yet downloadable is classed
     # open with a display-time star on its label; raw labels stay untouched
@@ -715,9 +725,9 @@ def build(all_runs):
     key_open = f'<span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>best without MCP (open weights)</span>'
     key_closed = f'<span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>best without MCP (closed weights)</span>'
     key_mcp = f'<span><span class="key" style="background:{CORAL};border-radius:2px"></span>added by MCP</span>'
-    # the pair convention is only worth explaining where a pair appears: every
-    # small model wants the same effort in both conditions, so that chart says
-    # nothing about a second value the reader cannot see
+    # the pair convention is only worth explaining where a pair appears, so a
+    # chart whose models all keep one effort says nothing about a second value
+    # the reader cannot see
     def keys_for(rows):
         pairs = [lift_efforts.get(r["label"]) for r in rows]
         two = any(p and p[0] != p[1] for p in pairs)
@@ -726,20 +736,20 @@ def build(all_runs):
         return (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
                 + key_mcp + effort_key)
     lift_legend = f'<div class="legend legend-bottom">{keys_for(big_rows)}{pending_note}</div>'
-    lift_legend_small = f'<div class="legend legend-bottom">{keys_for(small_rows)}</div>'
+    lift_legend_local = f'<div class="legend legend-bottom">{keys_for(local_rows)}</div>'
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>six of these fifteen models win at a different effort with the tool than without</b>, and four of those six move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.</p>
+  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>six of the twenty models win at a different effort with the tool than without</b>, counting this chart and the local-inference one below together, and four of those six move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.</p>
   {mcp_lift_chart(build_lift_pairs(big_rows), efforts=lift_efforts)}
   {lift_legend}
 </section>"""
-    small_html = f"""
+    local_html = f"""
 <section>
-  <h2>Small models</h2>
-  <p class="takeaway" style="margin:0 0 10px">Models with a fraction of the field's active compute (3B to 5B active for the MoEs, up to 31B dense) trade differently with the MCP, and two regimes show up. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0). Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing. Same chart as above, small models only. Every one of them wants the same thinking level in both conditions, which the labels show.</p>
-  {mcp_lift_chart(build_lift_pairs(small_rows), h=394, pad_b=120, efforts=lift_efforts)}
-  {lift_legend_small}
+  <h2>Local-inference class <span style="text-transform:none">(runs on one 512 GB machine)</span></h2>
+  <p class="takeaway" style="margin:0 0 10px">Same chart, for the models you could run yourself. The test is memory rather than parameter count: weights at a 4-bit quant, on the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. Eight models clear it, from Qwen3.6-27B at 15 GB up to <b>GLM 5.2 at 424 GB</b>; Inkling is the nearest miss at 548 GB, and no closed model qualifies at all, since there are no weights to download. Two regimes show up inside the class: the Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
+  {mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts)}
+  {lift_legend_local}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
 (function () {
@@ -811,11 +821,12 @@ def build(all_runs):
          "interval of each other on ~1.8k output tokens and 14 seconds. Only <code>max</code> is "
          "different, and it is a cliff, not a step: 88% one-shot, the best of any Sonnet setting, for "
          "61k output tokens at $0.68 a task and nine minutes of thinking."),
-        ("Where are the small models?", "+22.0 with docs",
-         "The small class (3B to 31B active) lives at the knowledge floor, so baselines collapse. "
-         "Documentation nearly triples Qwen3.6-27B (13.3 to 35.3, solving 15% of runs without docs "
-         "and 69% with), doubles 35B-A3B, and bounces off Gemma 4 and gpt-oss. They compare on "
-         "their own footing in the section below."),
+        ("Which of these could I run myself?", "8 of 20",
+         "Eight fit one 512 GB machine at a 4-bit quant, from Qwen3.6-27B at 15 GB of weights to "
+         "GLM 5.2 at 424 GB, and they compare on their own footing in the section below. The rest "
+         "need a rack or are closed. Documentation pays hardest down there: it nearly triples "
+         "Qwen3.6-27B (13.3 to 35.3, solving 15% of runs without docs and 69% with) and doubles "
+         "35B-A3B, though it bounces off Gemma 4 and gpt-oss."),
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
          "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code). Its "
          "habit is: a median of two submissions per task at $0.0895, about nine times Grok's bill for "
@@ -910,12 +921,6 @@ def build(all_runs):
     fmt_price = lambda v: "n/a" if v is None else (f"${v:,.2f}" if v >= 0.01 else f"${v:.4f}")
     fmt_ctx = lambda v: "1M" if v >= 10**6 else f"{v // 1000}k"
 
-    def param_num(s):
-        """'1.02T' / '753B' / '~40B' -> absolute count, for the sort key."""
-        if not s:
-            return None
-        return float(s.lstrip("~").rstrip("TB")) * (1e12 if s.endswith("T") else 1e9)
-
     # numeric cells carry their raw value in data-s so the sorter never has
     # to parse display strings; n/a cells carry none and always sort last
     num_td = lambda v, txt: (f'<td class="r" data-s="{v}">{txt}</td>' if v is not None
@@ -947,9 +952,10 @@ def build(all_runs):
             + delta_td
             + f'<td>{r["lab"]}</td>'
             f'<td><span class="wchip {wcls}">{wtxt}</span></td>'
-            f'<td>{mm["type"] or "n/a"}</td>'
-            + num_td(param_num(mm["params_total"]), mm["params_total"] or "n/a")
-            + num_td(param_num(mm["params_active"]), mm["params_active"] or "n/a")
+            + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
+            + num_td(param_count(mm["params_active"]), mm["params_active"] or "n/a")
+            + num_td(r["vram_gb"] if r["open_weight"] else None,
+                     f'{r["vram_gb"]:,.0f}' if r["open_weight"] and r["vram_gb"] else "n/a")
             + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
             + num_td(pm["input"], fmt_price(pm["input"]))
             + num_td(pm["output"], fmt_price(pm["output"]))
@@ -994,11 +1000,11 @@ def build(all_runs):
 <section>
   <h2>The models</h2>
   <div class="tablewrap"><table id="modeltable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>VRAM GB</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Type and parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Parameter counts from lab model cards and HuggingFace repo metadata; n/a means not disclosed (no closed lab discloses them), and ~ marks a third-party consensus figure with no lab statement. A model is a mixture of experts wherever its active count is below its total. <b>VRAM GB</b> is what the weights alone need at {LOCAL_BITS_PER_WEIGHT} bits each, a Q4_K_M-class quant; the local-inference class above is everything that leaves room for the OS and a KV cache inside {LOCAL_VRAM_GB} GB. Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it.</p>
 </section>"""
 
     findings_html = """
@@ -1008,7 +1014,7 @@ def build(all_runs):
   <p>Documentation lift lines up with baseline weakness: +22.0 for Qwen3.6-27B and +15.6 for Qwen3.6-35B-A3B at the knowledge floor, then +9.1 for GPT-5.6 Terra, +7.9 for GPT-5.6 Sol, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +5.2 for MiniMax M3, +2.3 for Hy3, +1.5 for GPT-5.6 Luna, fading to nothing and then to a penalty at the saturated top (Grok +0.6, Opus 5 &minus;0.1, K3 &minus;0.3, Fable &minus;1.6, MiMo &minus;2.6, Sonnet 5 &minus;5.4).</p>
   <p>Three refinements. The law applies per <i>variant</i>, and not in the direction we first reported: Terra's gain <i>grows</i> up its ladder (+2.0 with thinking off, +4.2 at <code>minimal</code>, <b>+9.1</b> at <code>max</code>), so a model can be saturated on its own and still have room the tool fills at full effort, and Sol behaves the same way (+7.9 at <code>max</code>). That is not a vendor effect, though: Luna, the third OpenAI model here, gains +3.0 at its top tier, which its own interval cannot separate from zero, against +0.1 and &minus;0.4 at its two other measured tiers. Also documentation raises MiniMax at four of its six tiers (+13.0, +12.3, +7.1, +3.2) while costing it 5.5 points at the one tier its baseline happens to win on, which is why the like-for-like gain above understates the tool. The lift is mostly bought in solves, not in polish: at the floor it converts runs that never worked into working ones (Qwen3.6-27B 15% to 69% solved, Qwen3.6-35B-A3B 11% to 59%, Coder Next 0% to 17%). And the law has a competence floor, because a model has to be able to exploit what it reads: Gemma 4 31B (−1.8) and gpt-oss-120b (−1.7, zero solves with documentation or without) sit below it.</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness, but it can buy first-try delivery</h3>
-  <p>Four patterns across the field (the small models are their own case, below): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models along their own ladders: Gemini and Sol up to <code>max</code>, GLM to <code>xhigh</code>, Terra to <code>max</code>, MiniMax down to <code>medium</code>. Up is not the same as topmost, though: GLM's <code>max</code> tier is its worst, 10 points below the <code>xhigh</code> that wins.</p>
+  <p>Four patterns across the field (the two small Qwen models are their own case, below): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models along their own ladders: Gemini and Sol up to <code>max</code>, GLM to <code>xhigh</code>, Terra to <code>max</code>, MiniMax down to <code>medium</code>. Up is not the same as topmost, though: GLM's <code>max</code> tier is its worst, 10 points below the <code>xhigh</code> that wins.</p>
   <p>The top of the ladder is where Anthropic's three models change character, and every one of them pays for it. <code>max</code> lifts first-submission delivery (Fable to 100%, Sonnet to 88% from 67%) while spending three to thirty-four times the tokens: Opus 92.0 at <code>low</code> against 85.0 at <code>max</code>, Fable 88.4 against 83.7, Sonnet 83.4 against 73.2 on 61k output tokens and nine minutes a task. Buying reliability that way costs more than the reliability is worth here, which is the same trade the small models lose at the other end of the field. Kimi K3 shows the mirror image: its <code>low</code> tier ties its default (83.2 against 83.1, intervals well overlapped) at a third of the price and a third of the time, so the cheap setting is the one to run.</p>
   <p>The two small Qwen models invert the question, and not the way the index alone suggests. Thinking does buy them solves: Qwen3.6-27B goes from 15% of runs solved with thinking off to <b>31% at <code>low</code></b>, and 35B-A3B from 11% to 23% at <code>high</code>. What it cannot buy is value. Those extra solves cost three to five times the output tokens and four to fourteen times the wall clock (27B: 10.8k tokens and 181s off, against 51.5k and 864s at <code>low</code>), so the index refuses to pay and thinking off still wins on score. One tier is genuinely self-defeating rather than merely expensive: 35B-A3B at <code>xhigh</code> burns 94k tokens to solve 4% of runs. Documentation is the better purchase at this end of the field, and it pays most exactly where thinking is off (27B +22.0 there, +8 at <code>xhigh</code>).</p></div>
   <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
@@ -1018,7 +1024,7 @@ def build(all_runs):
   <p>Both pro serving modes we funded cost 2 to 3× their model's <code>max</code> tier and scored below it (terra-pro 53.8 against terra@max 55.2). Neither ever produced the best configuration of its model, so sol-pro was not funded on that record.</p></div>
   <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: baseline failures are training-data lag</h3>
   <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (993 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.7/run at high effort, ~1.9/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p>
-  <p>The substitution is visible in which configuration wins. Six of the fifteen larger models pick a different thinking level with the tool than without, and four of those six pick a <i>cheaper</i> one: Gemini <code>max</code> to <code>low</code>, MiniMax <code>medium</code> to <code>low</code>, Hy3 <code>high</code> to off, GLM <code>xhigh</code> to off. DeepSeek and Luna go the other way. Reference material buys what thinking budget was being spent on.</p></div>
+  <p>The substitution is visible in which configuration wins. Six of the twenty models pick a different thinking level with the tool than without, and four of those six pick a <i>cheaper</i> one: Gemini <code>max</code> to <code>low</code>, MiniMax <code>medium</code> to <code>low</code>, Hy3 <code>high</code> to off, GLM <code>xhigh</code> to off. DeepSeek and Luna go the other way. Reference material buys what thinking budget was being spent on.</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
@@ -1144,7 +1150,7 @@ def build(all_runs):
 
 {lift_html}
 
-{small_html}
+{local_html}
 
 {generalize_html}
 

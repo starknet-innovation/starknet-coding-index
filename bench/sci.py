@@ -41,6 +41,7 @@ Adding a model to the leaderboard = benchmark it with the standard runner,
 then add one MODEL_REGISTRY entry; the report picks it up on regeneration.
 """
 
+import json
 import math
 import random
 import statistics
@@ -99,6 +100,71 @@ PRICE_REVISIONS = {
     # Z.ai cut GLM 5.2 ~10% in the same week, unrelated to OpenAI.
     "z-ai/glm-5.2":             ((0.7966, 2.5036, 0.14794, None), (0.7168, 2.2528, 0.13312, None)),
 }
+
+
+# Which models a person could actually run themselves. The threshold is memory,
+# not parameter count: 512 GB is what a Mac Studio M3 Ultra holds, and it is the
+# largest unified-memory machine an individual can buy off the shelf. TOTAL
+# parameters, not active, because every weight has to be resident even when a
+# sparse MoE only fires a few experts per token.
+#
+# 4.5 bits/weight is a Q4_K_M-class quant, the usual "good enough locally"
+# setting; the reserve covers the OS, the KV cache and activations. That leaves
+# 448 GB of weights, about 796B parameters. The boundary is not delicate: the
+# nearest models outside it (Inkling 548 GB, MiMo 574 GB) would need a flat
+# 4-bit quant AND essentially no headroom, and nothing else is near the line.
+LOCAL_VRAM_GB = 512
+LOCAL_BITS_PER_WEIGHT = 4.5
+LOCAL_RESERVE_GB = 64
+LOCAL_WEIGHT_BUDGET_GB = LOCAL_VRAM_GB - LOCAL_RESERVE_GB
+
+_META = None
+
+
+def _model_meta():
+    global _META
+    if _META is None:
+        path = config.RESULTS_DIR / "model_meta.json"
+        _META = json.loads(path.read_text())["models"]
+    return _META
+
+
+def param_count(s):
+    """'1.02T' / '753B' / '~40B' -> absolute count. None passes through."""
+    if not s:
+        return None
+    return float(s.lstrip("~").rstrip("TB")) * (1e12 if s.endswith("T") else 1e9)
+
+
+def weights_gb(params, bits=LOCAL_BITS_PER_WEIGHT):
+    """GB of weights at a given quantization. None passes through."""
+    return None if params is None else params * bits / 8 / 1e9
+
+
+def local_vram_gb(spec):
+    """Memory this model's weights need at LOCAL_BITS_PER_WEIGHT, or None.
+
+    None for closed models and for any open model whose parameter count the lab
+    has not disclosed: you cannot run what you cannot download, and you cannot
+    size what nobody published.
+    """
+    mm = _model_meta().get(spec.partition("@")[0], {})
+    return weights_gb(param_count(mm.get("params_total")))
+
+
+def fits_locally(entry):
+    """True when this model's weights fit one 512 GB machine at 4-bit.
+
+    Scans the entry's specs rather than trusting specs[0], which for some models
+    is a pro serving mode with an id of its own and no metadata row.
+    """
+    if not entry.get("open_weight"):
+        return False
+    for spec in entry["specs"]:
+        gb = local_vram_gb(spec)
+        if gb is not None:
+            return gb <= LOCAL_WEIGHT_BUDGET_GB
+    return False
 
 
 def price_ratio(spec):
@@ -162,8 +228,7 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high",
                "qwen/qwen3.6-27b@medium", "qwen/qwen3.6-27b@low",
                "qwen/qwen3.6-27b@minimal", "qwen/qwen3.6-27b@disabled"],
-     # small: rendered in the report's small-models section, not the main charts
-     "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True, "small": True},
+      "label": "Qwen3.6-27B", "lab": "Alibaba", "open_weight": True},
     # Small open-weight batch 2026-07-24. gpt-oss: @disabled REJECTED
     # ("Reasoning is mandatory"), effort ladder low/medium/high; 0% correct at
     # every tier. coder-next: no reasoning params at all, bare only; 0% correct.
@@ -171,17 +236,17 @@ MODEL_REGISTRY = [
     # differently); gemma: dial accepted. All winning edges at surface floors.
     {"specs": ["openai/gpt-oss-120b@low", "openai/gpt-oss-120b@medium",
                "openai/gpt-oss-120b@high"],
-     "label": "gpt-oss-120b", "lab": "OpenAI", "open_weight": True, "small": True},
+     "label": "gpt-oss-120b", "lab": "OpenAI", "open_weight": True},
     {"specs": ["qwen/qwen3.6-35b-a3b", "qwen/qwen3.6-35b-a3b@disabled",
                "qwen/qwen3.6-35b-a3b@minimal", "qwen/qwen3.6-35b-a3b@low",
                "qwen/qwen3.6-35b-a3b@medium", "qwen/qwen3.6-35b-a3b@high",
                "qwen/qwen3.6-35b-a3b@xhigh", "qwen/qwen3.6-35b-a3b@max"],
-     "label": "Qwen3.6-35B-A3B", "lab": "Alibaba", "open_weight": True, "small": True},
+     "label": "Qwen3.6-35B-A3B", "lab": "Alibaba", "open_weight": True},
     {"specs": ["google/gemma-4-31b-it@disabled", "google/gemma-4-31b-it@low",
                "google/gemma-4-31b-it@high"],
-     "label": "Gemma 4 31B", "lab": "Google", "open_weight": True, "small": True},
+     "label": "Gemma 4 31B", "lab": "Google", "open_weight": True},
     {"specs": ["qwen/qwen3-coder-next"],
-     "label": "Qwen3 Coder Next", "lab": "Alibaba", "open_weight": True, "small": True},
+     "label": "Qwen3 Coder Next", "lab": "Alibaba", "open_weight": True},
     # Probe 2026-07-24: full surface honored incl. @disabled; real curve with
     # overshoot (correct 79 off -> 99 low -> 88 high); low = interior winner.
     # @medium and @max are listed in OpenRouter's supported_efforts but return
@@ -432,7 +497,10 @@ def leaderboard(all_runs, condition=None):
         top = max(scored, key=lambda s: s["sci"])
         tied = [s for s in scored if _tied(s, top)]
         best = max(tied, key=lambda s: (s["n"], s["sci"]))
-        rows.append({**entry, **best, "variant": variant_label(best["spec"])})
+        rows.append({**entry, **best, "variant": variant_label(best["spec"]),
+                     # derived, never hand-set: see fits_locally
+                     "local": fits_locally(entry),
+                     "vram_gb": local_vram_gb(best["spec"])})
     return sorted(rows, key=lambda r: -r["sci"])
 
 

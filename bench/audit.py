@@ -14,8 +14,9 @@ import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import (PRICE_REVISIONS, active_models, attempts, compute_sci,
-                       index_ci, leaderboard, price_ratio, run_cost)
+from bench.sci import (LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS, active_models,
+                       attempts, compute_sci, index_ci, leaderboard, price_ratio,
+                       run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
 # a few claims are about the rendered prose, not just the data behind it
@@ -96,7 +97,7 @@ o, f, g, k, mi, s5, sol = (by[n] for n in
     ["Opus 5", "Fable 5", "Grok 4.5", "Kimi K3", "MiMo-V2.5-Pro", "Sonnet 5", "GPT-5.6 Sol"])
 check("Opus 100% one-shot", one(C(o["spec"])) == 100, f"{one(C(o['spec'])):.0f}%")
 check("Opus has the fastest median pass",
-      min((pass_time(by[r["label"]]["spec"]), r["label"]) for r in lb if not r.get("small"))[1] == "Opus 5")
+      min((pass_time(by[r["label"]]["spec"]), r["label"]) for r in lb if not r.get("local"))[1] == "Opus 5")
 check("Opus is 3.7 clear of second", abs(o["sci"] - f["sci"] - 3.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
 check("Fable/Grok 0.4 apart", abs(f["sci"] - g["sci"] - 0.4) < 0.06, f"{f['sci']-g['sci']:.2f}")
 check("Fable 96% vs Grok 74% one-shot",
@@ -133,7 +134,7 @@ check("Luna's top tier gains +3.0, inside its own noise",
       f"{sci(lm_)-sci(lb_):+.1f} vs interval sum {index_ci(lm_)+index_ci(lb_):.1f}")
 check("Luna is charted, and is the third OpenAI model",
       any(r["label"] == "GPT-5.6 Luna" for r in lb)
-      and len([r for r in lb if r["lab"] == "OpenAI" and not r.get("small")]) == 3,
+      and len([r for r in lb if r["lab"] == "OpenAI" and not r.get("local")]) == 3,
       f"{[r['label'] for r in lb if r['lab'] == 'OpenAI']}")
 check("Terra +9.1 with the tool at max", abs(mcp["GPT-5.6 Terra"]["sci"] - by["GPT-5.6 Terra"]["sci"] - 9.1) < 0.06,
       f"{mcp['GPT-5.6 Terra']['sci']-by['GPT-5.6 Terra']['sci']:+.1f}")
@@ -210,14 +211,20 @@ check("methodology: 2 to 10 passes", min(npass) == 2 and max(npass) == 10, str(n
 # caveats: per-variant depth outside GLM
 ns = [len(C(sp)) for e in lb if e["label"] != "GLM 5.2" for sp in e["specs"] if C(sp)]
 check("caveats: 25 to 120 runs per variant", min(ns) == 25 and max(ns) == 120, f"{min(ns)}-{max(ns)}")
-# small models pick the same tier in both conditions, and their active-param range
-sm = [r for r in lb if r.get("small") and r["label"] in mcp]
-check("small models: same tier in both conditions",
-      all((r["variant"] or "off") == (mcp[r["label"]]["variant"] or "off") for r in sm))
-import json as _json
-_meta = _json.load(open("results/model_meta.json"))["models"]
-acts = [_meta.get(r["spec"].split("@")[0], {}).get("params_active") for r in sm]
-check("small models: 3B to 31B active", all(a for a in acts), str(sorted(set(acts))))
+# The local-inference class is derived, so check it in BOTH directions against
+# the rule: nothing inside it exceeds the weights budget, and nothing outside it
+# would have fitted. A one-way check would pass a class that quietly lost members.
+loc = [r for r in lb if r.get("local")]
+check(f"local class: 8 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB of weights",
+      len(loc) == 8 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
+      f"{len(loc)} models, largest {max(r['vram_gb'] for r in loc):.0f} GB "
+      f"({max(loc, key=lambda r: r['vram_gb'])['label']})")
+out = [r for r in lb if not r.get("local") and r["open_weight"] and r["vram_gb"]]
+check("open models outside the class all exceed it",
+      all(r["vram_gb"] > LOCAL_WEIGHT_BUDGET_GB for r in out),
+      f"nearest miss {min(r['vram_gb'] for r in out):.0f} GB "
+      f"({min(out, key=lambda r: r['vram_gb'])['label']})")
+check("no closed model is in the class", not any(not r["open_weight"] for r in loc))
 # head to head
 closed = next(r for r in lb if not r["open_weight"]); openw = next(r for r in lb if r["open_weight"])
 check("head-to-head: 26 and 63 runs",
@@ -275,10 +282,10 @@ for pro, mx in (("openai/gpt-5.6-terra-pro", "openai/gpt-5.6-terra@max"),
 # mechanism: substitution count
 ORDER = ["off", "", "minimal", "low", "medium", "high", "xhigh", "max"]
 diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
-        for r in lb if not r.get("small") and r["label"] in mcp
+        for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("six of fifteen differ, four downward", len(diff) == 6 and len(down) == 4,
+check("six of twenty differ, four downward", len(diff) == 6 and len(down) == 4,
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))
