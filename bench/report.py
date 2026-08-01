@@ -48,6 +48,10 @@ def _fmt(v, spec=".1f", dash="—"):
 
 
 def aggregate(runs):
+    # Imported here, not at module scope: sci imports load_runs from this module,
+    # so a top-level import would be circular.
+    from .sci import run_cost
+
     groups = defaultdict(list)
     for r in runs:
         groups[(r["model"], r["condition"])].append(r)
@@ -75,7 +79,9 @@ def aggregate(runs):
             "med_tokens": _med([
                 (r["prompt_tokens"] or 0) + (r["completion_tokens"] or 0) for r in rs
             ]),
-            "med_cost": _med([r["cost_usd"] for r in rs]),
+            # median is what a task costs at today's prices; the total is what we
+            # actually paid, so it stays on the recorded figure
+            "med_cost": _med([run_cost(r) for r in rs]),
             "total_cost": sum(r["cost_usd"] or 0 for r in rs),
             # one early record predates this field; absent means no lookups
             "mean_assist_calls": statistics.mean([r.get("n_assist_calls") or 0 for r in rs]),

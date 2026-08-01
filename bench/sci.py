@@ -64,6 +64,67 @@ SCI_SPEC = {
     "anchors": {"speed": (10, 1200), "cost": (0.003, 0.60)},
 }
 
+# Prices move after the runs are recorded. cost_usd in main.jsonl stays exactly
+# as billed, because it is the audit trail and the report's total-spend figure
+# depends on it; scoring applies the revision here instead.
+#
+# Each entry is (price when the runs were billed, price listed now) per million
+# tokens: input, output, cache read, cache write. A revision is only expressible
+# as one multiplier when EVERY component moved by the same factor, since only
+# then is the new cost of a recorded run independent of its mix of fresh, cached
+# and output tokens. price_ratio() asserts that rather than trusting it, and
+# both vectors are kept because refreshing model_meta.json to current prices
+# erases the old ones and would leave the multiplier unverifiable.
+#
+# Not revisable, and deliberately absent: OpenAI cut gpt-5.6-luna and -terra
+# uniformly, but qwen3.6-27b, gemma-4-31b and qwen3-coder-next moved their input
+# and output prices by different factors. Their costs cannot be re-based from a
+# list price at all, because prompt caching hides the read/write split and
+# throughput routing sent them to providers charging well off the listing.
+#
+# Prices are the standard endpoint. Sol and Terra also publish a half-price
+# "flex" tier, but that is a deferred-latency service class we did not benchmark,
+# and pricing runs at flex while keeping the latency we measured on standard
+# would corrupt the speed component.
+PRICE_REVISIONS = {
+    # OpenAI cut Terra 60% and Luna 90% on 2026-07-30 (Sol unchanged, verified
+    # at the endpoint level). The -pro serving modes had no price of their own in
+    # the 2026-07-24 snapshot and OpenRouter lists them today at exactly the base
+    # price, so they inherit the base ratio, which keeps pro-vs-base comparisons
+    # on a single basis.
+    "openai/gpt-5.6-terra":     ((2.50, 15.00, 0.25, 3.125), (1.00, 6.00, 0.10, 1.250)),
+    "openai/gpt-5.6-terra-pro": ((2.50, 15.00, 0.25, 3.125), (1.00, 6.00, 0.10, 1.250)),
+    "openai/gpt-5.6-luna":      ((1.00,  6.00, 0.10, 1.250), (0.10, 0.60, 0.01, 0.125)),
+    "openai/gpt-5.6-luna-pro":  ((1.00,  6.00, 0.10, 1.250), (0.10, 0.60, 0.01, 0.125)),
+    # Z.ai cut GLM 5.2 ~10% in the same week, unrelated to OpenAI.
+    "z-ai/glm-5.2":             ((0.7966, 2.5036, 0.14794, None), (0.7168, 2.2528, 0.13312, None)),
+}
+
+
+def price_ratio(spec):
+    """Multiplier taking a recorded cost to what the same run would cost now.
+
+    1.0 when the model has no revision. Raises when a revision's components
+    disagree, because a non-uniform change cannot be applied to a recorded total
+    at all: it needs the token mix, which caching hides.
+    """
+    rev = PRICE_REVISIONS.get(spec.partition("@")[0])
+    if rev is None:
+        return 1.0
+    was, now = rev
+    ratios = [n / w for w, n in zip(was, now) if w and n]
+    if max(ratios) - min(ratios) > 1e-9:
+        raise ValueError(f"{spec}: non-uniform price revision {ratios}, "
+                         "cannot be applied as a single multiplier")
+    return ratios[0]
+
+
+def run_cost(run):
+    """Recorded cost of a run at current prices. None stays None."""
+    c = run.get("cost_usd")
+    return None if c is None else c * price_ratio(run["model"])
+
+
 # Candidate variants per model; the leaderboard scores every candidate with
 # data and keeps the best (policy: "best foot forward", variant labeled on
 # the chart). The extension point for future models.
@@ -162,8 +223,10 @@ MODEL_REGISTRY = [
                "openai/gpt-5.6-luna@xhigh", "openai/gpt-5.6-luna@high",
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
                "openai/gpt-5.6-luna@minimal", "openai/gpt-5.6-luna@disabled"],
-     # charted False: budget tier, not a coding pick (David); data stays in the table
-     "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False, "deprecated": True},
+     # dropped 2026-07-25 as a budget tier that was not a coding pick, reinstated
+     # 2026-08-01: OpenAI cut its price 90%, which is exactly the kind of change
+     # that reopens a value-based drop, and the full ladder was already measured
+     "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
     {"specs": ["x-ai/grok-4.5@max", "x-ai/grok-4.5@xhigh", "x-ai/grok-4.5@high",
                "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
      # thinking mandatory (@disabled rejected); bare = dynamic, skipped
@@ -289,8 +352,9 @@ def compute_sci(runs_for_model):
         for r in runs_for_model if r.get("llm_time_s") is not None
     ]
     solved = [r for r in runs_for_model if r["solved"]]
+    costs = [c for c in (run_cost(r) for r in runs_for_model) if c is not None]
     raw = {"med_llm": statistics.median(svc_times) if svc_times else None,
-           "med_cost": med("cost_usd"),
+           "med_cost": statistics.median(costs) if costs else None,
            "med_ctok": med("completion_tokens"),
            "med_attempts": statistics.median([attempts(r) for r in solved]) if solved else None,
            "one_sub_pct": 100 * statistics.mean(

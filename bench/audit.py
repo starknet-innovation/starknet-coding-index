@@ -14,9 +14,12 @@ import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import active_models, attempts, compute_sci, index_ci, leaderboard
+from bench.sci import (PRICE_REVISIONS, active_models, attempts, compute_sci,
+                       index_ci, leaderboard, price_ratio, run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
+# a few claims are about the rendered prose, not just the data behind it
+report_html = open("results/report.html", encoding="utf-8").read()
 lb = leaderboard(runs)
 by = {r["label"]: r for r in lb}
 mcp = {r["label"]: r for r in leaderboard(runs, condition="mcp")}
@@ -26,7 +29,7 @@ C = lambda s, c="baseline": [x for x in runs if x["model"] == s and x["condition
 one = lambda rs: 100 * sum(1 for x in rs if x["solved"] and attempts(x) == 1) / len(rs)
 solve = lambda rs: 100 * sum(1 for x in rs if x["solved"]) / len(rs)
 sci = lambda rs: compute_sci(rs)["sci"]
-med_cost = lambda s: st.median([x["cost_usd"] for x in C(s) if x["cost_usd"] is not None])
+med_cost = lambda s: st.median([c for c in (run_cost(x) for x in C(s)) if c is not None])
 
 
 def ncalls(x):
@@ -46,7 +49,7 @@ def pass_med(spec, fn):
     return st.median([fn(rs) for rs in p]) if p else float("nan")
 
 
-pass_cost = lambda s: pass_med(s, lambda rs: sum(x["cost_usd"] or 0 for x in rs))
+pass_cost = lambda s: pass_med(s, lambda rs: sum(run_cost(x) or 0 for x in rs))
 pass_time = lambda s: pass_med(s, lambda rs: sum(x["llm_time_s"] + (x.get("assist_time_s") or 0) for x in rs))
 
 fails = []
@@ -63,7 +66,26 @@ print("   " + "  ".join(f"{r['label']}={r['sci']:.1f}({r['variant']})" for r in 
 
 print("\n== chips and coverage")
 check("13 tasks", NT == 13, f"{NT}")
-check("19 charted models", len(lb) == 19, f"{len(lb)}")
+check("20 charted models", len(lb) == 20, f"{len(lb)}")
+
+print("\n== price revisions")
+# A revision is applied as one multiplier to a recorded total, which is only
+# valid when every component of the price vector moved by the same factor. A
+# non-uniform entry would score silently wrong, so price_ratio raises and this
+# check makes that visible rather than waiting for an import to blow up.
+for spec, (was, now) in PRICE_REVISIONS.items():
+    try:
+        rs = [n / w for w, n in zip(was, now) if w and n]
+        check(f"{spec} revision is uniform ({price_ratio(spec):.3f}x)",
+              max(rs) - min(rs) <= 1e-9, " ".join(f"{r:.6f}" for r in rs))
+    except ValueError as e:
+        check(f"{spec} revision is uniform", False, str(e))
+# revised costs must actually reach the scores: the report and this file both
+# have to be reading run_cost, not the raw figure
+_t = [x for x in runs if x["model"] == "openai/gpt-5.6-terra@max" and x["condition"] == "baseline"]
+check("Terra scored at revised prices",
+      abs(st.median([run_cost(x) for x in _t]) / st.median([x["cost_usd"] for x in _t]) - 0.40) < 1e-9,
+      f"{st.median([run_cost(x) for x in _t]):.4f} vs {st.median([x['cost_usd'] for x in _t]):.4f} billed")
 
 print("\n== index precision")
 worst = max(((index_ci(C(r["spec"])) or 0), r["label"]) for r in lb)
@@ -109,7 +131,10 @@ lb_, lm_ = C("openai/gpt-5.6-luna@max", "baseline"), C("openai/gpt-5.6-luna@max"
 check("Luna's top tier gains +3.0, inside its own noise",
       abs((sci(lm_) - sci(lb_)) - 3.0) < 0.06 and (index_ci(lm_) + index_ci(lb_)) > 3.0,
       f"{sci(lm_)-sci(lb_):+.1f} vs interval sum {index_ci(lm_)+index_ci(lb_):.1f}")
-check("Luna stays out of the charts", all(r["label"] != "GPT-5.6 Luna" for r in lb))
+check("Luna is charted, and is the third OpenAI model",
+      any(r["label"] == "GPT-5.6 Luna" for r in lb)
+      and len([r for r in lb if r["lab"] == "OpenAI" and not r.get("small")]) == 3,
+      f"{[r['label'] for r in lb if r['lab'] == 'OpenAI']}")
 check("Terra +9.1 with the tool at max", abs(mcp["GPT-5.6 Terra"]["sci"] - by["GPT-5.6 Terra"]["sci"] - 9.1) < 0.06,
       f"{mcp['GPT-5.6 Terra']['sci']-by['GPT-5.6 Terra']['sci']:+.1f}")
 check("Sonnet max: 88% one-shot, 61k tokens",
@@ -140,9 +165,11 @@ gb, gm = C("x-ai/grok-4.5@max"), C("x-ai/grok-4.5@max", "mcp")
 check("Grok ~0.9 lookups/run, 74->88 one-shot",
       abs(st.mean([ncalls(x) for x in gm]) - 0.88) < 0.1 and round(one(gm)) == 88,
       f"{st.mean([ncalls(x) for x in gm]):.2f} calls, {one(gb):.0f}->{one(gm):.0f}")
-check("terra-pro 51.2 below terra@max 52.6",
-      abs(sci(C("openai/gpt-5.6-terra-pro")) - 51.2) < 0.06
-      and abs(sci(C("openai/gpt-5.6-terra@max")) - 52.6) < 0.06)
+check("terra-pro 53.8 below terra@max 55.2, and the prose quotes those",
+      abs(sci(C("openai/gpt-5.6-terra-pro")) - 53.8) < 0.06
+      and abs(sci(C("openai/gpt-5.6-terra@max")) - 55.2) < 0.06
+      and "terra-pro 53.8 against terra@max 55.2" in report_html,
+      f"{sci(C('openai/gpt-5.6-terra-pro')):.1f} vs {sci(C('openai/gpt-5.6-terra@max')):.1f}")
 glm = [x for x in runs if x["model"].startswith("z-ai/glm-5.2")]
 check("GLM 993 runs across 7 efforts",
       len(glm) == 993 and len({x["model"] for x in glm}) == 7,
@@ -251,7 +278,7 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if not r.get("small") and r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("five of fourteen differ, four downward", len(diff) == 5 and len(down) == 4,
+check("six of fifteen differ, four downward", len(diff) == 6 and len(down) == 4,
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))
@@ -261,7 +288,6 @@ check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in l
 # star came from a registry flag, and clearing the flag would have left the
 # report explaining an asterisk it no longer printed.
 print("\n== weights-pending annotation")
-report_html = open("results/report.html", encoding="utf-8").read()
 pending = [e["label"] for e in active_models() if e.get("weights_pending")]
 noted = "announced weights release" in report_html
 check("pending-weights note appears only when a model is flagged", noted == bool(pending),
