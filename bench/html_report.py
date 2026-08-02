@@ -1068,7 +1068,10 @@ def build(all_runs):
         mm = meta["models"][r["spec"].partition("@")[0]]
         gg = mm.get("gguf") or {}
         cells = ""
-        for q in QUANT_LADDER:
+        # heaviest first: a reader scanning left to right meets full precision
+        # before the compromises, and the fits-wash reads as a run in from the
+        # right rather than a stub on the left
+        for q in reversed(QUANT_LADDER):
             gb = gg.get(q)
             est = gb is None and q == LOCAL_QUANT and r["vram_gb"]
             if gb is None and not est:
@@ -1082,7 +1085,11 @@ def build(all_runs):
             fit = "fits" if v <= LOCAL_WEIGHT_BUDGET_GB else "nofit"
             cells += f'<td class="r {fit}" data-s="{v:.1f}">{"~" if est else ""}{v:,.0f}</td>'
         open_rows_html.append(
-            f'<tr><td>{r["label"]}</td><td>{mm["type"] or "n/a"}</td>'
+            f'<tr><td>{r["label"]}</td>'
+            # the index rides along so this table can be read in score order too,
+            # which is the order it ships in; the models table above has the rest
+            + num_td(r["sci"], f'{r["sci"]:.1f}')
+            + f'<td>{mm["type"] or "n/a"}</td>'
             + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
             + num_td(param_count(mm["params_active"]), mm["params_active"] or "n/a")
             + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
@@ -1140,9 +1147,9 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 
 <section>
   <h2>Open weights in detail</h2>
-  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. <span class="swatch" style="background:{FITS_BG}"></span> marks a quantization that <b>fits one {LOCAL_VRAM_GB} GB machine</b>, meaning it lands inside the {LOCAL_WEIGHT_BUDGET_GB} GB left for weights once the OS and a KV cache are paid for; grey is out of reach. The waterline across each row is how far down the ladder that model stays runnable, and the <code>{LOCAL_QUANT}</code> column is the line the local-inference class above is drawn on.</p>
+  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. <span class="swatch" style="background:{FITS_BG}"></span> marks a quantization that <b>fits one {LOCAL_VRAM_GB} GB machine</b>, meaning it lands inside the {LOCAL_WEIGHT_BUDGET_GB} GB left for weights once the OS and a KV cache are paid for; grey is out of reach. Columns run heaviest first, so the wash reads as a waterline: how far left along the ladder a model stays runnable on one machine. The <code>{LOCAL_QUANT}</code> column is the line the local-inference class above is drawn on, and the <b>SCI</b> column is the same baseline index as the leaderboard, carried here so the table can be read in score order as well as by size.</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
-    <tr><th>Model</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in QUANT_LADDER)}</tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in reversed(QUANT_LADDER))}</tr>
     {"".join(open_rows_html)}
   </table></div>
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Five models need that estimate: Hy3, DeepSeek V4-Pro and Inkling have no GGUF at all (Inkling's only quantized repo is a different and much smaller model), while Kimi K3 and DeepSeek V4 Flash have repos that skip <code>Q4_K_M</code> entirely, publishing 1- and 2-bit quants and an <code>XL</code> variant instead. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
