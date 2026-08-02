@@ -826,60 +826,21 @@ def build(all_runs):
   {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts))}
   {lift_legend}
 </section>"""
-    # Local-inference deep dive. Six of these eight sit below the headline cut,
-    # so this is the only chart they appear in; the table answers the questions
-    # the charts above cannot (how much memory, how much room is left, how far
-    # up the quant ladder you can go, how fast it serves).
-    #
-    # Deliberately NOT a copy of "Open weights in detail": that table is
-    # architecture and the full ladder for all 13 open models, including the
-    # ones that do not fit. This one is about running the eight that do.
+    # Local-inference section: prose and the chart, no table of its own. It had
+    # one for a day, listing memory per model, and it was a second answer to a
+    # question "Open weights in detail" already answers below. One table.
     smallest, largest = min(local_rows, key=lambda r: r["vram_gb"]), max(local_rows, key=lambda r: r["vram_gb"])
     near = min((r for r in sci_rows if not r.get("local") and r["open_weight"] and r["vram_gb"]),
                key=lambda r: r["vram_gb"])
     near_iq4 = (meta["models"][near["spec"].partition("@")[0]].get("gguf") or {}).get("IQ4_XS")
-
-    local_table_rows = []
-    for r in local_rows:
-        gg = meta["models"][r["spec"].partition("@")[0]].get("gguf") or {}
-        # the highest PUBLISHED quant inside the budget, which is not always the
-        # one the class is drawn on: V4 Flash's repo skips Q4_K_M entirely, and
-        # Hy3 publishes no GGUF at all, so its cell stays honestly empty
-        fits = [(i, q) for i, q in enumerate(QUANT_LADDER)
-                if gg.get(q) and gg[q] <= LOCAL_WEIGHT_BUDGET_GB]
-        best = (f'<td class="r" data-s="{fits[-1][0]}">{fits[-1][1]}'
-                f' <span class="ci">{gg[fits[-1][1]]:,.0f} GB</span></td>') if fits else '<td class="r"></td>'
-        mcp_sci = mcp_rows[r["label"]]["sci"] if r["label"] in mcp_rows else None
-        d = mcp_sci - r["sci"] if mcp_sci is not None else None
-        local_table_rows.append(
-            f'<tr><td>{r["label"]}</td>'
-            + num_td(round(r["vram_gb"], 1),
-                     f'{"~" if not r["vram_measured"] else ""}{r["vram_gb"]:,.0f}')
-            + num_td(round(LOCAL_WEIGHT_BUDGET_GB - r["vram_gb"], 1),
-                     f'{LOCAL_WEIGHT_BUDGET_GB - r["vram_gb"]:,.0f}')
-            + best
-            + num_td(tps_by_label[r["label"]] and round(tps_by_label[r["label"]], 1),
-                     f'{tps_by_label[r["label"]]:.0f}' if tps_by_label[r["label"]] else "n/a")
-            + num_td(r["sci"], f'{r["sci"]:.1f}')
-            + num_td(mcp_sci, f"{mcp_sci:.1f}" if mcp_sci is not None else "n/a")
-            + (f'<td class="r" data-s="{d:.1f}"><span style="color:{"var(--mcp)" if d > 0 else "var(--muted)"};'
-               f'font-weight:{600 if d > 0 else 400}">{"+" if d > 0 else "−"}{abs(d):.1f}</span></td>'
-               if d is not None else '<td class="r">n/a</td>')
-            + "</tr>"
-        )
     local_html = f"""
 <section>
   <h2>Local-inference class <span style="text-transform:none">(runs on one {LOCAL_VRAM_GB} GB machine)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself, in detail. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near["vram_gb"]:.0f} GB, though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB); no closed model qualifies at all, since there are no weights to download.</p>
+  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near["vram_gb"]:.0f} GB, though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB); no closed model qualifies at all, since there are no weights to download.</p>
   <p class="takeaway" style="margin:0 0 10px">{word(n_below).capitalize()} of the {word(len(local_rows))} rank below the top {word(CHART_TOP_N)}, so this is where they are measured. The chart is the one above, same index and same question: best configuration without the documentation tool against best with it. Two regimes show up inside the class. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
   {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts))}
   {lift_legend_local}
-  <h3 class="chart-title">What it takes to run them</h3>
-  <div class="tablewrap"><table id="localtable" class="sortable">
-    <tr><th>Model</th><th class="r" data-num>{LOCAL_QUANT} GB</th><th class="r" data-num>Headroom</th><th class="r" data-num>Best quant that fits</th><th class="r" data-num>Tok/s</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>&Delta;</th></tr>
-    {"".join(local_table_rows)}
-  </table></div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Headroom is what is left of the {LOCAL_WEIGHT_BUDGET_GB} GB weight budget once that model is resident, and it is the room a long context has to live in. "Best quant that fits" is the highest quantization <i>published</i> for that model whose file still lands inside the budget, so it reads as how much precision the machine can afford rather than the minimum it demands: {largest["label"]} has room for <code>Q6_K</code>, and the small models fit at full <code>BF16</code>. Hy3's cell is empty because it publishes no GGUF at all, and <b>~</b> marks a {LOCAL_QUANT} size estimated at {LOCAL_FALLBACK_BITS} bits per weight rather than measured. Tok/s is observed here, not advertised: median output tokens over model time in this benchmark's best baseline variant, so reasoning and provider queueing both count against it, and it is the hosted endpoint's throughput rather than what the same weights would do on your desk. The full quantization ladder, including the models that do not fit, is in "Open weights in detail" below.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">What each of these weighs, at every quantization its authors published, is in "Open weights in detail" below, alongside the open models that need more machine than this.</p>
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
 /* Pointer and touch both open this. The mouse path follows the cursor; a tap

@@ -61,34 +61,55 @@ def arch_from_config(hf_id):
 
 
 def gguf_sizes(repo, expect_base):
+    """Every published quantization of one repo, plus the canonical five.
+
+    `files` is the whole ladder under the exact names the repo publishes, because
+    "the best quant that fits a 64 GB machine" can only be answered from the
+    ladder that exists: these repos ship 13 to 38 files each, from TQ1_0 to BF16,
+    and the five-name subset we used to record made DeepSeek V4 Flash look like
+    it topped out at IQ4_XS when the repo goes to UD-Q8_K_XL.
+
+    The five canonical keys stay alongside it, derived from `files` with the same
+    plain-over-UD preference as before, so the class rule and the open-weights
+    ladder table read exactly what they always read.
+    """
     m = get(f"https://huggingface.co/api/models/{repo}?blobs=true")
     base = (m.get("cardData") or {}).get("base_model")
     base = base[0] if isinstance(base, list) else base
     if base != expect_base:
         raise SystemExit(f"{repo}: base_model is {base!r}, expected {expect_base!r}")
-    # exact stem match, plain quant preferred over an UD- variant
-    tot = defaultdict(lambda: defaultdict(int))
+    # Strip the model-name prefix off each stem rather than splitting on "-":
+    # every quant name contains hyphens of its own (UD-Q4_K_XL), and splitting
+    # produced names like "M3-UD-IQ1_M".
+    prefix = repo.split("/")[-1].removesuffix("-GGUF")
+    tot = defaultdict(int)
     for s in m.get("siblings", []):
         f = s["rfilename"]
-        if not f.endswith(".gguf") or "mmproj" in f.lower():
+        # mmproj is the vision projector; mtp-* is Gemma's multi-token-prediction
+        # draft head, half a gigabyte of something that is not the model
+        if not f.endswith(".gguf") or re.search(r"mmproj|(^|/)mtp-", f, re.I):
             continue
         # a quant is either one file or a -00001-of-000NN shard set; strip either
         # suffix to get the stem the quant name ends with
         stem = re.sub(r"(-\d{5}-of-\d{5})?\.gguf$", "", f).split("/")[-1]
-        for q in QUANTS:
-            if re.search(rf"(?:^|[-_])(UD-)?{re.escape(q)}$", stem):
-                tot["UD" if "-UD-" in stem or stem.startswith("UD-") else "plain"][q] += s.get("size") or 0
+        name = re.sub(rf"^{re.escape(prefix)}[-._]?", "", stem, flags=re.I) or stem
+        tot[name] += s.get("size") or 0
+    files = {q: round(v / 1e9, 1) for q, v in sorted(tot.items(), key=lambda kv: kv[1]) if v}
+    if not files:
+        raise SystemExit(f"{repo}: no .gguf files matched the prefix {prefix!r}")
+
+    # exact match on the canonical name, plain quant preferred over an UD- variant
     out = {}
     for q in QUANTS:
-        v = tot["plain"].get(q) or tot["UD"].get(q)
+        v = files.get(q) or files.get(f"UD-{q}")
         if v:
-            out[q] = round(v / 1e9, 1)
+            out[q] = v
     have = [(q, out[q]) for q in QUANTS if q in out]
     for (qa, a), (qb, b) in zip(have, have[1:]):
         if b <= a:
             raise SystemExit(f"{repo}: {qb} ({b} GB) is not larger than {qa} ({a} GB); "
                              "stem matching picked up the wrong file")
-    return {"repo": repo, **out}
+    return {"repo": repo, **out, "files": files}
 
 
 def main():

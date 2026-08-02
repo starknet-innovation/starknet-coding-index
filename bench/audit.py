@@ -313,32 +313,24 @@ check("the leaderboard names every model below the cut",
       == [r["label"] for r in lb[CHART_TOP_N:]],
       cut_note.group(1) if cut_note else "no note")
 
-# The local table's two derived columns, recomputed from the same inputs the
-# page had: headroom is arithmetic, and "best quant that fits" is a two-way
-# claim (the named quant fits, and nothing above it does).
-local_tbl = re.search(r'<table id="localtable".*?</table>', report_html, re.S)
-rows_tbl = re.findall(r"<tr>(?!<th)(.*?)</tr>", local_tbl.group(0), re.S) if local_tbl else []
-cells = [[re.sub(r"<[^>]+>", "", c).strip() for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
-         for r in rows_tbl]
-cells = [c for c in cells if c and c[0] in {r["label"] for r in loc}]
-bad_head = [c[0] for c in cells
-            if abs(float(c[2].replace(",", ""))
-                   - (LOCAL_WEIGHT_BUDGET_GB - by[c[0]]["vram_gb"])) > 0.5]
-check(f"local table: {len(loc)} rows, headroom = {LOCAL_WEIGHT_BUDGET_GB:.0f} GB minus the weights",
-      len(cells) == len(loc) and not bad_head, ", ".join(bad_head) or f"{len(cells)} rows")
-bad_quant = []
-for c in cells:
-    gg = _mm[by[c[0]]["spec"].partition("@")[0]].get("gguf") or {}
-    fit = [q for q in LADDER if gg.get(q) and gg[q] <= LOCAL_WEIGHT_BUDGET_GB]
-    named = c[3].split()[0] if c[3].strip() else ""
-    if named != (fit[-1] if fit else ""):
-        bad_quant.append(f"{c[0]}: says {named or 'blank'}, data says {fit[-1] if fit else 'blank'}")
-    elif named and any(gg[q] <= LOCAL_WEIGHT_BUDGET_GB for q in LADDER[LADDER.index(named) + 1:] if gg.get(q)):
-        bad_quant.append(f"{c[0]}: a higher quant also fits")
-check("local table: the named quant is the highest published one that fits",
-      not bad_quant,
-      "; ".join(bad_quant) or ", ".join(f"{c[0]} {c[3].split()[0] if c[3].strip() else '-'}"
-                                        for c in cells))
+# The five ladder rungs the report prints are picks out of a much longer list
+# (13 to 38 files per repo), so check the pick rather than trusting it: each
+# canonical size must be exactly the plain build, or the UD- build where the repo
+# publishes no plain one. This is what caught Gemma 4 31B, whose Q8_0 and BF16
+# were inflated by half a gigabyte of `mtp-` draft head summed into them.
+bad_pick = []
+for k, v in _mm.items():
+    files = (v.get("gguf") or {}).get("files")
+    if not files:
+        continue
+    for q in LADDER:
+        want = files.get(q) or files.get(f"UD-{q}")
+        if v["gguf"].get(q) != want:
+            bad_pick.append(f"{k}:{q} prints {v['gguf'].get(q)}, ladder has {want}")
+check("every printed quant size is the one in the published ladder",
+      not bad_pick, "; ".join(bad_pick) or
+      f"{sum(len((v.get('gguf') or {}).get('files') or {}) for v in _mm.values())} files across "
+      f"{sum(1 for v in _mm.values() if (v.get('gguf') or {}).get('files'))} repos")
 
 measured = [r["label"] for r in lb if r["open_weight"] and r.get("vram_measured")]
 check("8 of 13 open models have a measured Q4_K_M", len(measured) == 8,
