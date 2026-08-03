@@ -743,6 +743,19 @@ def build(all_runs):
         'not yet published</span>'
         if any(r.get("weights_pending") for r in chart_rows) else ""
     )
+    # The chart legend above only fires when a FLAGGED model is actually drawn
+    # in that chart, and a pending model can rank below the cut: Qwen3.8 Max
+    # printed `open*` in the models table with nothing anywhere explaining the
+    # star. The models table lists every model, so the explanation belongs here
+    # too, phrased the same way, and derived from the flag rather than typed.
+    _pending = [r["label"] for r in sci_rows if r.get("weights_pending")]
+    pending_table_note = (
+        f'{" and ".join(_pending)} carr{"ies" if len(_pending) == 1 else "y"} an '
+        f'<b>open*</b> classification based on an announced weights release that is '
+        f'not yet published: Alibaba has said the first Max-class Qwen ships its '
+        f'weights the week of 2026-08-10, after this run window.'
+        if _pending else ""
+    )
 
     # Chart 2: best-without vs best-with the MCP, per model. Each condition
     # picks its own best thinking variant (deployment framing), so labels
@@ -927,7 +940,7 @@ def build(all_runs):
          "interval of each other on ~1.8k output tokens and 14 seconds. Only <code>max</code> is "
          "different, and it is a cliff, not a step: 88% one-shot, the best of any Sonnet setting, for "
          "61k output tokens at $0.68 a task and nine minutes of thinking."),
-        ("Which of these could I run myself?", "8 of 21",
+        ("Which of these could I run myself?", "8 of 22",
          "They fit one 512 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
          "MiniMax M3 at 264 GB, and they compare on their own footing in the section below. The "
          "rest need a rack or are closed. Documentation pays hardest down there: it nearly triples "
@@ -1142,7 +1155,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">The full field, including the {word(len(sci_rows) - CHART_TOP_N)} models below the chart cut. Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">The full field, including the {word(len(sci_rows) - CHART_TOP_N)} models below the chart cut. Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. {pending_table_note} Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
 </section>
 
 <section>
@@ -1152,7 +1165,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in reversed(QUANT_LADDER))}</tr>
     {"".join(open_rows_html)}
   </table></div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Five models need that estimate: Hy3, DeepSeek V4-Pro and Inkling have no GGUF at all (Inkling's only quantized repo is a different and much smaller model), while Kimi K3 and DeepSeek V4 Flash have repos that skip <code>Q4_K_M</code> entirely, publishing 1- and 2-bit quants and an <code>XL</code> variant instead. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Six models need that estimate: Hy3, DeepSeek V4-Pro, Inkling and Qwen3.8 Max have no GGUF at all (Inkling's only quantized repo is a different and much smaller model; Qwen3.8 Max's weights are announced but unpublished), while Kimi K3 and DeepSeek V4 Flash have repos that skip <code>Q4_K_M</code> entirely, publishing 1- and 2-bit quants and an <code>XL</code> variant instead. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
 </section>"""
 
     findings_html = """
@@ -1370,7 +1383,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (993 runs across seven efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 25 to 120 runs per variant, deepest where the index was noisiest. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
+        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (993 runs across seven efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 13 to 120 runs per variant, deepest where the index was noisiest and shallowest where a tier was measured only to rule it out: Qwen3.8 Max's <code>high</code> cell is a single 13-run pass, run to check whether the top of its ladder was viable at all, and it was not. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
         <li><b>Eight cells abandoned:</b> host-sleep and network stalls made six unrecoverable (five qwen/minimax baseline cells, one MiMo MCP cell), one qwen@high cell was cut when its batch was stopped manually, and one Hy3 run was killed at 22m43s after grinding far past the 900-second model-time budget, with its last delivered submission taken as the result (it scored zero either way, being over budget). All count as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time and cost medians exclude abandoned cells.</li>
         
         <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> (38/39 solved on both, same turn counts), so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>

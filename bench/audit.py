@@ -73,7 +73,7 @@ print("   " + "  ".join(f"{r['label']}={r['sci']:.1f}({r['variant']})" for r in 
 
 print("\n== chips and coverage")
 check("13 tasks", NT == 13, f"{NT}")
-check("21 charted models", len(lb) == 21, f"{len(lb)}")
+check("22 charted models", len(lb) == 22, f"{len(lb)}")
 
 print("\n== price revisions")
 # A revision is applied as one multiplier to a recorded total, which is only
@@ -217,7 +217,7 @@ npass = sorted({-(-len(C(r["spec"])) // 13) for r in lb})
 check("methodology: 2 to 10 passes", min(npass) == 2 and max(npass) == 10, str(npass))
 # caveats: per-variant depth outside GLM
 ns = [len(C(sp)) for e in lb if e["label"] != "GLM 5.2" for sp in e["specs"] if C(sp)]
-check("caveats: 25 to 120 runs per variant", min(ns) == 25 and max(ns) == 120, f"{min(ns)}-{max(ns)}")
+check("caveats: 13 to 120 runs per variant", min(ns) == 13 and max(ns) == 120, f"{min(ns)}-{max(ns)}")
 # The local-inference class is derived, so check it in BOTH directions against
 # the rule: nothing inside it exceeds the weights budget, and nothing outside it
 # would have fitted. A one-way check would pass a class that quietly lost members.
@@ -333,7 +333,7 @@ check("every printed quant size is the one in the published ladder",
       f"{sum(1 for v in _mm.values() if (v.get('gguf') or {}).get('files'))} repos")
 
 measured = [r["label"] for r in lb if r["open_weight"] and r.get("vram_measured")]
-check("8 of 13 open models have a measured Q4_K_M", len(measured) == 8,
+check("8 of 14 open models have a measured Q4_K_M", len(measured) == 8,
       f"{len(measured)} measured, estimated: "
       + ", ".join(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured")))
 # head to head
@@ -396,7 +396,7 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("seven of twenty-one differ, four downward", len(diff) == 7 and len(down) == 4,
+check("eight of twenty-two differ, five downward", len(diff) == 8 and len(down) == 5,
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))

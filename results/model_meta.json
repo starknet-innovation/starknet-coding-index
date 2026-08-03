@@ -743,6 +743,22 @@
      "BF16": 159.5
     }
    }
+  },
+  "qwen/qwen3.8-max": {
+   "name": "Qwen: Qwen3.8 Max",
+   "context_length": 1000000,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 2.0,
+    "output": 6.0,
+    "cache_read": 0.25,
+    "cache_write": null
+   },
+   "pricing_note": null,
+   "type": "MoE",
+   "params_total": "2.4T",
+   "params_active": "95B",
+   "gguf": null
   }
  },
  "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T/104B lab-stated on the model card, published 2026-07-27 as moonshotai/Kimi-K3; Hy3 295B/21B and Qwen 27B dense lab-stated; V4 Flash 0731 304B from its own card and safetensors tensor count, 13B active from the preview card for the identical architecture (43 layers, 256 experts, 6 routed + 1 shared per token)."

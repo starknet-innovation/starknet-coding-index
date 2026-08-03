@@ -9,21 +9,18 @@ results/workspaces/
 vendor/
 results/shots/
 
-# Run data: only the analysis-ready main.jsonl is published. main.full.jsonl keeps
-# the transcripts and submitted code locally (640 MB of the 655, and nothing in
-# bench/ reads either field). The rest are per-stream inputs to merges that already
-# happened, so tracking them would double-count and bloat the repo.
-results/runs/main.full.jsonl
-results/runs/gap-*.jsonl
-results/runs/ladder-*.jsonl
-results/runs/topup*.jsonl
-results/runs/refill-*.jsonl
-results/runs/probe-*.jsonl
+# Run data: only the analysis-ready main.jsonl is published. Everything else in
+# results/runs/ is a per-stream input to a merge that already happened, or
+# main.full.jsonl, which keeps the transcripts and submitted code locally (640 MB
+# of the 655, and nothing in bench/ reads either field).
+#
+# Allowlist, not a prefix list: the old enumeration (gap-*, ladder-*, topup*,
+# refill-*, probe-*) let every new naming convention escape. qwen38-* was five
+# files away from being committed before a pre-commit check caught it.
+results/runs/*.jsonl
+!results/runs/main.jsonl
 results/runs/*.bak
 results/runs/*.bak2
-results/runs/dryrun.jsonl
-results/runs/smoke.jsonl
-results/runs/pilot.jsonl
 
 # session tooling, not part of the benchmark
 .claude/

@@ -256,6 +256,26 @@ MODEL_REGISTRY = [
                "minimax/minimax-m3@minimal"],
      # @disabled deliberately absent: MiniMax accepts the param but thinks anyway
      "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
+    # Benchmarked 2026-08-03. Weights ANNOUNCED for the week of 2026-08-10 via
+    # Alibaba Model Studio, the first Max-class Qwen to be opened, so this entry
+    # carries weights_pending exactly as Kimi K3's did until 2026-07-27. 2.4T
+    # total / ~95B active, which estimates to ~1.5 TB at Q4_K_M: open, but not
+    # anyone's local machine.
+    #
+    # Probe: @disabled REJECTED ("Reasoning is mandatory for this endpoint"), so
+    # @minimal is the floor. The ladder is two bands, not a gradient: minimal /
+    # low / medium answer a one-line function in 8-11s, while high / xhigh / max
+    # spend 2-5 MINUTES and 6-12k tokens on the same prompt, and the bare default
+    # is the most expensive setting of all. @low was left unswept because the
+    # probe put it inside @minimal's band (333 vs 381 tokens).
+    #
+    # @medium is an interior winner, so the ladder closed without @max. @high is
+    # the worst tier on every axis at once and lost h1_component at 930s, past
+    # the model-time budget, on a run it had actually solved.
+    {"specs": ["qwen/qwen3.8-max@high", "qwen/qwen3.8-max@medium",
+               "qwen/qwen3.8-max@minimal"],
+     "label": "Qwen3.8 Max", "lab": "Alibaba", "open_weight": True,
+     "weights_pending": True},
     # Full ladder swept 2026-07-25 for the effort-curve section (both conditions).
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high",
                "qwen/qwen3.6-27b@medium", "qwen/qwen3.6-27b@low",
