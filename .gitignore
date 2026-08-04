@@ -29,3 +29,10 @@ results/runs/*.bak2
 # bench/screenshot.py without the enforcement that makes anyone run it.
 .claude/*
 !.claude/settings.json
+
+# Transit box between sandboxes: agent memory staged here before a sandbox is
+# destroyed, because the workspace survives a recreate and the container
+# filesystem (where /home/agent/.claude lives) does not. Working preferences are
+# conversation-grade notes, not repo documentation, so the box is not tracked.
+# SANDBOX.md documents the restore.
+.handoff/

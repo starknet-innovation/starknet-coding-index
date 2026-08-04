@@ -50,7 +50,7 @@ before reaching for `fits_locally()` or `model_meta.json`.
 ## Toolchain
 
 `Dockerfile` at the repo root is both a Docker Sandbox template base and the dependency
-list. Build it, then either push and `sbx run --template <ref> claude`, or
+list; `SANDBOX.md` is the operator runbook for standing up a sandbox from it. Build it, then either push and `sbx run --template <ref> claude`, or
 `docker image save … | sbx template load`.
 
 It extends `docker/sandbox-templates:claude-code-docker`, and the `-docker` suffix is

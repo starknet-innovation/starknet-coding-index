@@ -1,5 +1,5 @@
 [project]
-name = "cairo-coder-benchmark"
+name = "starknet-coding-index"
 version = "0.1.0"
 description = "The Starknet Coding Index: how well LLMs write Starknet contracts, with and without documentation access"
 requires-python = ">=3.12"
