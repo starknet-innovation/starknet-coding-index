@@ -64,7 +64,7 @@ RUN set -eux; \
 # because the vendored Cairo Coder service pins psycopg2==2.9.10, which ships no
 # wheel for 3.13+; on 3.14 the image would need gcc and libpq-dev and would
 # compile it from source on every environment rebuild. The benchmark itself
-# declares requires-python >=3.11 and produces identical scores on 3.12,
+# declares requires-python >=3.12 to match, and produces identical scores there,
 # intervals included, because index_ci seeds random.Random(0).
 ARG PYTHON_VERSION=3.12
 RUN uv python install ${PYTHON_VERSION}
