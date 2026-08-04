@@ -40,7 +40,13 @@ ident = lambda r: (r["task"], r["model"], r["condition"], r["rep"])
 
 
 def sweep_files():
-    return sorted(p for p in RUNS.glob("*.jsonl") if p.name not in KEEP)
+    """Every run file that is not one of the four we keep.
+
+    Globs `*.jsonl*` rather than `*.jsonl`, so ad-hoc `.bak`/`.bak2` snapshots are
+    accounted for too. Two of them (112 MB, taken before the transcript strip)
+    outlived the first prune purely because they did not end in `.jsonl`.
+    """
+    return sorted(p for p in RUNS.glob("*.jsonl*") if p.name not in KEEP)
 
 
 def load(path):
@@ -94,6 +100,11 @@ def main():
         print("\ndry run; nothing written or deleted. Re-run with --apply.")
         return
 
+    # MERGE, never overwrite: a later prune must not erase the provenance of an
+    # earlier one. Writing the fresh dict straight out would have dropped the 27
+    # sweeps recorded in the first pass the moment two .bak files were pruned.
+    if MANIFEST.exists():
+        manifest = {**json.loads(MANIFEST.read_text()), **manifest}
     MANIFEST.write_text(json.dumps(manifest, indent=1) + "\n")
     if rescue:
         with LEFTOVERS.open("a") as fh:
