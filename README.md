@@ -93,7 +93,7 @@ version of it. Per-model deltas are charted in the report.
 - `bench/` — Python harness (each module's docstring says how to run it): runner, agent loop,
   OpenRouter client, workspace executor, task validator, report generator
 - `results/runs/main.jsonl` — one record per run, append-only, resumable
-- `results/report.md` / `report.html` — aggregated results
+- `results/report.html` — the report, charts included
 - `bench/audit.py` — re-checks every number quoted in the report against the data
 
 ## Published data
@@ -148,8 +148,7 @@ environment, or read it to see what to install by hand.
 export OPENROUTER_API_KEY=... CAIRO_CODER_API_KEY=...
 uv run python -m bench.validate_tasks            # gate: solutions pass, stubs fail
 uv run python -m bench.runner --models <spec,...> --conditions baseline,mcp --reps 1
-uv run python -m bench.report          # markdown tables -> results/report.md
-uv run python -m bench.html_report     # visual report  -> results/report.html
+uv run python -m bench.html_report     # the report -> results/report.html
 ```
 
 `results/report.html` is structured overview-first: hero verdict, difficulty-impact

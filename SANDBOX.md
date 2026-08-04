@@ -109,7 +109,7 @@ Each command has a known-good output; anything else means the restore missed som
 | Command | Expect |
 |---|---|
 | `scarb --version && snforge --version` | `2.19.4`, `0.62.1` |
-| `uv run python -m bench.report` | `results/report.md` unchanged (`git diff --stat` empty) |
+| `uv run python -m bench.html_report` | `results/report.html` unchanged (`git diff --stat` empty) |
 | `uv run python -m bench.audit` | `ALL CLAIMS VERIFY` |
 | `uv run python -m bench.validate_tasks` | `All 13 tasks valid.` |
 | `uv run python -m bench.screenshot` | 26 shots; three `ok … stacks at 390px` lines |

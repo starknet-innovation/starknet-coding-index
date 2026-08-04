@@ -20,7 +20,7 @@ that way.
 | `bench/cairo_coder.py` | the MCP condition's tool, replicating `@kasarlabs/cairo-coder-mcp` v0.2.5 |
 | `bench/sci.py` | the index: `SCI_SPEC`, `MODEL_REGISTRY`, `leaderboard()`, `index_ci()` |
 | `bench/html_report.py` | `results/report.html`, charts included, with build-time gates |
-| `bench/report.py` | markdown tables, and `load_runs()`, which every consumer shares |
+| `bench/report.py` | `load_runs()`, the single loader every consumer shares |
 | `bench/audit.py` | re-checks every published figure against the data; exits non-zero on drift |
 | `bench/status.py` | live progress of a sweep: runs done vs needed, intervals, spend |
 | `bench/screenshot.py` | regenerates the report and shoots every section at two widths to `results/shots/` |
