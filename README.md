@@ -136,6 +136,12 @@ uv run python -m bench.status          # per-model confidence intervals vs the t
 works as a release gate. `bench.html_report` also refuses to write a report whose
 charts contain non-ASCII text or labels that would run off an edge.
 
+Everything the project needs is in the root **`Dockerfile`**, which doubles as the
+dependency list: Python 3.12, `scarb` 2.19.4 and `snforge` 0.62.1 (the toolchain that
+compiles and tests every submission, so the versions are part of the experiment), and
+Playwright's Chromium for the visual checks. `docker build` it to get a working
+environment, or read it to see what to install by hand.
+
 ## Running the benchmark
 
 ```bash

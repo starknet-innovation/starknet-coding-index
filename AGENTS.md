@@ -47,6 +47,51 @@ it already carries what a caller usually recomputes: `label`, `lab`, `spec`, `va
 `sci`, `n`, `ci`, `open_weight`, `weights_pending`, `local`, `vram_gb`. Read the row
 before reaching for `fits_locally()` or `model_meta.json`.
 
+## Toolchain
+
+`Dockerfile` at the repo root is both a Docker Sandbox template base and the dependency
+list. Build it, then either push and `sbx run --template <ref> claude`, or
+`docker image save … | sbx template load`.
+
+| Tool | Pin | Why it is pinned |
+|---|---|---|
+| `scarb` | 2.19.4 | compiles every submitted contract. A different compiler is a different benchmark |
+| `snforge` | 0.62.1 | runs the hidden tests, same reasoning |
+| Python | 3.12 | one interpreter for the benchmark AND the vendored service, which pins `psycopg2==2.9.10` (no wheel above 3.12). Pinned by us so a base-image bump cannot change the interpreter under the experiment. Verified identical scores and intervals against 3.14, since `index_ci` seeds `random.Random(0)` |
+| `playwright` | 1.61.0 | ties to browser build chromium-1228, which every screenshot was taken with |
+| `bun`, `mdbook`, `antora` | 1.3.14, 0.4.52, 3.1.15 | corpus ingestion only. The ingester shells out to `mdbook` and to `antora`; mdbook is held at 0.4.x because 0.5 breaks the cairo-book theme |
+
+**The Python environment lives outside the repo**, at `/home/agent/.venv-sci` via
+`UV_PROJECT_ENVIRONMENT`. The workspace is a bind mount, so anything the image writes to
+`<repo>/.venv` is masked at run time; keeping it in `$HOME` also means renaming the
+project no longer breaks it. `uv run …` picks it up with no `uv sync` step.
+
+### Restoring the MCP condition after a rebuild
+
+The embedded corpus is **not** in the image. It is a PostgreSQL data directory inside the
+workspace, so it travels with the project:
+
+```bash
+docker run -d --name postgres -p 5455:5432 --env-file vendor/cairo-coder/.env \
+  -v "$PWD/vendor/cairo-coder/data:/var/lib/postgresql/data" pgvector/pgvector:pg17
+cd vendor/cairo-coder/python && uv sync --python 3.12 && uv run cairo-coder   # detached
+curl -m 60 -X POST localhost:3001/v1/chat/completions -d '{"messages":[{"role":"user","content":"ping"}]}'
+```
+
+The tag must stay **pg17** (a data directory is not readable by another major version) and
+the bind path must be the same directory. The health check keeps a 60s timeout: a RAG
+round trip takes 6 to 20 seconds and a short timeout makes a healthy service look dead.
+
+To refresh the corpus with newer documentation:
+
+```bash
+cd vendor/cairo-coder/ingesters && bun install && bun run generate-embeddings:yes
+```
+
+The full corpus is 4,105 chunks across 11 sources, roughly $0.42 of embedding spend
+through OpenRouter, which needs `encoding_format: "float"` because its base64 default
+returns empty vectors.
+
 ## Commands
 
 ```bash

@@ -5,6 +5,16 @@ description = "The Starknet Coding Index: how well LLMs write Starknet contracts
 requires-python = ">=3.11"
 dependencies = [
     "openai>=1.50",
+    # bench/models.py catches httpx exception types directly (mid-stream
+    # disconnects the SDK does not wrap), so it is a real dependency rather than
+    # something we happen to get through openai.
+    "httpx>=0.28",
+    # bench/screenshot.py is the visual-QA gate. Pinned exactly because the
+    # browser build is tied to the release: 1.61.0 installs chromium-1228, which
+    # is what the Dockerfile bakes and what every screenshot so far was taken
+    # with. Both of these were undeclared until 2026-08-04, so `uv sync` on a
+    # fresh clone produced an environment that could not run the gate.
+    "playwright==1.61.0",
 ]
 
 [tool.uv]
