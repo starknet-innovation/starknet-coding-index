@@ -165,9 +165,16 @@ uv run python -m bench.runner --models qwen/qwen3.6-27b@low,qwen/qwen3.6-27b@hig
 - **Use `--rep-offset` past the highest existing rep** for a model already in
   `main.jsonl`. Rep numbering restarts per output file, so without it the merge
   collides on the identity tuple and you get two different runs claiming to be rep 1.
-- **No merge tool ships here.** Append the sweep file into `main.jsonl`, dedupe on
-  `(task, model, condition, rep)`, treat an identical row as already-merged and a
-  same-key-different-content row as a collision to investigate, then run `bench.audit`.
+- **No merge tool ships here, and a merge has TWO destinations.** Append the sweep file
+  into **`main.full.jsonl` in full**, and into **`main.jsonl` with `transcript` and
+  `final_code` removed**. Dedupe both on `(task, model, condition, rep)`, treat an
+  identical row as already-merged and a same-key-different-content row as a collision to
+  investigate, then run `bench.audit`.
+  **Appending a sweep file verbatim to `main.jsonl` publishes the transcripts.** It
+  happened twice (DeepSeek V4 Flash, Qwen3.8 Max), put 20.8 MB of transcripts and
+  submitted code into the tracked dataset and then into git history, and needed a
+  history rewrite to undo. `bench.audit` now fails if any tracked record carries either
+  field, and if the two files hold different numbers of records.
 - `--provider-order <slug>` pins routing. Needed where a model's encrypted reasoning
   blocks do not validate across a provider's two endpoints; a mid-run failover then
   produces errors that look like model failures.

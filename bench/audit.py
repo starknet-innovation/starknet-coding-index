@@ -10,6 +10,7 @@ change the data, run this before believing the report.
 """
 import json as _json
 import math
+import os
 import re
 import statistics as st
 import sys
@@ -490,6 +491,36 @@ for claim, want in [
     ("README data: records vs analysed", f"holds {n_lines:,} records, the {len(runs):,} analysed"),
 ]:
     check(claim, want in readme, want.replace("\n", " "))
+
+# The published dataset must never carry transcripts or submitted code. Two
+# merges appended sweep records verbatim instead of stripping those fields, and
+# 20.8 MB of them sat in the tracked file, and then in git history, until a
+# question about a sandbox rename happened to surface it. Cheap to check, and it
+# would have caught it the same day.
+print("\n== dataset hygiene")
+_fat = [f'{r["task"]}/{r["model"]}/rep{r["rep"]}'
+        for r in (_json.loads(l) for l in open("results/runs/main.jsonl"))
+        if r.get("transcript") or r.get("final_code")]
+check("no tracked record carries a transcript or submitted code",
+      not _fat, f"{len(_fat)} records: " + ", ".join(_fat[:3]) if _fat else "0 of 7,702")
+# The local archive is where that material belongs, and every merge should append
+# to both files. Compared by RECORD COUNT rather than by identity tuple: the two
+# files disagree on model ids for legacy records (load_runs folds llm_opts effort
+# into the id, the archive stores it raw), and parsing 676 MB of transcripts on
+# every audit run to normalise them would cost more than the check is worth.
+# A count mismatch is exactly the failure this is for: a merge that fed one file
+# and forgot the other.
+#
+# A public clone has neither the archive nor any way to make one, so its absence
+# is not a failure: skip.
+_arch = "results/runs/main.full.jsonl"
+if os.path.exists(_arch):
+    _n_arch = sum(1 for _ in open(_arch))
+    _n_slim = sum(1 for _ in open("results/runs/main.jsonl"))
+    check("the local archive holds one detailed record per published row",
+          _n_arch == _n_slim, f"archive {_n_arch:,} vs tracked {_n_slim:,}")
+else:
+    print("  skip  archive check: main.full.jsonl not present (public clone)")
 
 print(f"\n{'ALL CLAIMS VERIFY' if not fails else str(len(fails)) + ' FAILED: ' + '; '.join(fails)}")
 sys.exit(1 if fails else 0)
