@@ -53,6 +53,13 @@ before reaching for `fits_locally()` or `model_meta.json`.
 list. Build it, then either push and `sbx run --template <ref> claude`, or
 `docker image save … | sbx template load`.
 
+It extends `docker/sandbox-templates:claude-code-docker`, and the `-docker` suffix is
+load-bearing: that variant ships the in-sandbox Docker daemon, which the MCP condition
+needs to run the pgvector container holding the embedded corpus. The plain `claude-code`
+variant has the CLI but no daemon, so a sandbox built on it passes every benchmark gate
+and then fails at the `docker run` in the MCP restore. The `sbx run` agent argument is
+`claude` for both.
+
 | Tool | Pin | Why it is pinned |
 |---|---|---|
 | `scarb` | 2.19.4 | compiles every submitted contract. A different compiler is a different benchmark |

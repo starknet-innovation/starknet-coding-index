@@ -14,7 +14,15 @@
 # run time), results/runs/main.full.jsonl, vendor/cairo-coder, and any
 # credential. The sandbox proxy injects secrets at run time, and Docker's own
 # docs warn that saving a sandbox as a template captures whatever is on disk.
-FROM docker/sandbox-templates:claude-code
+#
+# The -docker variant is REQUIRED, not a preference: it ships the in-sandbox
+# Docker daemon (dockerd runs as an early PID inside the sandbox), and the MCP
+# condition depends on it to run the pgvector container that holds the embedded
+# corpus. The plain claude-code variant has the Docker CLI but no daemon, so a
+# sandbox built on it passes every benchmark gate and then fails at exactly the
+# `docker run pgvector/pgvector:pg17` step. The agent argument to `sbx run` is
+# still `claude` either way.
+FROM docker/sandbox-templates:claude-code-docker
 
 # ---------------------------------------------------------------- system layer
 # Exactly the list bench/screenshot.py prints when Chromium fails to launch.
