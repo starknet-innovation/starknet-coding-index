@@ -65,6 +65,43 @@ def shoot(page, prefix=""):
     return shots
 
 
+# Containers that must be one column on a phone. Measured, not eyeballed: the
+# scorecards shipped two-up at 390px because `grid-column: span 2` survived the
+# media query that dropped the grid to 1fr, and Grid answered the span by
+# inventing an implicit second column. The screenshot showed it; nobody looked
+# at that particular PNG. (.chips is excluded: it is a flex row that wraps by
+# design, and its children are meant to sit side by side.)
+STACKED_ON_PHONE = [".scorecards", ".faq", ".split"]
+
+
+def check_stacking(page, width, tol=6):
+    """Every direct child of a stacking container spans the container's width."""
+    bad = []
+    for sel in STACKED_ON_PHONE:
+        rows = page.eval_on_selector_all(
+            sel,
+            """els => els.map(el => {
+                 const c = el.getBoundingClientRect();
+                 return [...el.children].map(ch => {
+                   const r = ch.getBoundingClientRect();
+                   return {left: Math.round(r.left - c.left), width: Math.round(r.width),
+                           full: Math.round(c.width)};
+                 });
+               })""",
+        )
+        for kids in rows:
+            for k in kids:
+                if k["left"] > tol or k["full"] - k["width"] > tol:
+                    bad.append(f"{sel}: child {k['width']}px at x+{k['left']} "
+                               f"in a {k['full']}px container")
+                    break
+    for sel in STACKED_ON_PHONE:
+        hits = [b for b in bad if b.startswith(sel)]
+        print(f"  {'FAIL' if hits else 'ok  '} {sel} stacks at {width}px"
+              + (f"  |  {hits[0]}" if hits else ""))
+    return bad
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-regen", action="store_true", help="shoot the existing report.html as-is")
@@ -96,11 +133,14 @@ def main():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(args=LAUNCH_ARGS)
-            groups = []
+            groups, bad = [], []
             for prefix, opts, label in PASSES:
                 page = browser.new_page(**opts)
                 page.goto(f"file://{report}", wait_until="load", timeout=30000)
                 groups.append((label, shoot(page, prefix)))
+                if prefix == "m-":
+                    print(f"\nlayout checks at {opts['viewport']['width']}px:")
+                    bad = check_stacking(page, opts["viewport"]["width"])
                 page.close()
             browser.close()
     except Exception as e:
@@ -108,11 +148,15 @@ def main():
         sys.exit(1)
 
     (SHOTS_DIR / ".fresh").touch()
-    print(f"{sum(len(g) for _, g in groups)} shots -> {SHOTS_DIR}")
+    print(f"\n{sum(len(g) for _, g in groups)} shots -> {SHOTS_DIR}")
     for label, shots in groups:
         print(f"\n{label}:")
         for s in shots:
             print(f"  {s}")
+    if bad:
+        print("\n".join(["", "layout is broken on a phone:"] + [f"  {b}" for b in bad]),
+              file=sys.stderr)
+        sys.exit(1)
     print("\nNow Read them, BOTH widths, and iterate until the design is right.")
 
 

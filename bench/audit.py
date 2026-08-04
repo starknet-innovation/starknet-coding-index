@@ -16,8 +16,8 @@ import sys
 
 from bench.report import load_runs
 from bench.sci import (CHART_TOP_N, LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB,
-                       PRICE_REVISIONS, active_models, attempts, compute_sci,
-                       index_ci, leaderboard, price_ratio, run_cost)
+                       PRICE_REVISIONS, SCI_SPEC, active_models, attempts,
+                       compute_sci, index_ci, leaderboard, price_ratio, run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
 # a few claims are about the rendered prose, not just the data behind it
@@ -99,19 +99,13 @@ worst = max(((index_ci(C(r["spec"])) or 0), r["label"]) for r in lb)
 check("every model within +/-5", worst[0] <= 5.0, f"widest {worst[0]:.1f} ({worst[1]})")
 
 print("\n== FAQ cards")
-o, f, g, k, mi, s5, sol = (by[n] for n in
-    ["Opus 5", "Fable 5", "Grok 4.5", "Kimi K3", "MiMo-V2.5-Pro", "Sonnet 5", "GPT-5.6 Sol"])
+o, f, k, mi, s5, sol = (by[n] for n in
+    ["Opus 5", "Fable 5", "Kimi K3", "MiMo-V2.5-Pro", "Sonnet 5", "GPT-5.6 Sol"])
 check("Opus 100% one-shot", one(C(o["spec"])) == 100, f"{one(C(o['spec'])):.0f}%")
 check("Opus has the fastest median pass of the charted models",
       min((pass_time(by[r["label"]]["spec"]), r["label"])
           for r in lb if r["label"] in charted)[1] == "Opus 5")
 check("Opus is 3.7 clear of second", abs(o["sci"] - f["sci"] - 3.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
-check("Fable/Grok 0.4 apart", abs(f["sci"] - g["sci"] - 0.4) < 0.06, f"{f['sci']-g['sci']:.2f}")
-check("Fable 96% vs Grok 74% one-shot",
-      round(one(C(f["spec"]))) == 96 and round(one(C(g["spec"]))) == 74,
-      f"{one(C(f['spec'])):.0f}/{one(C(g['spec'])):.0f}")
-check("Grok 9x cheaper per task than Fable", 8.5 <= med_cost(f["spec"]) / med_cost(g["spec"]) <= 9.9,
-      f"{med_cost(f['spec'])/med_cost(g['spec']):.1f}x")
 check("Kimi 87% vs MiMo 40% one-shot",
       round(one(C(k["spec"]))) == 87 and round(one(C(mi["spec"]))) == 40,
       f"{one(C(k['spec'])):.0f}/{one(C(mi['spec'])):.0f}")
@@ -120,6 +114,42 @@ check("MiMo 4.5x faster, 21x cheaper per pass",
       abs(pass_time(k["spec"]) / pass_time(mi["spec"]) - 4.5) < 0.4
       and abs(pass_cost(k["spec"]) / pass_cost(mi["spec"]) - 21) < 2,
       f"{pass_time(k['spec'])/pass_time(mi['spec']):.1f}x / {pass_cost(k['spec'])/pass_cost(mi['spec']):.0f}x")
+# The K3-vs-Qwen3.8 card: same class of model, 31 points apart. Every figure it
+# quotes is recomputed here, including the negative claim, which is the one most
+# likely to rot as reps are added.
+q38 = by["Qwen3.8 Max"]
+_meta = _json.load(open("results/model_meta.json"))["models"]
+check("K3 and Qwen3.8 Max are the same class: 2.8T/104B vs 2.4T/95B",
+      (_meta["moonshotai/kimi-k3"]["params_total"], _meta["moonshotai/kimi-k3"]["params_active"],
+       _meta["qwen/qwen3.8-max"]["params_total"], _meta["qwen/qwen3.8-max"]["params_active"])
+      == ("2.8T", "104B", "2.4T", "95B"))
+check("K3 is 31 points clear of Qwen3.8 Max",
+      abs(k["sci"] - q38["sci"] - 31.0) < 0.5, f"{k['sci']-q38['sci']:.2f}")
+_ck, _cq = compute_sci(C(k["spec"]))["components"], compute_sci(C(q38["spec"]))["components"]
+_eff = SCI_SPEC["weights"]["effective"] * (_ck["effective"] - _cq["effective"])
+check("30 of those 31 points are effectiveness",
+      29.0 <= _eff <= 31.0 and all(
+          abs(SCI_SPEC["weights"][w] * (_ck[c] - _cq[c])) < 1.0
+          for w, c in (("correct", "correct"), ("cost", "cost"), ("speed", "speed"))),
+      f"eff {_eff:+.1f}, others "
+      + ", ".join(f"{c} {SCI_SPEC['weights'][w] * (_ck[c] - _cq[c]):+.2f}"
+                  for w, c in (("correct", "correct"), ("cost", "cost"), ("speed", "speed"))))
+check("K3 87% vs Qwen3.8 Max 9% first-try compiles",
+      round(one(C(k["spec"]))) == 87 and round(one(C(q38["spec"]))) == 9,
+      f"{one(C(k['spec'])):.0f}%/{one(C(q38['spec'])):.0f}%")
+# the card's strongest claim: there is no "it built but the logic was wrong"
+# category for either model, so the whole gap is whether the code compiles
+_built_then_failed = [
+    f'{x["model"]} {x["task"]} rep{x["rep"]}'
+    for spec in (k["spec"], q38["spec"]) for x in C(spec)
+    if x.get("submissions") and x["submissions"][0]["compiled"]
+    and not x["submissions"][0].get("all_passed")
+]
+check("neither model ever compiled a first submission that then failed a test",
+      not _built_then_failed,
+      ", ".join(_built_then_failed) or
+      f'{len(C(k["spec"])) + len(C(q38["spec"]))} first submissions checked')
+
 check("Sonnet is 4th", [r["label"] for r in lb].index("Sonnet 5") == 3)
 check("Opus-Sonnet gap 8.6", abs(o["sci"] - s5["sci"] - 8.6) < 0.06, f"{o['sci']-s5['sci']:.2f}")
 check("Sonnet 67% one-shot", round(one(C(s5["spec"]))) == 67, f"{one(C(s5['spec'])):.0f}%")
@@ -154,7 +184,8 @@ check("Kimi low ties the default at a third of the cost",
       f"{med_cost('moonshotai/kimi-k3')/med_cost('moonshotai/kimi-k3@low'):.1f}x cheaper")
 
 print("\n== findings: documentation lift at each condition's own best")
-for lab, want in (("Qwen3.6-27B", 22.0), ("Qwen3.6-35B-A3B", 15.6), ("GLM 5.2", 6.4), ("GPT-5.6 Terra", 9.1),
+for lab, want in (("Qwen3.6-27B", 22.0), ("Qwen3.8 Max", 16.3), ("Qwen3.6-35B-A3B", 15.6),
+                  ("GLM 5.2", 6.4), ("GPT-5.6 Terra", 9.1),
                   ("GPT-5.6 Sol", 7.9), ("Qwen3 Coder Next", 6.3), ("MiniMax M3", 5.2), ("Hy3", 2.3),
                   ("Opus 5", -0.1), ("Kimi K3", -0.3), ("Fable 5", -1.6),
                   ("MiMo-V2.5-Pro", -2.6), ("Sonnet 5", -5.4),
@@ -301,12 +332,22 @@ check(f"the local chart draws all {len(loc)} models that fit one machine",
       len(local_svg) == 1 and sorted(chart_labels(local_svg[0])) == sorted(r["label"] for r in loc),
       ", ".join(sorted(set(chart_labels(local_svg[0])) ^ {r["label"] for r in loc}) or ["exact"])
       if local_svg else "no chart")
-# and the six that are only there: a model below the cut and outside the class
-# appears in no chart at all, which the leaderboard note is required to say
+# and the ones that are ONLY there: a model below the cut and outside the class
+# appears in no chart at all, which the local section is required to say. How
+# many that is moves with the cut -- widening it to fifteen pulled Hy3 above the
+# line and took this from six to five -- so the number is read back out of the
+# shipped sentence rather than typed here, where it would go stale silently.
+# NUMWORDS is spelled out again rather than imported from html_report: the gate
+# derives what it checks, so a wrong word table there has to fail here.
+NUMWORDS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+            "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
+numword = lambda w: NUMWORDS.index(w.lower()) if w.lower() in NUMWORDS else -1
 only_local = [r["label"] for r in loc if r["label"] not in charted]
-check("the local section is the only chart for the small models",
-      len(only_local) == 6 and not (set(only_local) & charted),
-      ", ".join(only_local))
+local_note = re.search(r"(\w[\w-]*) of the (\w[\w-]*) ranks? below the top (\w[\w-]*),", report_html)
+check("the local section is the only chart for the small models, and counts them",
+      bool(local_note)
+      and [numword(g) for g in local_note.groups()] == [len(only_local), len(loc), CHART_TOP_N],
+      f"{local_note.group(0)} | only there: {', '.join(only_local)}" if local_note else "no note")
 cut_note = re.search(r"Below the cut, in order: (.*?)\.\s", report_html)
 check("the leaderboard names every model below the cut",
       bool(cut_note) and [s.rsplit(" ", 1)[0] for s in cut_note.group(1).split(", ")]

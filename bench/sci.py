@@ -138,7 +138,7 @@ LOCAL_WEIGHT_BUDGET_GB = LOCAL_VRAM_GB - LOCAL_RESERVE_GB
 #
 # Lives here rather than in html_report because the audit checks chart
 # membership and the two must not disagree about who is in.
-CHART_TOP_N = 12
+CHART_TOP_N = 15
 
 _META = None
 

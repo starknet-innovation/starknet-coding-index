@@ -21,7 +21,7 @@ from . import config
 from .report import load_runs
 from .sci import (CHART_TOP_N, LOCAL_FALLBACK_BITS, LOCAL_QUANT,
                   LOCAL_RESERVE_GB, LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB,
-                  SCI_SPEC, active_models, attempt_score, attempts, index_ci,
+                  SCI_SPEC, attempt_score, attempts, index_ci,
                   leaderboard, param_count, run_cost)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
@@ -38,7 +38,6 @@ SNF_ORANGE_TINT = "#fddecf"
 SNF_PINK_INK = "#573166"   # pink-100
 SNF_PINK_TINT = "#fdd2fc"
 
-SLATE = "#7c7ba2"          # lavender-60: baseline series in the effort curves
 CORAL = SNF_CORAL          # "added by MCP": fills AND their labels
 INK = "#080435"            # blue-110
 MUTED = "#696989"          # lavender-70
@@ -91,60 +90,18 @@ def svg_open(w, h):
     )
 
 
-def chart(svg, small=False):
+def chart(svg):
     """Wrap a chart so a narrow screen scrolls it instead of shrinking it.
 
     An SVG at width:100% is happy to render at any size, and on a phone that
     means a chart drawn for 760px lands at ~0.38 scale with 4px axis labels.
     The floor in .chartwrap keeps it legible and the reader swipes, which is
-    what the tables on this page already do. small=True is the 380px-wide
-    small multiples, which need a floor of their own.
+    what the tables on this page already do.
 
     assert_output_is_portable counts charts against wrappers, so a new chart
     that skips this fails the build.
     """
-    return f'<div class="chartwrap{" small" if small else ""}">{svg}</div>'
-
-
-
-def line_chart(x_labels, series, annotations, w=760, h=300, y_min=60, y_max=101):
-    """series: [(name, color, [values]), ...]; annotations: [(xi, y, text)]"""
-    pad_l, pad_r, pad_t, pad_b = 46, 24, 16, 56
-    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
-    n = len(x_labels)
-    sx = lambda i: pad_l + i * cw / (n - 1)
-    sy = lambda v: pad_t + (y_max - v) / (y_max - y_min) * ch
-    parts = [svg_open(w, h)]
-    # 10%-gridlines get stripey when the panel spans most of 0–100
-    step = 20 if y_max - y_min > 60 else 10
-    for gv in range(y_min + (step - y_min % step) % step, int(y_max) + 1, step):
-        y = sy(gv)
-        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
-        parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}%</text>')
-    for i, lab in enumerate(x_labels):
-        parts.append(f'<text x="{sx(i):.0f}" y="{h - 36}" font-size="12" fill="{INK}" text-anchor="middle">{lab}</text>')
-    for si, (name, color, vals) in enumerate(series):
-        pts = " ".join(f"{sx(i):.0f},{sy(v):.1f}" for i, v in enumerate(vals))
-        parts.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2.5"/>')
-        for i, v in enumerate(vals):
-            parts.append(f'<circle cx="{sx(i):.0f}" cy="{sy(v):.1f}" r="4.5" fill="{color}"/>')
-            # labels go outside the band the two lines span at this x, so
-            # near-equal points can't collide: higher value above, lower below
-            # (ties: later series wins the top slot)
-            others = [s[2][i] for sj, s in enumerate(series) if sj != si]
-            on_top = all(v > o for o in others) or (any(v == o for o in others) and si > 0)
-            dy = -10 if on_top else 16
-            # labels take their series colour: line, dots and numbers read as one
-            parts.append(
-                f'<text x="{sx(i):.0f}" y="{sy(v) + dy:.1f}" font-size="11" fill="{color}" '
-                f'text-anchor="middle" font-weight="600">{v:.0f}</text>'
-            )
-    for xi, y, text in annotations:
-        parts.append(
-            f'<text x="{sx(xi) + 12:.0f}" y="{sy(y):.0f}" font-size="11.5" fill="{MUTED}" font-style="italic">{text}</text>'
-        )
-    parts.append("</svg>")
-    return "".join(parts)
+    return f'<div class="chartwrap">{svg}</div>'
 
 
 
@@ -166,14 +123,17 @@ SCI_CLOSED_COLOR = SNF_LAVENDER  # closed-weight models (neutral lavender-50)
 #
 # assert_output_is_portable enforces this geometry, so a future name long enough
 # to break it fails the build instead of rendering clipped.
-# Raised from 64 when the charts moved to the top twelve: fewer columns make
-# each one wider, but the label that lands in column 0 of the cost chart is now
-# "DeepSeek V4 Flash (off)" at 152px, which reaches 87.1px left of its centre
-# against 87px of clearance. The build guard caught it at 0.1px. 72 restores an
-# 8px margin without touching the angle, which is already steep enough that
-# every extra degree costs more label depth than it buys.
+# Raised twice as the cut moved, both times for the same label. At the top
+# twelve, pad 64 left "DeepSeek V4 Flash (off)" (152px) reaching 87.1px against
+# 87px of clearance and the build guard caught it at 0.1px; 72 bought an 8px
+# margin. The top fifteen narrows every column from 54 to 43px, which pulls
+# column 0's centre 5.4px left and spends most of that margin again, so 80. A
+# pixel of pad is worth 0.97px of clearance, not 1: the plot loses the width, so
+# the columns narrow slightly too. The same worst case now clears by 13.9px, and
+# the angle stays put, being already steep enough that every extra degree costs
+# more label depth than it buys.
 LABEL_ANGLE = 55
-AXIS_PAD_L = 72
+AXIS_PAD_L = 80
 _LABEL_CH = 11 * 0.60      # px per character at font-size 11, measured exact
                            # against getComputedTextLength (scratchpad/measure_labels.py)
 
@@ -233,6 +193,12 @@ def sci_bar_chart(rows, w=760, h=389):
     # (mono parenthetical + sans fallback), which clipped "Opus" at pad_l=48.
     # pad_r balances the ~36px of whitespace left of the tick labels so the
     # bar block reads centered.
+    #
+    # 64 rather than AXIS_PAD_L: this is the only chart drawn in rank order, so
+    # column 0 always holds the leader, and a leader's label is short by the
+    # nature of the thing ("Opus 5 (low)", 45px of reach against 86px of
+    # clearance at fifteen columns). The charts that sort by cost or by time can
+    # put any name first and pay the wider margin for it.
     pad_l, pad_r, pad_t = 64, 40, 26
     pad_b = rotated_label_pad(variant_suffixed(rows))
     cw = w - pad_l - pad_r
@@ -590,17 +556,6 @@ def attempts_chart(groups, w=760, h=210, y_max=None, fmt=None, ticks=None):
 
 
 def build(all_runs):
-    # Does the effort pattern generalize? Small-multiple curves, one per model
-    # with at least two thinking tiers measured in BOTH conditions.
-    #
-    # Tiers are DERIVED from the data, not listed here. The old hardcoded lists
-    # went stale every time a ladder was extended, and a tier with no runs got
-    # solve_pct 0, drawing a line to the floor that was indistinguishable from a
-    # model that genuinely solved nothing at that effort. Deriving them also
-    # means a tier the API rejects (gpt-oss refuses @disabled: "Reasoning is
-    # mandatory") simply never appears.
-
-
     # Starknet Coding Index leaderboard (baseline; reusable via MODEL_REGISTRY)
     sci_rows = leaderboard(all_runs)
 
@@ -635,83 +590,6 @@ def build(all_runs):
             "secs": secs,
             "time": f"{int(secs // 60)}m {int(secs % 60):02d}s",
         }
-    EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "high", "xhigh", "max"]
-    # Five, not two or three. This section plots SOLVE RATE, which only carries a
-    # model's story if most of the ladder is measured in both conditions. Sol and
-    # Terra qualified at three tiers and were charted for one build; the result was
-    # misleading on the page. Sol solves 100% at every tier in both conditions, so
-    # its curve was two flat lines, and Terra's coral line DIPPED at max (92% vs
-    # 97%) while the findings state +9.1 there, because its gain is entirely in
-    # first submissions (0% to 27%), not in solves. A chart that contradicts the
-    # prose two sections later is worse than an absence, and the absence is
-    # explained in the section note.
-
-    def measured_tiers(prefix):
-        """Tiers with runs in both conditions, in canonical effort order."""
-        have = {
-            t for t in EFFORT_ORDER
-            if all(any(r["model"] == prefix + t and r["condition"] == c for r in all_runs)
-                   for c in ("baseline", "mcp"))
-        }
-        return [t for t in EFFORT_ORDER if t in have]
-
-    # Which models appear is DERIVED, like the tiers inside each chart. The old
-    # hardcoded list silently dropped models as coverage grew: Sol and Terra both
-    # earned a curve tonight, and they are the two carrying the finding that the
-    # tool's gain appears at the TOP of the ladder, so leaving them out hid the
-    # evidence for the claim the law card makes. Gemini and Grok reach two tiers
-    # and stay out on MIN_CURVE_TIERS; Gemini's pair does not even include the
-    # tier its own winner uses.
-    #
-    # y_min keeps each family's shape readable and is derived per family below.
-    # ordered by index score, like every other section, so a reader moving down
-    # the page meets the models in the same sequence
-    rank = {r["label"]: i for i, r in enumerate(sci_rows)}
-    families = []
-    for entry in sorted(active_models(), key=lambda e: rank.get(e["label"], 99)):
-        # the prefix comes from a spec that HAS an effort, not specs[0]: Terra's
-        # list starts with its pro serving mode, whose id is a different model
-        effort_specs = [sp for sp in entry["specs"] if "@" in sp]
-        if not effort_specs:
-            continue                      # no dial at all (Coder Next)
-        prefix = effort_specs[0].split("@")[0] + "@"
-        tiers = measured_tiers(prefix)
-        if len(tiers) < 5:
-            continue
-        # y_min comes from the data, not from the model's class: a floor of 60
-        # keeps a saturated model's shape readable, but the models that live
-        # below it need the full axis. Deriving it also stops chart geometry
-        # depending on a classification that is about memory, not solve rate.
-        lo = min(solve_pct([r for r in all_runs if r["model"] == prefix + t
-                            and r["condition"] == c])
-                 for t in tiers for c in ("baseline", "mcp"))
-        families.append((entry["label"], prefix, 0 if lo < 60 else 60, tiers))
-
-    multiples = []
-    curve_points = []
-    for name, prefix, y_min, tiers in families:
-        series = []
-        for cond, color in [("baseline", SLATE), ("mcp", CORAL)]:
-            vals = []
-            for t in tiers:
-                rs = [r for r in all_runs if r["model"] == prefix + t and r["condition"] == cond]
-                vals.append(solve_pct(rs))
-                curve_points.append(len(rs))
-            series.append(("with MCP" if cond == "mcp" else "baseline", color, vals))
-        labels = ["off" if t == "disabled" else t for t in tiers]
-        curve = chart(line_chart(labels, series, annotations=[], w=380, h=230, y_min=y_min),
-                      small=True)
-        multiples.append(f'<div class="multiple"><h3>{name}</h3>{curve}</div>')
-    generalize_html = f"""
-<section>
-  <h2>Does the effort pattern generalize?</h2>
-  <div class="legend"><span><span class="key" style="background:var(--baseline)"></span>baseline</span><span><span class="key" style="background:var(--mcp)"></span>with MCP</span><span>solve rate, {min(curve_points)}–{max(curve_points)} runs per point</span><span>x-axis is the effort we requested; some neighbours are the same setting (see methodology)</span><span>a model appears here when most of its ladder was run in both conditions</span></div>
-  <div class="multiples">{"".join(multiples)}
-    <div class="multiple"><h3>Qwen3 Coder Next</h3>
-    <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:0">No curve, because there is no dial. OpenRouter exposes no reasoning parameters for this model at all, so there is nothing to sweep: it thinks the way it thinks. It sits in the local-inference chart above on its single configuration.</p></div>
-  </div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted);margin:16px 0 0">The two OpenAI models whose documentation gain arrives at full effort, Sol (+7.9) and Terra (+9.1), are deliberately not here: this chart measures solve rate and theirs barely moves. Sol already solves every task at every tier, and Terra's solve rate <i>falls</i> at <code>max</code> even as its score rises, because the tool buys it first-try delivery (0% to 27%) rather than more solves. The findings section carries that result.</p>
-</section>"""
 
     a = SCI_SPEC["anchors"]
     w_ = SCI_SPEC["weights"]
@@ -723,9 +601,10 @@ def build(all_runs):
     # leaderboard for being runnable at home.
     #
     # Models that fit that machine keep their own section (the class is derived
-    # in sci.fits_locally, never hand-set), so six of the nine models below the
-    # cut are still charted there; deprecated models are already gone from
-    # sci_rows entirely (see sci.active_models).
+    # in sci.fits_locally, never hand-set), so most of the models below the cut
+    # are still charted there; deprecated models are already gone from sci_rows
+    # entirely (see sci.active_models). How many that is moves with the cut, so
+    # n_below counts it rather than the prose stating it.
     chart_rows = sci_rows[:CHART_TOP_N]
     local_rows = [r for r in sci_rows if r.get("local")]
     charted_labels = {r["label"] for r in chart_rows}
@@ -821,10 +700,9 @@ def build(all_runs):
 
     # The substitution count is field-wide and always was; the sentence below
     # used to justify it with "counting this chart and the local one together",
-    # which stopped being true when the charts moved to the top twelve. Two of
-    # the switchers now change effort where no chart shows it, so the count is
-    # derived here and the prose says where they are rather than implying the
-    # charts cover everyone.
+    # which stopped being true when the charts stopped drawing everyone. The
+    # count is derived here and the prose says where the uncharted switchers are
+    # rather than implying the charts cover the field.
     VARIANT_ORDER = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
     vpos = lambda v: VARIANT_ORDER.index(v) if v in VARIANT_ORDER else -1
     switched = [(lbl, b, m) for lbl, (b, m) in lift_efforts.items() if b != m]
@@ -832,10 +710,25 @@ def build(all_runs):
     switched_offchart = [s for s in switched
                          if s[0] not in charted_labels
                          and s[0] not in {r["label"] for r in local_rows}]
+
+    # The clause names the models, so it has to read for one of them and vanish
+    # for none. Widening the cut to fifteen left GLM 5.2 alone in it, and at zero
+    # the sentence printed "Zero of the eight switchers () rank below the cut":
+    # an empty parenthetical wrapped around nothing.
+    series = lambda ns: ns[0] if len(ns) == 1 else ", ".join(ns[:-1]) + " and " + ns[-1]
+    offchart_note = ""
+    if switched_offchart:
+        _n = [s[0] for s in switched_offchart]
+        _s = "s" if len(_n) == 1 else ""
+        offchart_note = (
+            f' {word(len(_n)).capitalize()} of the {word(len(switched))} switchers '
+            f'({series(_n)}) rank{_s} below the cut and change{_s} effort where no chart '
+            f'on this page shows it.'
+        )
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index and the same top {word(CHART_TOP_N)}, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget. {word(len(switched_offchart)).capitalize()} of the {word(len(switched))} switchers ({" and ".join(s[0] for s in switched_offchart)}) rank below the cut and change effort where no chart on this page shows it.</p>
+  <p class="takeaway" style="margin:0 0 10px">Same index and the same top {word(CHART_TOP_N)}, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.{offchart_note}</p>
   {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts))}
   {lift_legend}
 </section>"""
@@ -926,14 +819,19 @@ def build(all_runs):
          "Every task in every rep solved on the first submission, at the field's fastest "
          "median pass. Nothing else in the field is perfect on that measure, which is why a "
          "flagship price tag still leaves it 3.7 points clear."),
-        ("Fable 5 or Grok 4.5?", "0.4 points apart",
-         "Call it a tie: the gap is smaller than either model's confidence interval. Fable "
-         "one-shots more (96% vs 74%), Grok bills 9× less ($0.0095 vs $0.0874 per task), and "
-         "under these weights the two cancel almost exactly."),
         ("Kimi K3 over MiMo? MiMo is far cheaper", "87% vs 40% one-shot",
          "This is the index working as intended. MiMo serves a pass 4.5× faster and 21× cheaper, "
          "and still loses 4.2 points, because it delivers broken code first about three runs in "
          "five. First-submission success carries twice the weight of the bill."),
+        ("Kimi K3 and Qwen3.8 Max are the same size. Why 31 points apart?",
+         "87% vs 9% first-try compiles",
+         "Two mixture-of-experts flagships released a week apart, 2.8T parameters activating "
+         "104B against 2.4T activating 95B, and both solve essentially every task. Their cost "
+         "and speed scores differ by less than a point. <b>Thirty of the 31 points come from one "
+         "place</b>: whether the first submission builds. And when it builds it works, because "
+         "across both models not one first submission compiled and then failed a test. That "
+         "makes this a knowledge gap rather than a reasoning gap, which is why documentation is "
+         "worth +16.3 to Qwen3.8 Max and &minus;0.3 to Kimi K3."),
         ("Sonnet 5 solves everything. Why 4th?", "67% vs 100% one-shot",
          "That gap against Opus 5 is most of the 8.6 points between them. Most of its dial "
          "does nothing: minimal through xhigh all land within one "
@@ -1171,21 +1069,21 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     findings_html = """
 <section class="findings">
   <h2>Findings</h2>
-  <div class="finding"><h3><span class="tag win">law</span>The tool's value tracks the knowledge gap, in any weight class</h3>
-  <p>Documentation lift lines up with baseline weakness: +22.0 for Qwen3.6-27B and +15.6 for Qwen3.6-35B-A3B at the knowledge floor, then +9.1 for GPT-5.6 Terra, +7.9 for GPT-5.6 Sol, +6.4 for GLM 5.2, +6.3 for Qwen3 Coder Next, +5.2 for MiniMax M3, +2.3 for Hy3, +1.5 for GPT-5.6 Luna, fading to nothing and then to a penalty at the saturated top (Grok +0.6, Opus 5 &minus;0.1, K3 &minus;0.3, Fable &minus;1.6, V4 Flash &minus;1.8, MiMo &minus;2.6, Sonnet 5 &minus;5.4).</p>
-  <p>Three refinements. The law applies per <i>variant</i>, and not in the direction we first reported: Terra's gain <i>grows</i> up its ladder (+2.0 with thinking off, +4.2 at <code>minimal</code>, <b>+9.1</b> at <code>max</code>), so a model can be saturated on its own and still have room the tool fills at full effort, and Sol behaves the same way (+7.9 at <code>max</code>). That is not a vendor effect, though: Luna, the third OpenAI model here, gains +3.0 at its top tier, which its own interval cannot separate from zero, against +0.1 and &minus;0.4 at its two other measured tiers. Also documentation raises MiniMax at four of its six tiers (+13.0, +12.3, +7.1, +3.2) while costing it 5.5 points at the one tier its baseline happens to win on, which is why the like-for-like gain above understates the tool. The lift is mostly bought in solves, not in polish: at the floor it converts runs that never worked into working ones (Qwen3.6-27B 15% to 69% solved, Qwen3.6-35B-A3B 11% to 59%, Coder Next 0% to 17%). And the law has a competence floor, because a model has to be able to exploit what it reads: Gemma 4 31B (−1.8) and gpt-oss-120b (−1.7, zero solves with documentation or without) sit below it.</p></div>
+  <div class="finding"><h3><span class="tag win">law</span>Give the docs tool to a model that needs it</h3>
+  <p>The weaker a model's Cairo, the more the tool is worth. At the bottom it is the difference between code that never compiles and code that works: <b>+22.0</b> for Qwen3.6-27B, which goes from 15% of runs solved to 69%, and <b>+15.6</b> for Qwen3.6-35B-A3B, 11% to 59%. In the middle it still pays, and a frontier model can sit there: <b>+16.3 for Qwen3.8 Max</b>, which knows how to reason about the problem but not what Cairo's API is called, then +9.1 for GPT-5.6 Terra, +7.9 for GPT-5.6 Sol, +6.4 for GLM 5.2, +5.2 for MiniMax M3. At the top it stops paying and starts costing: Opus 5 &minus;0.1, MiMo &minus;2.6, Sonnet 5 &minus;5.4.</p>
+  <p>Two qualifications. The gain belongs to an effort setting rather than to a model, and for Terra and Sol it is biggest at full effort, where the tool buys first-try delivery instead of more solves. And there is a floor underneath: Gemma 4 31B and gpt-oss-120b cannot use what they read, so lookups do not rescue them.</p></div>
   <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness, but it can buy first-try delivery</h3>
-  <p>Four patterns across the field (the two small Qwen models are their own case, below): thinkers whose dial never moves correctness (Sonnet 5, Opus 5, Fable 5, and Grok 4.5, where it only nudges the first-submission rate from 69% to 74%), an indifferent one (MiMo, 100% at all seven tiers), an obedient one that spends budget without needing it (Gemini), and real curves where thinking buys solves (GLM, MiniMax, and Inkling, whose curve overshoots: 94% correctness at <code>low</code> down to 88% at <code>high</code>). One thing changed with this index. The best variant is no longer the cheapest tier that holds correctness, because a pricier tier that gets it right on the first submission now beats a cheap tier that iterates, and that moved five models along their own ladders: Gemini and Sol up to <code>max</code>, GLM to <code>xhigh</code>, Terra to <code>max</code>, MiniMax down to <code>medium</code>. Up is not the same as topmost, though: GLM's <code>max</code> tier is its worst, 10 points below the <code>xhigh</code> that wins.</p>
-  <p>The top of the ladder is where Anthropic's three models change character, and every one of them pays for it. <code>max</code> lifts first-submission delivery (Fable to 100%, Sonnet to 88% from 67%) while spending three to thirty-four times the tokens: Opus 92.0 at <code>low</code> against 85.0 at <code>max</code>, Fable 88.4 against 83.7, Sonnet 83.4 against 73.2 on 61k output tokens and nine minutes a task. Buying reliability that way costs more than the reliability is worth here, which is the same trade the small models lose at the other end of the field. Kimi K3 shows the mirror image: its <code>low</code> tier ties its default (83.2 against 83.1, intervals well overlapped) at a third of the price and a third of the time, so the cheap setting is the one to run.</p>
-  <p>The two small Qwen models invert the question, and not the way the index alone suggests. Thinking does buy them solves: Qwen3.6-27B goes from 15% of runs solved with thinking off to <b>31% at <code>low</code></b>, and 35B-A3B from 11% to 23% at <code>high</code>. What it cannot buy is value. Those extra solves cost three to five times the output tokens and four to fourteen times the wall clock (27B: 10.8k tokens and 181s off, against 51.5k and 864s at <code>low</code>), so the index refuses to pay and thinking off still wins on score. One tier is genuinely self-defeating rather than merely expensive: 35B-A3B at <code>xhigh</code> burns 94k tokens to solve 4% of runs. Documentation is the better purchase at this end of the field, and it pays most exactly where thinking is off (27B +22.0 there, +8 at <code>xhigh</code>).</p></div>
-  <div class="finding"><h3><span class="tag cost">habits</span>One-shot ability is architectural; documentation can't buy it</h3>
-  <p>GPT-5.6 Sol iterates against the compiler even at flagship scale and price: at its best tier it delivers on the first submission 40% of the time and takes a median of two submissions per task, where Opus 5 and Fable 5 land first-try nearly always (100% and 96%). But this is the one habit documentation does buy. Given the tool at that same tier, Sol jumps to <b>72% first-submission</b> (p=0.014, the only shift in this study that clears significance) and its score rises 69.5 to 77.4. We reported the opposite earlier from its two weakest tiers, which were the only ones we had measured in both conditions: at 19% and 15% the tool looked useless to it. Measured where the model is actually good, it is worth more to Sol than to almost anyone.</p>
-  <p>Tool use splits the same way. Offered the docs, the three Anthropic models here never called them once, so the tool is pure schema overhead for them (Opus 5 gave that pattern its cleanest datapoint: zero calls, −0.1 points). Grok 4.5 consults them about once per run it does not obviously need, and no longer pays for the habit: +0.6 points, and a first-submission rate that moves the right way at the same tier, 74% to 88%. Under the previous index that same behaviour scored as a 13-point penalty, because a lookup consumed a turn and turns were what got counted. Nothing about Grok changed; the ruler did. Treat the direction as directional only, though: at the MCP condition's depth these first-submission shifts do not reach significance (Grok p=0.21, Sonnet's 67% to 50% drop p=0.15).</p></div>
+  <p>For most models the dial does nothing for correctness. Sonnet 5, Opus 5, Fable 5 and Grok 4.5 get the code right at every setting; MiMo is at 100% across all seven of its tiers. Only GLM, MiniMax and Inkling genuinely solve more when they think harder, and Inkling overshoots, dropping from 94% correctness at <code>low</code> to 88% at <code>high</code>.</p>
+  <p>What the top of the ladder does buy is first-try delivery, and it is rarely worth the bill. Anthropic's three models all deliver better at <code>max</code> (Fable 100% first-submission, Sonnet 88% up from 67%) while spending three to thirty-four times the tokens, and all three score worse for it: Opus 92.0 at <code>low</code> against 85.0 at <code>max</code>, Fable 88.4 against 83.7, Sonnet 83.4 against 73.2 on 61k output tokens and nine minutes a task. Kimi K3 is the same story from the other side: its <code>low</code> tier matches its default at a third of the price and a third of the time.</p>
+  <p>The two small Qwen models invert it. Thinking does buy them solves, 15% to 31% for Qwen3.6-27B and 11% to 23% for 35B-A3B, but at three to five times the tokens and up to fourteen times the clock, so thinking off still wins on score. Documentation is the better purchase at this end of the field, and it pays most exactly where thinking is off.</p></div>
+  <div class="finding"><h3><span class="tag cost">habits</span>First-try delivery is a model habit, and documentation is what moves it</h3>
+  <p>Some models get it right first time and some iterate against the compiler, and price does not predict which. GPT-5.6 Sol is a flagship that iterates: 40% first-submission at its best tier, a median of two submissions per task, where Opus 5 and Fable 5 land first-try 100% and 96% of the time. Hand Sol the docs at that same tier and it jumps to <b>72% first-submission</b>, the biggest and best-supported shift in this study, taking its score from 69.5 to 77.4.</p>
+  <p>Whether a model bothers to look anything up splits the same way. The three Anthropic models never called the tool once, so it is pure schema overhead for them. Grok 4.5 consults it about once a run it does not obviously need and comes out slightly ahead (+0.6, and 74% to 88% first-submission). Those last shifts are worth reading as a direction rather than a measurement; the documentation runs are not deep enough to pin them down.</p></div>
   <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
   <p>Both pro serving modes we funded cost 2 to 3× their model's <code>max</code> tier and scored below it (terra-pro 53.8 against terra@max 55.2). Neither ever produced the best configuration of its model, so sol-pro was not funded on that record.</p></div>
-  <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: baseline failures are training-data lag</h3>
-  <p>Failed baseline runs get stuck on <em>current</em> Cairo idioms (most often the storage API: pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>) and burn the whole 10-turn budget against the compiler. One documentation lookup resolves it. The mechanism was diagnosed on the deepest dataset (993 runs): the tool often <em>lowered</em> median cost there, with lookups rising as the thinking budget fell (~0.7/run at high effort, ~1.9/run with thinking off), and the same signature shows up wherever the tool pays, from Qwen's knowledge floor to Hy3's over-budget grinds.</p>
-  <p>The substitution is visible in which configuration wins. Seven of the twenty-one models pick a different thinking level with the tool than without, and four of those seven pick a <i>cheaper</i> one: Gemini <code>max</code> to <code>low</code>, MiniMax <code>medium</code> to <code>low</code>, Hy3 <code>high</code> to off, GLM <code>xhigh</code> to off. Luna and both DeepSeeks go the other way. Reference material buys what thinking budget was being spent on.</p></div>
+  <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: the models are writing an older Cairo</h3>
+  <p>The models that fail are not confused about contracts, they are working from an old Cairo. Most often it is the storage API: they write the pre-2024 <code>Map.read(key)</code> instead of today's <code>Map.entry(key).read()</code>, then burn all ten turns arguing with the compiler. One lookup fixes it, which is why the tool can make a model <i>cheaper</i> rather than dearer.</p>
+  <p>Documentation and thinking budget are buying the same thing. Seven of the twenty-one models pick a different effort setting with the tool than without, and four pick a <i>cheaper</i> one: Gemini <code>max</code> to <code>low</code>, MiniMax <code>medium</code> to <code>low</code>, Hy3 <code>high</code> to off, GLM <code>xhigh</code> to off.</p></div>
   <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
   <p>Asked about a token standard we invented ("STRK77"), the service returned a complete, confident, fabricated Cairo interface. Within its indexed corpus it's accurate; agents consuming it get no signal when a query falls outside coverage. Worth fixing upstream.</p></div>
 </section>"""
@@ -1205,7 +1103,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   {inter_font_face()}
   :root{{
     --ground:{GROUND}; --panel:#FFFFFF; --ink:{INK}; --muted:{MUTED};
-    --line:{LINE}; --baseline:{SLATE}; --mcp:{CORAL};
+    --line:{LINE}; --mcp:{CORAL};
     --accent:{SNF_BLUE}; --link:{SNF_BLUE_LINK}; --good:{GOOD}; --bad:#B03A3A;
     --mono:"SF Mono","Cascadia Code","JetBrains Mono",Consolas,ui-monospace,monospace;
     --sans:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -1227,14 +1125,9 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   /* Charts scroll rather than shrink below their floor, exactly like the wide
      tables. An SVG at width:100% will happily render a 760px chart at 290px,
      where an 11px axis label arrives at 4px; 660 keeps it at ~87% and a phone
-     shows about 60% of the chart at a time. The small multiples are drawn at
-     380 and get a floor to match. */
+     shows about 60% of the chart at a time. */
   .chartwrap{{overflow-x:auto}}
   .chartwrap>svg{{min-width:660px}}
-  /* the multiples are drawn at 380 and a 390px phone offers ~338 inside the
-     padding, so their floor sits under that: shrinking one by a tenth beats
-     giving it a scrollbar of its own */
-  .chartwrap.small>svg{{min-width:300px}}
   /* "there is more to the right", for charts and for the 900px-wide tables.
      The cover gradients scroll with the content and hide the edge shadow
      whenever that edge is already in view, so the hint appears only when
@@ -1272,14 +1165,6 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
      above its own chart's first drawn pixel (the svg carries ~26px of internal
      top padding for the value labels), so it read as belonging to the chart
      above. Measured, the gap above is now ~2x the gap below. */
-  /* small multiples: title centred over its own chart, which means centring the
-     wrapper so the inline svg moves with it. The note cell keeps its paragraph
-     left-aligned, since centred body text reads badly. */
-  .multiples{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}
-  @media(max-width:760px){{.multiples{{grid-template-columns:1fr}}}}
-  .multiple{{text-align:center}}
-  .multiple h3{{font-size:13px;margin-bottom:6px}}
-  .multiple>p{{text-align:left}}
   .chart-title{{font-size:12px;letter-spacing:.06em;text-transform:uppercase;
     color:var(--muted);margin:48px 0 4px;text-align:center}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
@@ -1290,7 +1175,13 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   #tip b{{font-weight:700}}
   .faq{{display:grid;grid-template-columns:1fr 1fr;gap:22px 28px;align-items:start}}
   .scorecards{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 20px}}
-  .scorecards>:first-child{{grid-column:span 2}}
+  /* The span lives INSIDE the wide query on purpose. A `grid-column: span 2`
+     outlives the grid-template-columns it was written for: at 1fr the browser
+     satisfies the span by inventing an implicit second column, so the section
+     rendered two-up on a phone (Correctness and Cost at ~160px each) while the
+     stylesheet said one column. .faq and .split collapse correctly at the same
+     breakpoint only because neither has a span to leak. */
+  @media(min-width:761px){{.scorecards>:first-child{{grid-column:span 2}}}}
   @media(max-width:760px){{.scorecards{{grid-template-columns:1fr}}}}
   /* Weights cards: the number IS the content, so it leads. */
   .scorecard .q{{font-family:var(--mono);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}}
@@ -1360,8 +1251,6 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 
 {local_html}
 
-{generalize_html}
-
 {models_html}
 
 {findings_html}
@@ -1374,20 +1263,18 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
         <li><b>Harness:</b> agentic repair loop, max 10 assistant turns. The model submits <code>src/lib.cairo</code> via a <code>submit</code> tool; the harness runs <code>scarb build</code> + <code>snforge test</code> against hidden tests and returns the output. Conditions are identical except the MCP condition also exposes <code>assist_with_cairo</code>, replicated exactly from <code>@kasarlabs/cairo-coder-mcp</code> v0.2.5.</li>
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
         <li><b>Models:</b> all served via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
-        <li><b>Prices move after the runs do:</b> the runs were billed at the prices listed on 2026-07-24, and three models have been cut since. Their cost scores are re-based to today's listing by rescaling what we were billed: GPT-5.6 Terra to 0.40&times;, GPT-5.6 Luna to 0.10&times;, GLM 5.2 to 0.90&times;. That is exact rather than approximate, because each of those cuts moved input, output and both cache rates by the identical factor, so the new cost of a recorded run does not depend on its mix of fresh, cached and output tokens. Three other models (Qwen3.6-27B, Gemma 4 31B, Qwen3 Coder Next) changed input and output by <i>different</i> factors and are therefore <b>not</b> re-based: recomputing them would need the cache read/write split, which a single billed total cannot reveal. GPT-5.6 Sol was checked and is unchanged. Prices throughout are the standard endpoint, not the cheaper deferred-latency <code>flex</code> tiers, which we did not benchmark and whose latency would not match the speed scores.</li>
+        <li><b>Prices move after the runs do:</b> the runs were billed at the prices listed on 2026-07-24. Three models have been cut since and are re-scored at today's listing (GPT-5.6 Terra 0.40&times;, GPT-5.6 Luna 0.10&times;, GLM 5.2 0.90&times;); three more moved input and output by different amounts, which a single billed total cannot be re-based from, so they stand as billed. GPT-5.6 Sol is unchanged. All prices are the standard endpoint, not the cheaper deferred-latency <code>flex</code> tiers.</li>
         <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). An <b>attempt is a submission</b>, not a turn, so lookups and extra thinking turns are free and only delivered-and-broken code costs.</li>
-        <li><b>Not every requested effort is a distinct setting:</b> OpenRouter publishes a <code>supported_efforts</code> list per model, and several levels we swept fall outside it, where the provider maps the request to something else. Median output tokens per run show exactly that. GLM 5.2 (supports <code>xhigh</code>, <code>high</code>): <code>minimal</code> 10.1k, <code>low</code> 10.1k, <code>medium</code> 9.6k and <code>high</code> 10.6k are one effective level, while <code>xhigh</code> 29.6k, <code>max</code> 53.6k and thinking off 5.0k are genuinely distinct. DeepSeek and Hy3 flatten the same way in their middle, and Gemini's <code>xhigh</code> and <code>max</code> match its <code>high</code>. So on those curves some neighbouring points are the same configuration and the wiggle between them is sampling noise, not a dial response; the x-axis is what we <i>requested</i>. Qwen, MiMo and MiniMax publish no list, so nothing can be said either way for them. The list is unreliable in the other direction too: Inkling advertises six efforts, but <code>medium</code> and <code>max</code> return a server error on every request while <code>high</code> works in the same minute, so its three measured tiers are all it has. None of this moves a conclusion: "the dial rarely buys correctness" holds across the field, and the distinctions the substitution finding rests on (off, mid, <code>xhigh</code>, <code>max</code>) are the real ones.</li>
-        <li><b>Reps and precision:</b> each model's best variant was sampled until its index confidence interval reached &plusmn;5 points (bootstrapped over its runs, 1,000 resamples), which took 2 to 10 passes of the suite depending on how noisy the model is. The interval is printed beside every score above, and <b>every model in the table now meets it</b>: the widest is &plusmn;4.9. &plusmn;5 is the floor on purpose. Most adjacent pairs in the ranking sit under 2 points apart, so they are ties that no affordable sample size resolves, and pricing &plusmn;3 for every variant that could plausibly win came to 2,086 further runs for one extra resolved pair. The MCP condition keeps its original 2 to 3 passes everywhere except GLM, whose MCP cells also reach 130 runs, so outside GLM the deltas are less precise than the headline scores.</li>
+        <li><b>Not every requested effort is a distinct setting:</b> providers quietly map some levels onto others, so two neighbouring efforts can be the same configuration. GLM 5.2 is the clearest case: <code>minimal</code>, <code>low</code>, <code>medium</code> and <code>high</code> all spend about 10k output tokens a run and are one effective level, while <code>xhigh</code> (29.6k), <code>max</code> (53.6k) and thinking off (5.0k) are genuinely different. DeepSeek, Hy3 and Gemini flatten the same way. Effort labels in this report are what we <i>requested</i>.</li>
       </ul>
     </div>
     <div>
       <h2>Caveats</h2>
       <ul class="meta">
-        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset (993 runs across seven efforts and both conditions, from the original pilot study); it anchors the substitution-law finding and the n=130 statistics. Newer entrants carry 13 to 120 runs per variant, deepest where the index was noisiest and shallowest where a tier was measured only to rule it out: Qwen3.8 Max's <code>high</code> cell is a single 13-run pass, run to check whether the top of its ladder was viable at all, and it was not. GLM runs predate the streaming and reasoning-round-trip harness fixes, which its own data shows it did not need.</li>
-        <li><b>Eight cells abandoned:</b> host-sleep and network stalls made six unrecoverable (five qwen/minimax baseline cells, one MiMo MCP cell), one qwen@high cell was cut when its batch was stopped manually, and one Hy3 run was killed at 22m43s after grinding far past the 900-second model-time budget, with its last delivered submission taken as the result (it scored zero either way, being over budget). All count as failures, consistent with their completed sibling reps. The stopped batch also skipped its tiebreaker pass, leaving 11 qwen high/max cells at 2 disagreeing reps (scored as the 2-rep mean). Time and cost medians exclude abandoned cells.</li>
-        
-        <li><b>MCP backend, tested:</b> @high's first 3 reps used the hosted api.cairo-coder.com; everything else used a self-hosted replica (same corpus re-ingested, same embedding/generation models). A direct A/B (39 runs each, identical tasks/effort) found <b>identical effectiveness</b> (38/39 solved on both, same turn counts), so hosted-index staleness did not skew results; only lookup speed differs (~5× faster locally). Data is pooled.</li>
-        <li><b>Statistics:</b> GLM's confirmation batches raised its low/medium/high baseline cells to n=130 (its other tiers hold 26 to 39; report-wide, baseline cells run 25 to 120). The apparent "low beats high" ordering at 3 reps did not survive: low ~ medium (p=0.83), high trails non-significantly (p=0.09), both two-proportion z-tests on solve counts (Fisher's exact is more conservative still, at 1.00 and 0.14). Solve-rate claims here carry Wilson 95% CIs of roughly ±5pt at n=130 and ±9pt at n=39.</li>
+        <li><b>Unequal depth by design:</b> GLM 5.2 carries the deepest dataset, 993 runs across seven efforts and both conditions, and it anchors the substitution finding. Everything else carries 13 to 120 runs per setting, deepest where the score was noisiest and shallowest where a tier was measured only to rule it out.</li>
+        <li><b>Eight cells abandoned:</b> host-sleep and network stalls killed six, one was cut when its batch was stopped by hand, and one Hy3 run was killed at 22m43s after grinding far past the time budget. All count as failures, which matches how their completed sibling runs scored. Time and cost medians exclude them.</li>
+        <li><b>MCP backend, tested:</b> the first 3 reps used the hosted api.cairo-coder.com and everything else a self-hosted replica with the same corpus and models. A direct A/B of 39 runs each found identical effectiveness, 38/39 solved on both, so the two are pooled. Only lookup speed differs, about 5&times; faster locally.</li>
+        <li><b>How precise any of this is:</b> each model's best setting was run until its score settled to within &plusmn;5 points, which took 2 to 10 passes of the 13 tasks. The widest interval in the table is &plusmn;4.9 and it is printed beside every score. Most adjacent pairs sit under 2 points apart, so read them as ties rather than as an order. GLM's apparent "low beats high" ordering at 3 reps did not survive the extra runs, which is the kind of thing 3 reps will do. The documentation runs are shallower at 2 to 3 passes, so those deltas are the least precise numbers here.</li>
         <li><b>Hosted sunset:</b> api.cairo-coder.com shuts down 2026-07-31; the replica replaces it for reruns.</li>
       </ul>
     </div>

@@ -28,6 +28,22 @@ that way.
 | `tasks/<id>/` | `prompt.md`, `Scarb.toml`, stub `src/lib.cairo`, hidden `tests/`, `solution/lib.cairo` |
 | `results/runs/main.jsonl` | the dataset, one JSON object per run, append-only |
 
+The constants most changes start from, because none of them live where you would look
+for them first:
+
+| Constant | Where | Moves |
+|---|---|---|
+| `CHART_TOP_N` | `bench/sci.py` | how many models the headline charts draw |
+| `LABEL_ANGLE`, `AXIS_PAD_L` | `bench/html_report.py` | angled axis labels, every chart at once |
+| `LOCAL_VRAM_GB`, `LOCAL_RESERVE_GB`, `LOCAL_QUANT` | `bench/sci.py` | who is in the local-inference class |
+| `SCI_SPEC`, `TIE_POINTS` | `bench/sci.py` | the index itself, and best-variant selection |
+| `MODEL_TIME_BUDGET_S` | `bench/config.py` | the run budget, enforced live and at load |
+
+A `leaderboard()` row is the registry entry merged with the winning variant's scores, so
+it already carries what a caller usually recomputes: `label`, `lab`, `spec`, `variant`,
+`sci`, `n`, `ci`, `open_weight`, `weights_pending`, `local`, `vram_gb`. Read the row
+before reaching for `fits_locally()` or `model_meta.json`.
+
 ## Commands
 
 ```bash
@@ -42,6 +58,28 @@ uv run python -m bench.runner --models <spec,...> --conditions baseline,mcp --re
 
 Only `runner` spends money on model APIs. Everything else is local, and the first four
 touch nothing but `results/`.
+
+## Try the change before making it
+
+`html_report.build(runs)` is pure. It returns the HTML string and writes nothing; only
+`main()` writes `results/report.html`. So anything that moves the roster or the chart
+geometry can be tested against the real data before a single file is edited:
+
+```python
+import bench.html_report as H
+from bench import config
+runs = H.load_runs([config.RUNS_DIR / "main.jsonl"])
+H.CHART_TOP_N = 15                         # the module-level name build() reads
+html = H.build(runs)                       # nothing written
+print(H.angled_labels_overhanging(html))   # [] means the label guard passes
+H.assert_output_is_portable(html)          # and the rest of the build gates
+```
+
+Counting labels or grepping prose out of that string answers, up front, which models a
+wider cut would draw, what the derived sentences would then say, and which audit claims
+would go stale, none of which is obvious from reading the code. Raising `CHART_TOP_N`
+from 12 to 15 was verified this way before anything was touched: three entrants, the
+label guard still clearing, and one audit check with a typed count that would fail.
 
 ## The data model
 
@@ -84,13 +122,16 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending
   money on models that had been dropped.
-- **The headline charts draw the top `CHART_TOP_N` (12) by index, and nothing else
+- **The headline charts draw the top `CHART_TOP_N` (15) by index, and nothing else
   decides membership.** The index chart, the three in "Behind the score" and the MCP
   chart all take `chart_rows = sci_rows[:CHART_TOP_N]`. `bench.audit` reads the shipped
   SVG back and checks that each of those charts drew exactly those models, because a
   chart built from the wrong row set still renders perfectly. Models below the cut keep
-  their table rows, their effort curves and their findings; the ones that also run
-  locally are charted in the local-inference section.
+  their table rows and their findings; the ones that also run locally are charted in the
+  local-inference section. Moving the cut moves label
+  geometry with it (see `AXIS_PAD_L`) and changes which models are charted only in the
+  local section, which the audit reads back out of that section's own sentence rather
+  than holding a count of its own.
 - **The local-inference class is derived, never hand-set.** `fits_locally()` asks
   whether a model's **published `Q4_K_M` file** fits `LOCAL_VRAM_GB` minus the reserve.
   Sizes come from the `gguf` block in `model_meta.json`, snapshotted from real repos;
@@ -179,8 +220,16 @@ Two helpers keep charts consistent rather than gating them:
   hardcoded padding in that file has been wrong at least once, and because labels
   rotate anticlockwise the clipping eats the *first* characters, which reads like a
   font bug rather than a geometry bug.
-- `LABEL_ANGLE = 55` and `AXIS_PAD_L = 72` are shared across charts deliberately, so
-  they stay visually consistent. Change them in one place or not at all.
+- `audit.section_html()` and `audit.chart_labels()` read the shipped SVG back. Reuse them
+  rather than writing a regex: axis labels come in two shapes, a bare rotated `<text>`
+  and a rotated `<g>` wrapping the label plus a rank-delta arrow, and a parser that knows
+  only the first reports the MCP chart drawing four fewer models than it drew.
+- `LABEL_ANGLE = 55` and `AXIS_PAD_L = 80` are shared across charts deliberately, so
+  they stay visually consistent. Change them in one place or not at all. `AXIS_PAD_L`
+  tracks `CHART_TOP_N`: more columns are narrower columns, which pulls column 0's centre
+  left and eats the clearance an angled label needs. The one documented exception is
+  `sci_bar_chart`, which keeps `pad_l = 64` because it alone draws in rank order, so its
+  first label is always the leader's and always short.
 
 For anything visual, run `bench.screenshot` and **look at the PNGs** before committing.
 Text and geometry checks have passed things that were plainly ugly on screen. Every
@@ -195,6 +244,18 @@ the enforcement.
 - `bench.audit` is the release gate. It checks the report *and* the top-5 table in
   `README.md`, so if a sweep moves a score, the README fails loudly instead of quietly
   contradicting the report.
+- **Never type a roster count into a check.** `len(only_local) == 6` was true only while
+  the roster held still, and moving the cut to 15 broke it, which is not the drift the
+  gate exists to catch. Derive the number, or, where the report already derives it, read
+  it back out of the shipped sentence and compare that to the data: the local section's
+  count works this way, so the prose and the check cannot disagree. Confirm a new check
+  fails on a tampered report before trusting it.
+- **Prose that counts things has to read at one and at zero.** Counts go through
+  `word(len(...))`, and a list that shrinks to one leaves "One of the eight switchers
+  *rank* below the cut" while an empty one leaves a parenthetical wrapped around nothing.
+  The first of those surfaced in a dry run of the top fifteen and the second is one
+  roster change further out. Pluralize off the length, and drop the clause when the list
+  is empty rather than printing "Zero of the eight".
 - `results/report.html` is generated locally. Publishing it anywhere is a manual,
   explicitly-requested step, never a side effect of rebuilding.
 - Report and README prose: no em dashes, and short paragraphs rather than walls.

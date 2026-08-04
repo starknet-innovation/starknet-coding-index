@@ -28,8 +28,8 @@ Intervals are bootstrapped over each model's runs (1,000 resamples). Opus 5 sepa
 from every model below it except Grok 4.5, whose interval is the widest here. Ranks 2
 to 5 all overlap one another, so read them as a band and not an order.
 
-All 22 models, the effort curves, the difficulty breakdown and the documentation-tool
-deltas are in the report. To print the full leaderboard yourself:
+All 22 models, the difficulty breakdown and the documentation-tool deltas are in the
+report. To print the full leaderboard yourself:
 
 ```bash
 uv run python -m bench.sci
@@ -147,7 +147,7 @@ uv run python -m bench.html_report     # visual report  -> results/report.html
 ```
 
 `results/report.html` is structured overview-first: hero verdict, difficulty-impact
-chart, effort curve, efficiency frontier, then detail tables and methodology. It is
+chart, efficiency frontier, then detail tables and methodology. It is
 generated locally only; publishing it anywhere is a manual, explicitly-requested step.
 
 Model specs attach a per-model reasoning effort with `@`, so efforts and
