@@ -26,7 +26,10 @@ that way.
 | `bench/screenshot.py` | regenerates the report and shoots every section at two widths to `results/shots/` |
 | `bench/validate_tasks.py` | gate for task packages: reference solution passes, stub fails |
 | `tasks/<id>/` | `prompt.md`, `Scarb.toml`, stub `src/lib.cairo`, hidden `tests/`, `solution/lib.cairo` |
-| `results/runs/main.jsonl` | the dataset, one JSON object per run, append-only |
+| `results/runs/main.jsonl` | the dataset, one JSON object per run, append-only, **no transcripts** |
+| `results/runs/main.full.jsonl` | local-only archive: the same runs WITH transcripts and submitted code |
+| `results/runs/sweeps.json` | which sweep file produced which runs; the only thing pruning destroys |
+| `results/runs/unmerged.jsonl` | local-only: attempts the dataset never took (transport errors, probes) |
 
 The constants most changes start from, because none of them live where you would look
 for them first:
@@ -53,6 +56,7 @@ uv run python -m bench.sci             # the leaderboard, per model and variant
 uv run python -m bench.status          # per-model intervals vs the precision target (--watch)
 uv run python -m bench.screenshot      # regen + shoot every section, desktop and phone (visual QA)
 uv run python -m bench.validate_tasks  # solutions pass, stubs fail
+uv run python -m bench.prune_runs      # delete merged sweep files (dry run; --apply to act)
 uv run python -m bench.runner --models <spec,...> --conditions baseline,mcp --reps 1
 ```
 
@@ -175,6 +179,13 @@ uv run python -m bench.runner --models qwen/qwen3.6-27b@low,qwen/qwen3.6-27b@hig
   submitted code into the tracked dataset and then into git history, and needed a
   history rewrite to undo. `bench.audit` now fails if any tracked record carries either
   field, and if the two files hold different numbers of records.
+- **Then delete the sweep file: `uv run python -m bench.prune_runs --apply`.** Once merged
+  it is pure duplication; 27 of them had reached 195 MB. The tool accounts for every
+  record before removing anything, refuses to delete a file it cannot explain, records
+  which sweep produced which runs in `results/runs/sweeps.json` (the only thing deletion
+  destroys), and rescues records the dataset never took into `unmerged.jsonl` (transport
+  errors, which `load_runs` drops, and probe runs). Harness dry-runs against `fake/model`
+  are discarded, being regenerable.
 - `--provider-order <slug>` pins routing. Needed where a model's encrypted reasoning
   blocks do not validate across a provider's two endpoints; a mid-run failover then
   produces errors that look like model failures.
