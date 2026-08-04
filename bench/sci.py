@@ -83,6 +83,12 @@ SCI_SPEC = {
 # list price at all, because prompt caching hides the read/write split and
 # throughput routing sent them to providers charging well off the listing.
 #
+# Check prices programmatically, never from a web summary: urllib against
+# https://openrouter.ai/api/v1/models returns every model, and
+# /models/<id>/endpoints gives the per-provider prices, which differ a lot (Terra
+# was $1/$6 direct, $2/$12 priority, $2.50/$15 on Azure, and the press quoted the
+# priority tier). A summary of a pricing page has been wrong here before.
+#
 # Prices are the standard endpoint. Sol and Terra also publish a half-price
 # "flex" tier, but that is a deferred-latency service class we did not benchmark,
 # and pricing runs at flex while keeping the latency we measured on standard

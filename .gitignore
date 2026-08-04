@@ -22,5 +22,10 @@ results/runs/*.jsonl
 results/runs/*.bak
 results/runs/*.bak2
 
-# session tooling, not part of the benchmark
-.claude/
+# Session tooling. The directory stays out, but settings.json is tracked: it holds
+# the visual-QA hooks (a reminder on html_report.py edits, and a PreToolUse gate that
+# blocks a commit while the screenshots are older than the UI files). Those are part of
+# how this repo is worked on, and leaving them untracked meant a fresh clone got
+# bench/screenshot.py without the enforcement that makes anyone run it.
+.claude/*
+!.claude/settings.json

@@ -241,6 +241,18 @@ uv run python -m bench.runner --models qwen/qwen3.6-27b@low,qwen/qwen3.6-27b@hig
   budget and toward the speed component, so a crowded backend manufactures both
   failures and a bad speed score.
 
+## Authoring a task package
+
+`bench.validate_tasks` is the gate: every reference solution must pass its hidden tests
+and every stub must fail. Three Cairo 2.19 details cost real debugging time when the
+suite was written, and none of them are obvious from the compiler message:
+
+- **An `Array` derefs to `Span`.** Call `.span()` before `.at()` or `.len()` in tests.
+- **`get_events` needs the `EventSpyTrait` import**, or the spy returns nothing and the
+  assertion fails in a way that reads like the contract never emitted.
+- **`#[derive(starknet::Store)]`** is required on any struct written to storage; without
+  it the error points at the storage member rather than the type.
+
 ## Effort ladders lie, in both directions
 
 OpenRouter publishes `supported_efforts` per model. Treat it as a hint:
@@ -299,8 +311,10 @@ Text and geometry checks have passed things that were plainly ugly on screen. Ev
 section is shot twice, `NN-*.png` at 1100px and `m-NN-*.png` at 390px, and **both are
 the gate**: shooting one width is how a report with no viewport tag at all survived
 weeks of visual QA. The hook that blocks a commit while the screenshots are stale lives
-in `.claude/settings.json`, which is untracked, so a fresh clone gets the script but not
-the enforcement.
+in `.claude/settings.json`, which is **tracked** (a `.gitignore` exception), so a clone
+gets the enforcement and not just the script. It cannot check that anyone LOOKED at the
+PNGs, only that they are newer than the UI files: the mobile layout bug shipped with a
+fresh screenshot that showed it.
 
 ## Conventions
 
