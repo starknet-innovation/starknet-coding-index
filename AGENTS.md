@@ -39,7 +39,7 @@ for them first:
 | `CHART_TOP_N` | `bench/sci.py` | how many models the headline charts draw |
 | `LABEL_ANGLE`, `AXIS_PAD_L` | `bench/html_report.py` | angled axis labels, every chart at once |
 | `LOCAL_VRAM_GB`, `LOCAL_RESERVE_GB`, `LOCAL_QUANT` | `bench/sci.py` | who is in the local-inference class |
-| `SCI_SPEC`, `TIE_POINTS` | `bench/sci.py` | the index itself, and best-variant selection |
+| `SCI_SPEC` | `bench/sci.py` | the index itself |
 | `MODEL_TIME_BUDGET_S` | `bench/config.py` | the run budget, enforced live and at load |
 
 A `leaderboard()` row is the registry entry merged with the winning variant's scores, so
@@ -170,10 +170,10 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
 - **`sci.index_ci()` is the only interval estimator.** `html_report`, `status` and
   `audit` all call it. Two independent bootstraps once disagreed in the second digit
   for the same model, which is worse than publishing no interval at all.
-- **`leaderboard()` picks a model's best variant by measurement.** Within
-  `TIE_POINTS = 0.5` *and* overlapping intervals it prefers the variant with more runs.
-  Loosening either half of that condition has been tried and broke things: overlap
-  alone pulled five models down to deeper-but-worse cells.
+- **`leaderboard()` picks a model's highest-SCI variant, no tie rule.** Decided
+  2026-08-05, replacing the TIE_POINTS rule: a winner label can flip on noise
+  between refreshes when adjacent cells sit hundredths apart; the published
+  intervals carry the uncertainty story.
 - **`active_models()` is the gate for anything that selects models**, including ad-hoc
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending

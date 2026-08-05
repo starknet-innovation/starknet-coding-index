@@ -22,7 +22,7 @@ documentation tool:
 | 2 | Fable 5 | xhigh | 89.3 ±1.2 | 100% |
 | 3 | Grok 4.5 | medium | 88.3 ±3.8 | 75% |
 | 4 | Sonnet 5 | high | 83.4 ±4.3 | 67% |
-| 5 | Kimi K3 | max | 83.1 ±3.0 | 87% |
+| 5 | Kimi K3 | low | 83.2 ±4.2 | 71% |
 
 Intervals are bootstrapped over each model's runs (1,000 resamples). Opus 5 separates
 from every model below it except Grok 4.5; Fable 5 separates from ranks 4 and 5, while

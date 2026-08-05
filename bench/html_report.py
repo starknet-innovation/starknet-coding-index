@@ -921,16 +921,16 @@ def build(all_runs):
          "Every task in every rep solved on the first submission, at the field's fastest "
          "median pass. Nothing else in the field is perfect on that measure, which is why a "
          "flagship price tag still leaves it 2.7 points clear."),
-        ("Kimi K3 over MiMo? MiMo is far cheaper", "87% vs 40% one-shot",
-         "This is the index working as intended. MiMo serves a pass 4.5× faster and 21× cheaper, "
-         "and still loses 4.2 points, because it delivers broken code first about three runs in "
+        ("Kimi K3 over MiMo? MiMo is far cheaper", "71% vs 40% one-shot",
+         "This is the index working as intended. MiMo serves a pass 1.4× faster and 6× cheaper, "
+         "and still loses 4.3 points, because it delivers broken code first about three runs in "
          "five. First-submission success carries twice the weight of the bill."),
         ("Kimi K3 and Qwen3.8 Max are the same size. Why 31 points apart?",
-         "87% vs 9% first-try compiles",
+         "71% vs 9% first-try compiles",
          "Same class of MoE flagship, released a week apart, and both solve essentially every "
-         "task; cost and speed differ by less than a point. <b>Thirty of the 31 points come "
-         "from one place</b>: whether the first submission builds. Across both models no first "
-         "submission compiled and then failed a test, so the gap is knowledge, not reasoning."),
+         "task. <b>Twenty-five of the 31 points come from effectiveness</b>: whether the first "
+         "submission builds, 71% against 9%, with cheaper and faster serving covering the rest. "
+         "Mostly a knowledge gap about Cairo's API surface, not a reasoning gap."),
         ("Sonnet 5 solves everything. Why 4th?", "67% vs 100% one-shot",
          "That first-try gap against Opus 5 is most of the 8.6 points between them. The dial "
          "does nothing until <code>max</code>, and that is a cliff, not a step: 88% one-shot, "
@@ -993,7 +993,7 @@ def build(all_runs):
     h2h_html = f"""
 <section>
   <h2>Head to head: best closed vs best open weights</h2>
-  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
+  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart shows it is not about difficulty: Opus 5 first-tries every tier while Kimi sits near 70% across all three. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
   {chart(head_to_head_chart(h2h_metrics))}
   <h3 class="chart-title">First-submission rate by task difficulty</h3>
   {chart(attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",

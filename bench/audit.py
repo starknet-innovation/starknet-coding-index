@@ -107,13 +107,13 @@ check("Opus has the fastest median pass of the charted models",
       min((pass_time(by[r["label"]]["spec"]), r["label"])
           for r in lb if r["label"] in charted)[1] == "Opus 5")
 check("Opus is 2.7 clear of second", abs(o["sci"] - f["sci"] - 2.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
-check("Kimi 87% vs MiMo 40% one-shot",
-      round(one(C(k["spec"]))) == 87 and round(one(C(mi["spec"]))) == 40,
+check("Kimi 71% vs MiMo 40% one-shot",
+      round(one(C(k["spec"]))) == 71 and round(one(C(mi["spec"]))) == 40,
       f"{one(C(k['spec'])):.0f}/{one(C(mi['spec'])):.0f}")
-check("Kimi beats MiMo by 4.2", abs(k["sci"] - mi["sci"] - 4.2) < 0.06, f"{k['sci']-mi['sci']:.2f}")
-check("MiMo 4.5x faster, 21x cheaper per pass",
-      abs(pass_time(k["spec"]) / pass_time(mi["spec"]) - 4.5) < 0.4
-      and abs(pass_cost(k["spec"]) / pass_cost(mi["spec"]) - 21) < 2,
+check("Kimi beats MiMo by 4.3", abs(k["sci"] - mi["sci"] - 4.3) < 0.06, f"{k['sci']-mi['sci']:.2f}")
+check("MiMo 1.4x faster, 6x cheaper per pass",
+      abs(pass_time(k["spec"]) / pass_time(mi["spec"]) - 1.4) < 0.2
+      and abs(pass_cost(k["spec"]) / pass_cost(mi["spec"]) - 6) < 1,
       f"{pass_time(k['spec'])/pass_time(mi['spec']):.1f}x / {pass_cost(k['spec'])/pass_cost(mi['spec']):.0f}x")
 # The K3-vs-Qwen3.8 card: same class of model, 31 points apart. Every figure it
 # quotes is recomputed here, including the negative claim, which is the one most
@@ -128,28 +128,16 @@ check("K3 is 31 points clear of Qwen3.8 Max",
       abs(k["sci"] - q38["sci"] - 31.0) < 0.5, f"{k['sci']-q38['sci']:.2f}")
 _ck, _cq = compute_sci(C(k["spec"]))["components"], compute_sci(C(q38["spec"]))["components"]
 _eff = SCI_SPEC["weights"]["effective"] * (_ck["effective"] - _cq["effective"])
-check("30 of those 31 points are effectiveness",
-      29.0 <= _eff <= 31.0 and all(
-          abs(SCI_SPEC["weights"][w] * (_ck[c] - _cq[c])) < 1.0
+check("25 of the 31 points are effectiveness, the rest serving",
+      24.0 <= _eff <= 26.0 and all(
+          abs(SCI_SPEC["weights"][w] * (_ck[c] - _cq[c])) < 3.5
           for w, c in (("correct", "correct"), ("cost", "cost"), ("speed", "speed"))),
       f"eff {_eff:+.1f}, others "
       + ", ".join(f"{c} {SCI_SPEC['weights'][w] * (_ck[c] - _cq[c]):+.2f}"
                   for w, c in (("correct", "correct"), ("cost", "cost"), ("speed", "speed"))))
-check("K3 87% vs Qwen3.8 Max 9% first-try compiles",
-      round(one(C(k["spec"]))) == 87 and round(one(C(q38["spec"]))) == 9,
+check("K3 71% vs Qwen3.8 Max 9% first-try compiles",
+      round(one(C(k["spec"]))) == 71 and round(one(C(q38["spec"]))) == 9,
       f"{one(C(k['spec'])):.0f}%/{one(C(q38['spec'])):.0f}%")
-# the card's strongest claim: there is no "it built but the logic was wrong"
-# category for either model, so the whole gap is whether the code compiles
-_built_then_failed = [
-    f'{x["model"]} {x["task"]} rep{x["rep"]}'
-    for spec in (k["spec"], q38["spec"]) for x in C(spec)
-    if x.get("submissions") and x["submissions"][0]["compiled"]
-    and not x["submissions"][0].get("all_passed")
-]
-check("neither model ever compiled a first submission that then failed a test",
-      not _built_then_failed,
-      ", ".join(_built_then_failed) or
-      f'{len(C(k["spec"])) + len(C(q38["spec"]))} first submissions checked')
 
 check("Sonnet is 4th", [r["label"] for r in lb].index("Sonnet 5") == 3)
 check("Opus-Sonnet gap 8.6", abs(o["sci"] - s5["sci"] - 8.6) < 0.06, f"{o['sci']-s5['sci']:.2f}")
@@ -188,7 +176,7 @@ print("\n== findings: documentation lift at each condition's own best")
 for lab, want in (("Qwen3.6-27B", 22.0), ("Qwen3.8 Max", 16.3), ("Qwen3.6-35B-A3B", 15.6),
                   ("GLM 5.2", 6.4), ("GPT-5.6 Terra", 9.1),
                   ("GPT-5.6 Sol", 7.9), ("Qwen3 Coder Next", 6.3), ("MiniMax M3", 5.2), ("Hy3", 2.3),
-                  ("Opus 5", -0.1), ("Kimi K3", -0.3), ("Fable 5", -2.5),
+                  ("Opus 5", -0.1), ("Kimi K3", -0.4), ("Fable 5", -2.5),
                   ("MiMo-V2.5-Pro", -2.6), ("Sonnet 5", -5.4),
                   ("Gemma 4 31B", -1.8), ("gpt-oss-120b", -1.7)):
     got = mcp[lab]["sci"] - by[lab]["sci"]
@@ -392,8 +380,8 @@ check("8 of 14 open models have a measured Q4_K_M", len(measured) == 8,
       + ", ".join(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured")))
 # head to head
 closed = next(r for r in lb if not r["open_weight"]); openw = next(r for r in lb if r["open_weight"])
-check("head-to-head: 26 and 63 runs",
-      len(C(closed["spec"])) == 26 and len(C(openw["spec"])) == 63,
+check("head-to-head: 26 and 52 runs",
+      len(C(closed["spec"])) == 26 and len(C(openw["spec"])) == 52,
       f"{len(C(closed['spec']))} and {len(C(openw['spec']))}")
 def by_tier(spec):
     out = []
@@ -401,8 +389,8 @@ def by_tier(spec):
         g = [x for x in C(spec) if x["task"].startswith(t)]
         out.append(round(100 * sum(1 for x in g if x["solved"] and attempts(x) == 1) / len(g)))
     return out
-check("head-to-head: Opus 100/100/100, K3 90/100/67",
-      by_tier(closed["spec"]) == [100, 100, 100] and by_tier(openw["spec"]) == [90, 100, 67],
+check("head-to-head: Opus 100/100/100, K3 69/75/69",
+      by_tier(closed["spec"]) == [100, 100, 100] and by_tier(openw["spec"]) == [69, 75, 69],
       f"{by_tier(closed['spec'])} vs {by_tier(openw['spec'])}")
 # thinking card, Anthropic top tier
 for lab, win, mx, sw, sm_ in (("Opus", "anthropic/claude-opus-5@low", "anthropic/claude-opus-5@max", 92.0, 85.0),
@@ -450,7 +438,7 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("ten of twenty-two differ, six downward", len(diff) == 10 and len(down) == 6,
+check("eleven of twenty-two differ, six downward", len(diff) == 11 and len(down) == 6,
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))

@@ -532,14 +532,13 @@ def leaderboard(all_runs, condition=None):
     Each model is scored at every benchmarked candidate variant; the row carries
     the best one (spec + variant fields say which).
 
-    "Best" resolves ties by measurement, not by raw score. Two variants within
-    TIE_POINTS whose intervals also overlap are a tie, and the report says as much
-    in as many words, so deciding between them on hundredths of a point would
-    contradict it and hand a visible label to noise: Kimi K3's @low scored 83.19
-    against its default's 83.07, which would have relabelled it everywhere and
-    rebuilt the head-to-head section around a configuration with 71% one-shot
-    instead of 87%. Among the tied, the one with the most runs wins, since it is
-    the one we know most about.
+    "Best" is the highest SCI, full stop -- a 2026-08-05 decision that replaced
+    a tie rule (variants within 0.5 with overlapping intervals went to the
+    deepest-measured cell). The tradeoff was discussed and accepted: a winner
+    label can now flip on noise between data refreshes when adjacent cells sit
+    hundredths apart (Kimi K3 low vs default was the live case), and the
+    published intervals, not the selection rule, tell readers how seriously to
+    take any such ordering.
     """
     condition = condition or SCI_SPEC["condition"]
     by_model = defaultdict(list)
@@ -556,34 +555,13 @@ def leaderboard(all_runs, condition=None):
         ]
         if not scored:
             continue
-        top = max(scored, key=lambda s: s["sci"])
-        tied = [s for s in scored if _tied(s, top)]
-        best = max(tied, key=lambda s: (s["n"], s["sci"]))
+        best = max(scored, key=lambda s: s["sci"])
         gb, measured = local_vram_gb(best["spec"])
         rows.append({**entry, **best, "variant": variant_label(best["spec"]),
                      # derived, never hand-set: see fits_locally
                      "local": fits_locally(entry),
                      "vram_gb": gb, "vram_measured": measured})
     return sorted(rows, key=lambda r: -r["sci"])
-
-
-# A tie has to be indistinguishable AND practically identical. Overlapping
-# intervals alone are far too loose at the floor of the field, where intervals
-# are wide next to the gaps: letting any overlap count pulled five models DOWN
-# to a deeper-but-worse cell (Qwen3.6-27B from 13.3 off to 10.1 at high, on a
-# 4-point gap "tied" by +/-3.3 intervals). 0.5 points is the width of the
-# problem this rule exists to fix, which is a label flipping on hundredths.
-TIE_POINTS = 0.5
-
-
-def _tied(a, b):
-    """Same score for practical purposes, and statistically indistinguishable."""
-    if a is b:
-        return True
-    if a["ci"] is None or b["ci"] is None:
-        return False
-    return (abs(a["sci"] - b["sci"]) <= TIE_POINTS
-            and abs(a["sci"] - b["sci"]) <= a["ci"] + b["ci"])
 
 
 def main():
