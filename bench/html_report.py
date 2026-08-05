@@ -1040,12 +1040,12 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     models_html = f"""
 <section>
   <h2>The models</h2>
+  <p class="takeaway" style="margin:0 0 10px">Every model tested, including the {word(len(sci_rows) - CHART_TOP_N)} below the chart cut. Use it to <b>shortlist by the constraint you actually have</b>: the index <b>with and without the documentation tool</b>, <b>price</b> (per million tokens, as listed on OpenRouter, {meta["snapshot_date"]}), <b>speed</b>, and <b>whether the weights are open</b>. Click a header to sort.</p>
   <div class="tablewrap"><table id="modeltable" class="sortable">
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">The full field, including the {word(len(sci_rows) - CHART_TOP_N)} models below the chart cut. Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
 </section>
 
 <section>
