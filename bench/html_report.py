@@ -886,7 +886,6 @@ def build(all_runs):
         return (row["label"], row["open_weight"], pts, win_i)
 
     dial_rows = {lab: dial_row(lab) for lab in DIAL_PAYS + DIAL_COSTS}
-    _ns = [p[5] for _, _, pts, _ in dial_rows.values() for p in pts]
     DIAL_SPAN = 25  # same span in every panel: slopes compare, no dead air
 
     def dial_grid(labels):
@@ -915,7 +914,7 @@ def build(all_runs):
   {dial_grid(DIAL_PAYS)}
   <h3 class="chart-title">Effort costs</h3>
   {dial_grid(DIAL_COSTS)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span><span>ring: the tier the leaderboard scores (ties go to the deepest-measured tier)</span><span>every panel spans {DIAL_SPAN} index points, centered on its own ladder</span><span>x is the requested effort; some neighbouring tiers are the same provider setting</span><span>{min(_ns)}–{max(_ns)} runs per point</span></div>
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span></div>
 </section>"""
 
     # Fair questions: the priors readers arrive with. The QUESTION is the hook a
