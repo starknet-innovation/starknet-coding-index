@@ -254,15 +254,15 @@ check("caveats: 13 to 120 runs per variant", min(ns) == 13 and max(ns) == 120, f
 # the rule: nothing inside it exceeds the weights budget, and nothing outside it
 # would have fitted. A one-way check would pass a class that quietly lost members.
 loc = [r for r in lb if r.get("local")]
-check(f"local class: 8 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
-      len(loc) == 8 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
+check(f"local class: 5 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
+      len(loc) == 5 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
       f"{len(loc)} models, largest {max(r['vram_gb'] for r in loc):.0f} GB "
       f"({max(loc, key=lambda r: r['vram_gb'])['label']})")
 out = [r for r in lb if not r.get("local") and r["open_weight"] and r["vram_gb"]]
-check("GLM 5.2 is the nearest miss, at 466 GB",
+check("Hy3 is the nearest miss, at 181 GB",
       all(r["vram_gb"] > LOCAL_WEIGHT_BUDGET_GB for r in out)
-      and min(out, key=lambda r: r["vram_gb"])["label"] == "GLM 5.2"
-      and round(min(r["vram_gb"] for r in out)) == 466,
+      and min(out, key=lambda r: r["vram_gb"])["label"] == "Hy3"
+      and round(min(r["vram_gb"] for r in out)) == 181,
       f"nearest miss {min(r['vram_gb'] for r in out):.0f} GB "
       f"({min(out, key=lambda r: r['vram_gb'])['label']})")
 check("no closed model is in the class", not any(not r["open_weight"] for r in loc))
@@ -349,11 +349,22 @@ NUMWORDS = ("zero one two three four five six seven eight nine ten eleven twelve
             "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
 numword = lambda w: NUMWORDS.index(w.lower()) if w.lower() in NUMWORDS else -1
 only_local = [r["label"] for r in loc if r["label"] not in charted]
-local_note = re.search(r"(\w[\w-]*) of the (\w[\w-]*) ranks? below the top (\w[\w-]*),", report_html)
+# The sentence has two shapes: "All five rank below..." when the whole class is
+# below the cut, "Three of the five rank below..." when it is split.
+local_note = re.search(
+    r"(?:All (\w[\w-]*)|(\w[\w-]*) of the (\w[\w-]*)) ranks? below the top (\w[\w-]*),", report_html)
+_ln_vals = (([numword(local_note.group(1))] * 2 if local_note.group(1)
+             else [numword(g) for g in local_note.groups()[1:3]])
+            + [numword(local_note.group(4))]) if local_note else []
 check("the local section is the only chart for the small models, and counts them",
-      bool(local_note)
-      and [numword(g) for g in local_note.groups()] == [len(only_local), len(loc), CHART_TOP_N],
+      bool(local_note) and _ln_vals == [len(only_local), len(loc), CHART_TOP_N],
       f"{local_note.group(0)} | only there: {', '.join(only_local)}" if local_note else "no note")
+check("FAQ: 5 of 22 runnable, largest gpt-oss-120b at 63 GB",
+      "5 of 22" in report_html and len(loc) == 5
+      and max(loc, key=lambda r: r["vram_gb"])["label"] == "gpt-oss-120b"
+      and round(max(r["vram_gb"] for r in loc)) == 63,
+      f"{len(loc)} in class, largest {max(loc, key=lambda r: r['vram_gb'])['label']} "
+      f"{max(r['vram_gb'] for r in loc):.0f} GB")
 
 # The five ladder rungs the report prints are picks out of a much longer list
 # (13 to 38 files per repo), so check the pick rather than trusting it: each

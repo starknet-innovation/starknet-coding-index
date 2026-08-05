@@ -109,10 +109,13 @@ PRICE_REVISIONS = {
 
 
 # Which models a person could actually run themselves. The threshold is memory,
-# not parameter count: 512 GB is what a Mac Studio M3 Ultra holds, and it is the
-# largest unified-memory machine an individual can buy off the shelf. TOTAL
-# parameters, not active, because every weight has to be resident even when a
-# sparse MoE only fires a few experts per token.
+# not parameter count: 128 GB of unified memory is where the machines you can
+# buy today top out -- NVIDIA's DGX Spark, the AMD Strix Halo boxes and the M5
+# Max MacBook Pro all cap there. (The 512 GB Mac Studio M3 Ultra that set the
+# old bar is gone: Apple pulled the option in March 2026 during the DRAM
+# shortage, and the line now stops at 96 GB.) TOTAL parameters, not active,
+# because every weight has to be resident even when a sparse MoE only fires a
+# few experts per token.
 #
 # The bar is Q4_K_M, the default 4-bit quant, and the size is the one the
 # published GGUF actually weighs rather than one computed from a bit width. That
@@ -126,13 +129,13 @@ PRICE_REVISIONS = {
 # land at 4.77-5.05 bits/weight, mean 4.92; gpt-oss is excluded from that mean
 # because its native 4-bit format makes it unrepresentative.
 #
-# The reserve covers the OS, the KV cache and activations, leaving 448 GB of
-# weights. The boundary is comfortable: the largest member is MiniMax M3 at
-# 264 GB and the nearest miss is GLM 5.2 at 466 GB.
-LOCAL_VRAM_GB = 512
+# The reserve covers the OS, the KV cache and activations, leaving 112 GB of
+# weights. The boundary is comfortable: the largest member is gpt-oss-120b at
+# ~63 GB and the nearest miss is Hy3 at ~181 GB (estimated; no published GGUF).
+LOCAL_VRAM_GB = 128
 LOCAL_QUANT = "Q4_K_M"
 LOCAL_FALLBACK_BITS = 4.92
-LOCAL_RESERVE_GB = 64
+LOCAL_RESERVE_GB = 16
 LOCAL_WEIGHT_BUDGET_GB = LOCAL_VRAM_GB - LOCAL_RESERVE_GB
 
 # How many models the headline charts draw. Rank decides membership and nothing
@@ -184,7 +187,7 @@ def local_vram_gb(spec):
 
 
 def fits_locally(entry):
-    """True when this model's Q4_K_M weights fit one 512 GB machine.
+    """True when this model's Q4_K_M weights fit one 128 GB machine.
 
     Scans the entry's specs rather than trusting specs[0], which for some models
     is a pro serving mode with an id of its own and no metadata row.

@@ -737,12 +737,22 @@ def build(all_runs):
     smallest, largest = min(local_rows, key=lambda r: r["vram_gb"]), max(local_rows, key=lambda r: r["vram_gb"])
     near = min((r for r in sci_rows if not r.get("local") and r["open_weight"] and r["vram_gb"]),
                key=lambda r: r["vram_gb"])
-    near_iq4 = (meta["models"][near["spec"].partition("@")[0]].get("gguf") or {}).get("IQ4_XS")
+    near_gguf = meta["models"][near["spec"].partition("@")[0]].get("gguf") or {}
+    near_iq4 = near_gguf.get("IQ4_XS")
+    # "~" marks an estimated size, same convention as the open-weights table.
+    # The IQ4_XS rescue clause only appears when that file exists AND fits the
+    # budget; at 128 GB nothing crosses the line by dropping a quant level, and
+    # the nearest miss (Hy3) has no published GGUF at all, so near_iq4 is None.
+    near_size = f'{"" if near_gguf.get(LOCAL_QUANT) else "~"}{near["vram_gb"]:.0f}'
+    near_reach = (f', though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB);'
+                  if near_iq4 and near_iq4 <= LOCAL_WEIGHT_BUDGET_GB else ";")
+    below_lede = (f"All {word(len(local_rows))}" if n_below == len(local_rows)
+                  else f"{word(n_below).capitalize()} of the {word(len(local_rows))}")
     local_html = f"""
 <section>
   <h2>Local-inference class <span style="text-transform:none">(runs on one {LOCAL_VRAM_GB} GB machine)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory a Mac Studio M3 Ultra holds, which is the largest such machine a person can buy, leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near["vram_gb"]:.0f} GB, though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB); no closed model qualifies at all, since there are no weights to download.</p>
-  <p class="takeaway" style="margin:0 0 10px">{word(n_below).capitalize()} of the {word(len(local_rows))} rank below the top {word(CHART_TOP_N)}, so this is where they are measured. The chart is the one above, same index and same question: best configuration without the documentation tool against best with it. Two regimes show up inside the class. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
+  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory the biggest machines you can buy today top out at — a DGX Spark, a Strix Halo box, or an M5 Max MacBook Pro — leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near_size} GB{near_reach} no closed model qualifies at all, since there are no weights to download.</p>
+  <p class="takeaway" style="margin:0 0 10px">{below_lede} rank below the top {word(CHART_TOP_N)}, so this is where they are measured. The chart is the one above, same index and same question: best configuration without the documentation tool against best with it. Two regimes show up inside the class. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
   {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts))}
   {lift_legend_local}
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">What each of these weighs, at every quantization its authors published, is in "Open weights in detail" below, alongside the open models that need more machine than this.</p>
@@ -837,9 +847,9 @@ def build(all_runs):
          "interval of each other on ~1.8k output tokens and 14 seconds. Only <code>max</code> is "
          "different, and it is a cliff, not a step: 88% one-shot, the best of any Sonnet setting, for "
          "61k output tokens at $0.68 a task and nine minutes of thinking."),
-        ("Which of these could I run myself?", "8 of 22",
-         "They fit one 512 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
-         "MiniMax M3 at 264 GB, and they compare on their own footing in the section below. The "
+        ("Which of these could I run myself?", "5 of 22",
+         "They fit one 128 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
+         "gpt-oss-120b at 63 GB, and they compare on their own footing in the section below. The "
          "rest need a rack or are closed. Documentation pays hardest down there: it nearly triples "
          "Qwen3.6-27B (13.3 to 35.3, solving 15% of runs without docs and 69% with) and doubles "
          "35B-A3B, though it bounces off Gemma 4 and gpt-oss."),
@@ -1062,7 +1072,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in reversed(QUANT_LADDER))}</tr>
     {"".join(open_rows_html)}
   </table></div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Six models need that estimate: Hy3, DeepSeek V4-Pro, Inkling and Qwen3.8 Max have no GGUF at all (Inkling's only quantized repo is a different and much smaller model; Qwen3.8 Max's weights are announced but unpublished), while Kimi K3 and DeepSeek V4 Flash have repos that skip <code>Q4_K_M</code> entirely, publishing 1- and 2-bit quants and an <code>XL</code> variant instead. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit, and it is what puts GLM 5.2 within reach of a single machine even though its <code>Q4_K_M</code> is not.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Six models need that estimate: Hy3, DeepSeek V4-Pro, Inkling and Qwen3.8 Max have no GGUF at all (Inkling's only quantized repo is a different and much smaller model; Qwen3.8 Max's weights are announced but unpublished), while Kimi K3 and DeepSeek V4 Flash have repos that skip <code>Q4_K_M</code> entirely, publishing 1- and 2-bit quants and an <code>XL</code> variant instead. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit.</p>
 </section>"""
 
     findings_html = """
