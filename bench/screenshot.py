@@ -71,7 +71,7 @@ def shoot(page, prefix=""):
 # inventing an implicit second column. The screenshot showed it; nobody looked
 # at that particular PNG. (.chips is excluded: it is a flex row that wraps by
 # design, and its children are meant to sit side by side.)
-STACKED_ON_PHONE = [".scorecards", ".faq", ".split"]
+STACKED_ON_PHONE = [".scorecards", ".faq", ".split", ".multiples"]
 
 
 def check_stacking(page, width, tol=6):

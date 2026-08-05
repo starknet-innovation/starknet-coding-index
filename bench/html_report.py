@@ -15,13 +15,14 @@ import json
 import math
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 from . import config
 from .report import load_runs
 from .sci import (CHART_TOP_N, LOCAL_QUANT,
                   LOCAL_RESERVE_GB, LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB,
-                  SCI_SPEC, attempt_score, attempts, index_ci,
+                  SCI_SPEC, attempt_score, attempts, compute_sci, index_ci,
                   leaderboard, param_count, run_cost)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
@@ -90,7 +91,7 @@ def svg_open(w, h):
     )
 
 
-def chart(svg):
+def chart(svg, small=False):
     """Wrap a chart so a narrow screen scrolls it instead of shrinking it.
 
     An SVG at width:100% is happy to render at any size, and on a phone that
@@ -99,9 +100,46 @@ def chart(svg):
     what the tables on this page already do.
 
     assert_output_is_portable counts charts against wrappers, so a new chart
-    that skips this fails the build.
+    that skips this fails the build. small=True is the 380px-wide small
+    multiples of the thinking-dial section, which need a floor of their own.
     """
-    return f'<div class="chartwrap">{svg}</div>'
+    return f'<div class="chartwrap{" small" if small else ""}">{svg}</div>'
+
+
+def line_chart(x_labels, vals, win_i, color, w=380, h=230, y_min=0, y_max=100):
+    """One model's index across its effort ladder, for the dial multiples.
+
+    win_i rings the tier the leaderboard scores, so each mini chart answers
+    "where on its ladder does this model actually live" without a caption.
+    """
+    pad_l, pad_r, pad_t, pad_b = 40, 16, 20, 30
+    cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
+    n = len(x_labels)
+    sx = lambda i: pad_l + (i * cw / (n - 1) if n > 1 else cw / 2)
+    sy = lambda v: pad_t + (y_max - v) / (y_max - y_min) * ch
+    parts = [svg_open(w, h)]
+    step = 20 if y_max - y_min > 60 else 10
+    for gv in range(y_min + (step - y_min % step) % step, int(y_max) + 1, step):
+        y = sy(gv)
+        parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
+        parts.append(f'<text x="{pad_l - 6}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}</text>')
+    for i, lab in enumerate(x_labels):
+        parts.append(f'<text x="{sx(i):.0f}" y="{h - 10}" font-size="11" fill="{MUTED}" text-anchor="middle">{lab}</text>')
+    pts = " ".join(f"{sx(i):.0f},{sy(v):.1f}" for i, v in enumerate(vals))
+    parts.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2.5"/>')
+    for i, v in enumerate(vals):
+        parts.append(f'<circle cx="{sx(i):.0f}" cy="{sy(v):.1f}" r="4" fill="{color}"/>')
+        if i == win_i:
+            parts.append(f'<circle cx="{sx(i):.0f}" cy="{sy(v):.1f}" r="7.5" fill="none" '
+                         f'stroke="{color}" stroke-width="1.5"/>')
+        # the first point's label anchors right of its dot: centered, it lands
+        # on the y-axis tick text when the line runs near a gridline (Grok's
+        # flat 86 under the 90 tick printed as "9086")
+        anchor = "start" if i == 0 else "middle"
+        parts.append(f'<text x="{sx(i) + (2 if i == 0 else 0):.0f}" y="{sy(v) - 11:.1f}" '
+                     f'font-size="11" fill="{INK}" text-anchor="{anchor}" font-weight="600">{v:.0f}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
 
 
 
@@ -802,6 +840,52 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
+    # The thinking dial, baseline only: the index at every measured effort for
+    # the same top CHART_TOP_N. Descends from the effort-curves section removed
+    # in faabe2a, which drew solve rate for the whole field in both conditions
+    # and drowned; the constraints here are the fix. Tiers are DERIVED from the
+    # data: a tier the API rejects (gpt-oss refuses @disabled) never appears,
+    # and extending a ladder never goes stale.
+    EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "default", "high", "xhigh", "max"]
+    EFFORT_SHORT = {"disabled": "off", "minimal": "min", "medium": "med", "default": "def"}
+    base_by_spec = defaultdict(list)
+    for r in all_runs:
+        if r["condition"] == "baseline":
+            base_by_spec[r["model"]].append(r)
+    dial_rows = []
+    for row in chart_rows:
+        pts = []
+        for spec in row["specs"]:
+            rs = base_by_spec.get(spec)
+            if not rs:
+                continue
+            eff = spec.partition("@")[2] or "default"
+            pts.append((EFFORT_ORDER.index(eff), eff, compute_sci(rs)["sci"], len(rs)))
+        pts.sort()
+        win_eff = row["spec"].partition("@")[2] or "default"
+        dial_rows.append((row["label"], row["open_weight"], pts, win_eff))
+    _vals = [p[2] for _, _, pts, _ in dial_rows for p in pts]
+    dial_y_min = 5 * math.floor(min(_vals) / 5)
+    dial_y_max = 5 * math.ceil(max(_vals) / 5)
+    _ns = [p[3] for _, _, pts, _ in dial_rows for p in pts]
+    multiples = "".join(
+        f'<div class="multiple"><h3>{label}</h3>'
+        + chart(line_chart([EFFORT_SHORT.get(e, e) for _, e, _, _ in pts],
+                           [v for _, _, v, _ in pts],
+                           [e for _, e, _, _ in pts].index(win_eff),
+                           SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
+                           y_min=dial_y_min, y_max=dial_y_max), small=True)
+        + "</div>"
+        for label, open_w, pts, win_eff in dial_rows
+    )
+    dial_html = f"""
+<section>
+  <h2>The thinking dial</h2>
+  <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, baseline runs only: each model's index at every thinking effort it was benchmarked at, on one shared scale. Two shapes cover the field. <b>Effort pays</b> for a model with a first-try deficit to close: GPT-5.6 Sol climbs at every step of its ladder. <b>Effort costs</b> for a model that already delivers first-try: it buys tokens and latency with nothing left to fix.</p>
+  <div class="multiples">{multiples}</div>
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span><span>ring: the tier the leaderboard scores</span><span>x is the requested effort; some neighbouring tiers are the same provider setting</span><span>{min(_ns)}–{max(_ns)} runs per point</span></div>
+</section>"""
+
     # Fair questions: the priors readers arrive with. The QUESTION is the hook a
     # reader scans for, so it leads the card; the number is evidence and sits
     # inside the answer. (The weights cards in "How the score is built" are the
@@ -1131,6 +1215,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
      shows about 60% of the chart at a time. */
   .chartwrap{{overflow-x:auto}}
   .chartwrap>svg{{min-width:660px}}
+  .chartwrap.small>svg{{min-width:300px}}
   /* "there is more to the right", for charts and for the 900px-wide tables.
      The cover gradients scroll with the content and hide the edge shadow
      whenever that edge is already in view, so the hint appears only when
@@ -1200,6 +1285,10 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .qcard p{{margin:0;font-size:13.5px}}
   .qcard .ans{{font-weight:700}}
   @media(max-width:760px){{.faq{{grid-template-columns:1fr}}}}
+  .multiples{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}
+  @media(max-width:760px){{.multiples{{grid-template-columns:1fr}}}}
+  .multiple{{text-align:center}}
+  .multiple h3{{font-size:13px;margin-bottom:6px}}
   code{{font-family:var(--mono);font-size:.92em;background:var(--ground);border:1px solid var(--line);border-radius:3px;padding:1px 5px}}
   .split{{display:grid;grid-template-columns:1fr 1fr;gap:28px}}
   @media(max-width:760px){{.split{{grid-template-columns:1fr}}}}
@@ -1241,6 +1330,8 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 {sci_html}
 
 {pass_html}
+
+{dial_html}
 
 {faq_html}
 

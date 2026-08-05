@@ -333,6 +333,21 @@ mcp_svg = svgs("What does the Cairo Coder MCP add")
 check("the MCP chart draws the same top models",
       len(mcp_svg) == 1 and sorted(chart_labels(mcp_svg[0])) == sorted(top_n),
       ", ".join(sorted(set(chart_labels(mcp_svg[0])) ^ set(top_n)) or ["exact"]) if mcp_svg else "no chart")
+dial_names = re.findall(r'<div class="multiple"><h3>([^<]+)</h3>', section_html("The thinking dial"))
+check(f"the dial section draws the top {CHART_TOP_N}, in rank order",
+      dial_names == top_n, " > ".join(dial_names) or "no multiples")
+# The two shapes the dial intro names, checked against the data they summarize.
+sol = [sci(C(f"openai/gpt-5.6-sol@{t}")) for t in ("disabled", "low", "high", "xhigh", "max")]
+check("Sol's index rises at every step of its ladder",
+      all(a < b for a, b in zip(sol, sol[1:])), " -> ".join(f"{v:.1f}" for v in sol))
+dsf = {t: sci(C(f"deepseek/deepseek-v4-flash-0731@{t}")) for t in ("disabled", "low", "high", "max")}
+check("DeepSeek V4 Flash is best with thinking off",
+      all(dsf["disabled"] > v for t, v in dsf.items() if t != "disabled"),
+      ", ".join(f"{t} {v:.1f}" for t, v in dsf.items()))
+mm = {t: sci(C(f"minimax/minimax-m3@{t}")) for t in ("minimal", "low", "medium", "high", "xhigh", "max")}
+check("MiniMax peaks at medium",
+      all(mm["medium"] > v for t, v in mm.items() if t != "medium"),
+      ", ".join(f"{t} {v:.1f}" for t, v in mm.items()))
 local_svg = svgs("Local-inference class")
 check(f"the local chart draws all {len(loc)} models that fit one machine",
       len(local_svg) == 1 and sorted(chart_labels(local_svg[0])) == sorted(r["label"] for r in loc),
