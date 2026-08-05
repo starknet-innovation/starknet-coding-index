@@ -842,18 +842,14 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
-    # The thinking dial, baseline only: the four clearest top-15 examples of
-    # each shape. Hand-picked, but direction-gated in audit so a data refresh
-    # that flips one fails the build instead of mislabeling it. Descends from
-    # the effort-curves section removed in faabe2a, which drew solve rate for
-    # the whole field in both conditions and drowned. Tiers are DERIVED from
-    # the data: a tier the API rejects (gpt-oss refuses @disabled) never
+    # The thinking dial, baseline only. Descends from the effort-curves section
+    # removed in faabe2a, which drew solve rate for the whole field in both
+    # conditions and drowned. No pays/costs grouping either (tried and dropped:
+    # the shapes are not monotone lines): the top DIAL_TOP_N by index, in rank
+    # order, and the reader reads the ladders themselves. Tiers are DERIVED
+    # from the data: a tier the API rejects (gpt-oss refuses @disabled) never
     # appears, and extending a ladder never goes stale.
-    # Kimi K3 is deliberately absent: labeled honestly, its bare tier IS its
-    # documented max, which ties its best (83.1 vs 83.2), so it fails the costs
-    # direction gate and is no example of anything except the tie rule.
-    DIAL_PAYS = ["GPT-5.6 Sol", "Gemini 3.6 Flash", "MiniMax M3", "GPT-5.6 Terra"]
-    DIAL_COSTS = ["Opus 5", "Sonnet 5", "DeepSeek V4 Flash", "DeepSeek V4-Pro"]
+    DIAL_TOP_N = 8
     EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "default", "high", "xhigh", "max"]
     EFFORT_SHORT = {"disabled": "off", "minimal": "min", "medium": "med", "default": "def"}
     base_by_spec = defaultdict(list)
@@ -885,7 +881,8 @@ def build(all_runs):
         win_i = [p[3] for p in pts].index(row["spec"])
         return (row["label"], row["open_weight"], pts, win_i)
 
-    dial_rows = {lab: dial_row(lab) for lab in DIAL_PAYS + DIAL_COSTS}
+    dial_labels = [r["label"] for r in chart_rows[:DIAL_TOP_N]]
+    dial_rows = {lab: dial_row(lab) for lab in dial_labels}
     DIAL_SPAN = 25  # same span in every panel: slopes compare, no dead air
 
     def dial_grid(labels):
@@ -909,11 +906,8 @@ def build(all_runs):
     dial_html = f"""
 <section>
   <h2>The thinking dial</h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the four clearest examples of each shape among the top {word(CHART_TOP_N)}, each drawn across its own effort ladder. <b>Effort pays</b> where a first-try deficit is left to close, and the ring marking the tier the leaderboard scores sits high on the ladder. <b>Effort costs</b> where delivery is already first-try, and the ring sits at the bottom.</p>
-  <h3 class="chart-title">Effort pays</h3>
-  {dial_grid(DIAL_PAYS)}
-  <h3 class="chart-title">Effort costs</h3>
-  {dial_grid(DIAL_COSTS)}
+  <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the top {word(DIAL_TOP_N)} models, each drawn across its own effort ladder. The ring marks <b>the tier the leaderboard scores</b>.</p>
+  {dial_grid(dial_labels)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span></div>
 </section>"""
 
