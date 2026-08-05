@@ -338,27 +338,6 @@ check(f"the local chart draws all {len(loc)} models that fit one machine",
       len(local_svg) == 1 and sorted(chart_labels(local_svg[0])) == sorted(r["label"] for r in loc),
       ", ".join(sorted(set(chart_labels(local_svg[0])) ^ {r["label"] for r in loc}) or ["exact"])
       if local_svg else "no chart")
-# and the ones that are ONLY there: a model below the cut and outside the class
-# appears in no chart at all, which the local section is required to say. How
-# many that is moves with the cut -- widening it to fifteen pulled Hy3 above the
-# line and took this from six to five -- so the number is read back out of the
-# shipped sentence rather than typed here, where it would go stale silently.
-# NUMWORDS is spelled out again rather than imported from html_report: the gate
-# derives what it checks, so a wrong word table there has to fail here.
-NUMWORDS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
-            "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
-numword = lambda w: NUMWORDS.index(w.lower()) if w.lower() in NUMWORDS else -1
-only_local = [r["label"] for r in loc if r["label"] not in charted]
-# The sentence has two shapes: "All five rank below..." when the whole class is
-# below the cut, "Three of the five rank below..." when it is split.
-local_note = re.search(
-    r"(?:All (\w[\w-]*)|(\w[\w-]*) of the (\w[\w-]*)) ranks? below the top (\w[\w-]*),", report_html)
-_ln_vals = (([numword(local_note.group(1))] * 2 if local_note.group(1)
-             else [numword(g) for g in local_note.groups()[1:3]])
-            + [numword(local_note.group(4))]) if local_note else []
-check("the local section is the only chart for the small models, and counts them",
-      bool(local_note) and _ln_vals == [len(only_local), len(loc), CHART_TOP_N],
-      f"{local_note.group(0)} | only there: {', '.join(only_local)}" if local_note else "no note")
 check("FAQ: 5 of 22 runnable, largest gpt-oss-120b at 63 GB",
       "5 of 22" in report_html and len(loc) == 5
       and max(loc, key=lambda r: r["vram_gb"])["label"] == "gpt-oss-120b"

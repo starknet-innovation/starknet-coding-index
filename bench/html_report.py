@@ -608,12 +608,10 @@ def build(all_runs):
     # Models that fit that machine keep their own section (the class is derived
     # in sci.fits_locally, never hand-set), so most of the models below the cut
     # are still charted there; deprecated models are already gone from sci_rows
-    # entirely (see sci.active_models). How many that is moves with the cut, so
-    # n_below counts it rather than the prose stating it.
+    # entirely (see sci.active_models).
     chart_rows = sci_rows[:CHART_TOP_N]
     local_rows = [r for r in sci_rows if r.get("local")]
     charted_labels = {r["label"] for r in chart_rows}
-    n_below = sum(1 for r in local_rows if r["label"] not in charted_labels)
 
     # A model whose weights are announced but not yet downloadable is classed
     # open with a display-time star on its label; raw labels stay untouched
@@ -734,28 +732,12 @@ def build(all_runs):
     # Local-inference section: prose and the chart, no table of its own. It had
     # one for a day, listing memory per model, and it was a second answer to a
     # question "Open weights in detail" already answers below. One table.
-    smallest, largest = min(local_rows, key=lambda r: r["vram_gb"]), max(local_rows, key=lambda r: r["vram_gb"])
-    near = min((r for r in sci_rows if not r.get("local") and r["open_weight"] and r["vram_gb"]),
-               key=lambda r: r["vram_gb"])
-    near_gguf = meta["models"][near["spec"].partition("@")[0]].get("gguf") or {}
-    near_iq4 = near_gguf.get("IQ4_XS")
-    # "~" marks an estimated size, same convention as the open-weights table.
-    # The IQ4_XS rescue clause only appears when that file exists AND fits the
-    # budget; at 128 GB nothing crosses the line by dropping a quant level, and
-    # the nearest miss (Hy3) has no published GGUF at all, so near_iq4 is None.
-    near_size = f'{"" if near_gguf.get(LOCAL_QUANT) else "~"}{near["vram_gb"]:.0f}'
-    near_reach = (f', though it comes within reach at <code>IQ4_XS</code> ({near_iq4:.0f} GB);'
-                  if near_iq4 and near_iq4 <= LOCAL_WEIGHT_BUDGET_GB else ";")
-    below_lede = (f"All {word(len(local_rows))}" if n_below == len(local_rows)
-                  else f"{word(n_below).capitalize()} of the {word(len(local_rows))}")
     local_html = f"""
 <section>
   <h2>Local-inference class <span style="text-transform:none">(runs on one {LOCAL_VRAM_GB} GB machine)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory the biggest machines you can buy today top out at — a DGX Spark, a Strix Halo box, or an M5 Max MacBook Pro — leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. {word(len(local_rows)).capitalize()} models clear it, from {smallest["label"]} at {smallest["vram_gb"]:.0f} GB up to <b>{largest["label"]} at {largest["vram_gb"]:.0f} GB</b>. <b>{near["label"]} is the nearest miss</b>, at {near_size} GB{near_reach} no closed model qualifies at all, since there are no weights to download.</p>
-  <p class="takeaway" style="margin:0 0 10px">{below_lede} rank below the top {word(CHART_TOP_N)}, so this is where they are measured. The chart is the one above, same index and same question: best configuration without the documentation tool against best with it. Two regimes show up inside the class. The Qwen family converts documentation into the study's largest gains (+6.3 to +22.0), while Gemma 4 31B and gpt-oss-120b sit below a competence floor where lookups rescue nothing.</p>
+  <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is memory rather than parameter count: the published <code>{LOCAL_QUANT}</code> weight file against the {LOCAL_VRAM_GB} GB of unified memory the biggest machines you can buy today top out at — a DGX Spark, a Strix Halo box, or an M5 Max MacBook Pro — leaving {LOCAL_RESERVE_GB} GB for the OS and a KV cache. Total parameters count, not active ones, because every weight has to be resident even when a sparse model fires only a few experts per token. <code>{LOCAL_QUANT}</code> draws the line because it is the default 4-bit quant — the file most people actually download and run — at the sweet spot where memory halves against 8-bit and quality holds. Below 4-bit, degradation stops being minor, and coding feels it first. These scores were measured on the full-precision models, so the class stops at the quant level where the local copy still resembles the model that was scored.</p>
   {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts))}
   {lift_legend_local}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">What each of these weighs, at every quantization its authors published, is in "Open weights in detail" below, alongside the open models that need more machine than this.</p>
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
 /* Pointer and touch both open this. The mouse path follows the cursor; a tap
