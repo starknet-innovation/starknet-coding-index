@@ -840,20 +840,26 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
-    # The thinking dial, baseline only: the index at every measured effort for
-    # the same top CHART_TOP_N. Descends from the effort-curves section removed
-    # in faabe2a, which drew solve rate for the whole field in both conditions
-    # and drowned; the constraints here are the fix. Tiers are DERIVED from the
-    # data: a tier the API rejects (gpt-oss refuses @disabled) never appears,
-    # and extending a ladder never goes stale.
+    # The thinking dial, baseline only: the four clearest top-15 examples of
+    # each shape. Hand-picked, but direction-gated in audit so a data refresh
+    # that flips one fails the build instead of mislabeling it. Descends from
+    # the effort-curves section removed in faabe2a, which drew solve rate for
+    # the whole field in both conditions and drowned. Tiers are DERIVED from
+    # the data: a tier the API rejects (gpt-oss refuses @disabled) never
+    # appears, and extending a ladder never goes stale.
+    DIAL_PAYS = ["GPT-5.6 Sol", "Gemini 3.6 Flash", "MiniMax M3", "GPT-5.6 Terra"]
+    DIAL_COSTS = ["Opus 5", "Sonnet 5", "Kimi K3", "DeepSeek V4 Flash"]
     EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "default", "high", "xhigh", "max"]
     EFFORT_SHORT = {"disabled": "off", "minimal": "min", "medium": "med", "default": "def"}
     base_by_spec = defaultdict(list)
     for r in all_runs:
         if r["condition"] == "baseline":
             base_by_spec[r["model"]].append(r)
-    dial_rows = []
-    for row in chart_rows:
+    # KeyError here = a pick fell out of the top 15; that should stop the build
+    _by_label = {r["label"]: r for r in chart_rows}
+
+    def dial_row(label):
+        row = _by_label[label]
         pts = []
         for spec in row["specs"]:
             rs = base_by_spec.get(spec)
@@ -862,27 +868,34 @@ def build(all_runs):
             eff = spec.partition("@")[2] or "default"
             pts.append((EFFORT_ORDER.index(eff), eff, compute_sci(rs)["sci"], len(rs)))
         pts.sort()
-        win_eff = row["spec"].partition("@")[2] or "default"
-        dial_rows.append((row["label"], row["open_weight"], pts, win_eff))
-    _vals = [p[2] for _, _, pts, _ in dial_rows for p in pts]
+        return (row["label"], row["open_weight"], pts, row["spec"].partition("@")[2] or "default")
+
+    dial_rows = {lab: dial_row(lab) for lab in DIAL_PAYS + DIAL_COSTS}
+    _vals = [p[2] for _, _, pts, _ in dial_rows.values() for p in pts]
     dial_y_min = 5 * math.floor(min(_vals) / 5)
     dial_y_max = 5 * math.ceil(max(_vals) / 5)
-    _ns = [p[3] for _, _, pts, _ in dial_rows for p in pts]
-    multiples = "".join(
-        f'<div class="multiple"><h3>{label}</h3>'
-        + chart(line_chart([EFFORT_SHORT.get(e, e) for _, e, _, _ in pts],
-                           [v for _, _, v, _ in pts],
-                           [e for _, e, _, _ in pts].index(win_eff),
-                           SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
-                           y_min=dial_y_min, y_max=dial_y_max), small=True)
-        + "</div>"
-        for label, open_w, pts, win_eff in dial_rows
-    )
+    _ns = [p[3] for _, _, pts, _ in dial_rows.values() for p in pts]
+
+    def dial_grid(labels):
+        return '<div class="multiples">' + "".join(
+            f'<div class="multiple"><h3>{label}</h3>'
+            + chart(line_chart([EFFORT_SHORT.get(e, e) for _, e, _, _ in pts],
+                               [v for _, _, v, _ in pts],
+                               [e for _, e, _, _ in pts].index(win_eff),
+                               SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
+                               y_min=dial_y_min, y_max=dial_y_max), small=True)
+            + "</div>"
+            for label, open_w, pts, win_eff in (dial_rows[lab] for lab in labels)
+        ) + "</div>"
+
     dial_html = f"""
 <section>
   <h2>The thinking dial</h2>
-  <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, baseline runs only: each model's index at every thinking effort it was benchmarked at, on one shared scale. Two shapes cover the field. <b>Effort pays</b> for a model with a first-try deficit to close: GPT-5.6 Sol climbs at every step of its ladder. <b>Effort costs</b> for a model that already delivers first-try: it buys tokens and latency with nothing left to fix.</p>
-  <div class="multiples">{multiples}</div>
+  <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the four clearest examples of each shape among the top {word(CHART_TOP_N)}, each drawn across its own effort ladder on one shared scale. <b>Effort pays</b> where a first-try deficit is left to close, and the ring marking the tier the leaderboard scores sits high on the ladder. <b>Effort costs</b> where delivery is already first-try, and the ring sits at the bottom.</p>
+  <h3 class="chart-title">Effort pays</h3>
+  {dial_grid(DIAL_PAYS)}
+  <h3 class="chart-title">Effort costs</h3>
+  {dial_grid(DIAL_COSTS)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span><span>ring: the tier the leaderboard scores</span><span>x is the requested effort; some neighbouring tiers are the same provider setting</span><span>{min(_ns)}–{max(_ns)} runs per point</span></div>
 </section>"""
 

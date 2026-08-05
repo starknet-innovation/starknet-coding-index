@@ -333,9 +333,31 @@ mcp_svg = svgs("What does the Cairo Coder MCP add")
 check("the MCP chart draws the same top models",
       len(mcp_svg) == 1 and sorted(chart_labels(mcp_svg[0])) == sorted(top_n),
       ", ".join(sorted(set(chart_labels(mcp_svg[0])) ^ set(top_n)) or ["exact"]) if mcp_svg else "no chart")
+DIAL_PAYS = ["GPT-5.6 Sol", "Gemini 3.6 Flash", "MiniMax M3", "GPT-5.6 Terra"]
+DIAL_COSTS = ["Opus 5", "Sonnet 5", "Kimi K3", "DeepSeek V4 Flash"]
 dial_names = re.findall(r'<div class="multiple"><h3>([^<]+)</h3>', section_html("The thinking dial"))
-check(f"the dial section draws the top {CHART_TOP_N}, in rank order",
-      dial_names == top_n, " > ".join(dial_names) or "no multiples")
+check("the dial section draws its eight picks, all top-15",
+      dial_names == DIAL_PAYS + DIAL_COSTS and all(n in top_n for n in dial_names),
+      " > ".join(dial_names) or "no multiples")
+# The picks are editorial; the directions are not. A data refresh that flips a
+# model's shape must fail here rather than ship it under the wrong heading.
+EFFORTS = ["disabled", "minimal", "low", "medium", "default", "high", "xhigh", "max"]
+def ladder(label):
+    row = next(r for r in lb if r["label"] == label)
+    lad = [(EFFORTS.index(sp.partition("@")[2] or "default"), sci(C(sp)))
+           for sp in row["specs"] if C(sp)]
+    return [v for _, v in sorted(lad)]
+bad_dir = []
+for _lab in DIAL_PAYS:
+    lad = ladder(_lab)
+    if max(lad) - lad[0] <= 2:
+        bad_dir.append(f"{_lab} gains only {max(lad) - lad[0]:+.1f} over its bottom tier")
+for _lab in DIAL_COSTS:
+    lad = ladder(_lab)
+    if max(lad) - lad[-1] <= 2:
+        bad_dir.append(f"{_lab} loses only {max(lad) - lad[-1]:+.1f} at its top tier")
+check("every dial pick still points its direction", not bad_dir,
+      "; ".join(bad_dir) or "pays gain >2 from the bottom tier, costs lose >2 at the top, all eight")
 # The two shapes the dial intro names, checked against the data they summarize.
 sol = [sci(C(f"openai/gpt-5.6-sol@{t}")) for t in ("disabled", "low", "high", "xhigh", "max")]
 check("Sol's index rises at every step of its ladder",
