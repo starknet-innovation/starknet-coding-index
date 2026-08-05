@@ -976,6 +976,13 @@ def build(all_runs):
         # right rather than a stub on the left
         for q in reversed(QUANT_LADDER):
             gb = gg.get(q)
+            # A native-4-bit release (gpt-oss ships MXFP4) repacks to the same
+            # ~63 GB at every level: rungs above Q4 that add <10% over Q4_K_M
+            # are bigger containers, not more precision, so they print blank
+            # instead of a flat row of the same number.
+            if gb and gg.get(LOCAL_QUANT) and q in ("Q6_K", "Q8_0", "BF16") \
+                    and gb < gg[LOCAL_QUANT] * 1.10:
+                gb = None
             est = gb is None and q == LOCAL_QUANT and r["vram_gb"]
             if gb is None and not est:
                 cells += '<td class="r"></td>'
