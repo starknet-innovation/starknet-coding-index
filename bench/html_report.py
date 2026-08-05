@@ -1166,12 +1166,14 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .ci{{color:var(--muted);font-size:11px}}
-  /* 48/4 is not arbitrary: the title sat 22px under the legend above and 26px
-     above its own chart's first drawn pixel (the svg carries ~26px of internal
-     top padding for the value labels), so it read as belonging to the chart
-     above. Measured, the gap above is now ~2x the gap below. */
+  /* 35/4 is not arbitrary: the title's own chart provides ~26px of gap below
+     (svg internal top padding for the value labels), so the margin above must
+     stay comfortably larger than that for the title to read as belonging to
+     the chart BELOW it, yet small enough that title and chart still hang
+     together with the paragraph above. 48px read as disconnected; 35px keeps
+     the above-gap bigger than the below-gap without the orphan look. */
   .chart-title{{font-size:12px;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--muted);margin:48px 0 4px;text-align:center}}
+    color:var(--muted);margin:35px 0 4px;text-align:center}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
   .scibar{{touch-action:manipulation}}
