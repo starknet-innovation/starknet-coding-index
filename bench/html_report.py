@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import (CHART_TOP_N, LOCAL_QUANT,
+from .sci import (BARE_VARIANT_LABELS, CHART_TOP_N, LOCAL_QUANT,
                   LOCAL_RESERVE_GB, LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB,
                   SCI_SPEC, attempt_score, attempts, compute_sci, index_ci,
                   leaderboard, param_count, run_cost)
@@ -849,8 +849,11 @@ def build(all_runs):
     # the whole field in both conditions and drowned. Tiers are DERIVED from
     # the data: a tier the API rejects (gpt-oss refuses @disabled) never
     # appears, and extending a ladder never goes stale.
+    # Kimi K3 is deliberately absent: labeled honestly, its bare tier IS its
+    # documented max, which ties its best (83.1 vs 83.2), so it fails the costs
+    # direction gate and is no example of anything except the tie rule.
     DIAL_PAYS = ["GPT-5.6 Sol", "Gemini 3.6 Flash", "MiniMax M3", "GPT-5.6 Terra"]
-    DIAL_COSTS = ["Opus 5", "Sonnet 5", "Kimi K3", "DeepSeek V4 Flash"]
+    DIAL_COSTS = ["Opus 5", "Sonnet 5", "DeepSeek V4 Flash", "DeepSeek V4-Pro"]
     EFFORT_ORDER = ["disabled", "minimal", "low", "medium", "default", "high", "xhigh", "max"]
     EFFORT_SHORT = {"disabled": "off", "minimal": "min", "medium": "med", "default": "def"}
     base_by_spec = defaultdict(list)
@@ -867,28 +870,38 @@ def build(all_runs):
             rs = base_by_spec.get(spec)
             if not rs:
                 continue
-            eff = spec.partition("@")[2] or "default"
-            pts.append((EFFORT_ORDER.index(eff), eff, compute_sci(rs)["sci"], len(rs)))
-        pts.sort()
-        return (row["label"], row["open_weight"], pts, row["spec"].partition("@")[2] or "default")
+            # a bare spec ran at the provider's documented default_effort, and
+            # the convention (see BARE_VARIANT_LABELS) is to say that tier, not
+            # the word "default"; Sonnet's bare point therefore sits at high,
+            # right after its explicit @high sample of the same setting
+            bare = "@" not in spec
+            eff = BARE_VARIANT_LABELS.get(spec, "default") if bare else spec.partition("@")[2]
+            if eff not in EFFORT_ORDER:
+                continue  # a serving mode (terra-pro -> "pro"), not a dial tier
+            pts.append((EFFORT_ORDER.index(eff), bare, eff, spec, compute_sci(rs)["sci"], len(rs)))
+        pts.sort(key=lambda p: (p[0], p[1]))
+        # the ring matches by SPEC, not effort name: with two samples of the
+        # same requested tier, the winner is the bare one, not the first
+        win_i = [p[3] for p in pts].index(row["spec"])
+        return (row["label"], row["open_weight"], pts, win_i)
 
     dial_rows = {lab: dial_row(lab) for lab in DIAL_PAYS + DIAL_COSTS}
-    _ns = [p[3] for _, _, pts, _ in dial_rows.values() for p in pts]
+    _ns = [p[5] for _, _, pts, _ in dial_rows.values() for p in pts]
     DIAL_SPAN = 25  # same span in every panel: slopes compare, no dead air
 
     def dial_grid(labels):
         out = []
         for lab in labels:
-            label, open_w, pts, win_eff = dial_rows[lab]
-            vals = [v for _, _, v, _ in pts]
+            label, open_w, pts, win_i = dial_rows[lab]
+            vals = [p[4] for p in pts]
             # a shared absolute axis left every panel mostly empty (each line
             # moves within 4-12 points of a 50-point scale); a fixed span
             # centered per ladder keeps points-per-pixel identical instead
             y_lo = 5 * math.floor(((min(vals) + max(vals)) / 2 - DIAL_SPAN / 2) / 5)
             out.append(
                 f'<div class="multiple"><h3>{label}</h3>'
-                + chart(line_chart([EFFORT_SHORT.get(e, e) for _, e, _, _ in pts],
-                                   vals, [e for _, e, _, _ in pts].index(win_eff),
+                + chart(line_chart([EFFORT_SHORT.get(p[2], p[2]) for p in pts],
+                                   vals, win_i,
                                    SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
                                    y_min=y_lo, y_max=y_lo + DIAL_SPAN), small=True)
                 + "</div>")

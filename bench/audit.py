@@ -16,9 +16,10 @@ import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import (CHART_TOP_N, LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB,
-                       PRICE_REVISIONS, SCI_SPEC, active_models, attempts,
-                       compute_sci, index_ci, leaderboard, price_ratio, run_cost)
+from bench.sci import (BARE_VARIANT_LABELS, CHART_TOP_N, LOCAL_QUANT,
+                       LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS, SCI_SPEC,
+                       active_models, attempts, compute_sci, index_ci,
+                       leaderboard, price_ratio, run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
 # a few claims are about the rendered prose, not just the data behind it
@@ -334,7 +335,7 @@ check("the MCP chart draws the same top models",
       len(mcp_svg) == 1 and sorted(chart_labels(mcp_svg[0])) == sorted(top_n),
       ", ".join(sorted(set(chart_labels(mcp_svg[0])) ^ set(top_n)) or ["exact"]) if mcp_svg else "no chart")
 DIAL_PAYS = ["GPT-5.6 Sol", "Gemini 3.6 Flash", "MiniMax M3", "GPT-5.6 Terra"]
-DIAL_COSTS = ["Opus 5", "Sonnet 5", "Kimi K3", "DeepSeek V4 Flash"]
+DIAL_COSTS = ["Opus 5", "Sonnet 5", "DeepSeek V4 Flash", "DeepSeek V4-Pro"]
 dial_names = re.findall(r'<div class="multiple"><h3>([^<]+)</h3>', section_html("The thinking dial"))
 check("the dial section draws its eight picks, all top-15",
       dial_names == DIAL_PAYS + DIAL_COSTS and all(n in top_n for n in dial_names),
@@ -343,9 +344,14 @@ check("the dial section draws its eight picks, all top-15",
 # model's shape must fail here rather than ship it under the wrong heading.
 EFFORTS = ["disabled", "minimal", "low", "medium", "default", "high", "xhigh", "max"]
 def ladder(label):
+    # bare specs sit at their documented default tier (BARE_VARIANT_LABELS),
+    # mirroring the chart: Sonnet's bare point is a second sample of high,
+    # not a phantom "default" rung
     row = next(r for r in lb if r["label"] == label)
-    lad = [(EFFORTS.index(sp.partition("@")[2] or "default"), sci(C(sp)))
-           for sp in row["specs"] if C(sp)]
+    lad = [(EFFORTS.index(eff), sci(C(sp)))
+           for sp in row["specs"] if C(sp)
+           for eff in [sp.partition("@")[2] or BARE_VARIANT_LABELS.get(sp, "default")]
+           if eff in EFFORTS]  # skip serving modes (terra-pro -> "pro")
     return [v for _, v in sorted(lad)]
 bad_dir = []
 for _lab in DIAL_PAYS:
