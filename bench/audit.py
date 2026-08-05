@@ -336,6 +336,19 @@ check("the MCP chart draws the same top models",
 dial_names = re.findall(r'<div class="multiple"><h3>([^<]+)</h3>', section_html("The thinking dial"))
 check("the dial section draws the top 8 by index, in rank order",
       dial_names == top_n[:8], " > ".join(dial_names) or "no multiples")
+# the intro's look-for pointers; Opus and Sonnet's are covered by the
+# winner-vs-max checks below
+sol = [sci(C(f"openai/gpt-5.6-sol@{t}")) for t in ("disabled", "low", "high", "xhigh", "max")]
+check("Sol's ladder rises at every step",
+      all(a < b for a, b in zip(sol, sol[1:])), " -> ".join(f"{v:.1f}" for v in sol))
+grok = [sci(C(f"x-ai/grok-4.5@{t}")) for t in ("minimal", "high", "max")]
+check("Grok's ladder spans under 2 points",
+      max(grok) - min(grok) < 2, f"span {max(grok) - min(grok):.1f}")
+kimi = {t: sci(C(f"moonshotai/kimi-k3@{t}")) for t in ("low", "high")}
+kimi["max"] = sci(C("moonshotai/kimi-k3"))  # bare spec = documented max default
+check("Kimi dips at high and recovers at its max default",
+      kimi["high"] < kimi["low"] - 2 and kimi["high"] < kimi["max"] - 2,
+      ", ".join(f"{t} {v:.1f}" for t, v in kimi.items()))
 local_svg = svgs("Local-inference class")
 check(f"the local chart draws all {len(loc)} models that fit one machine",
       len(local_svg) == 1 and sorted(chart_labels(local_svg[0])) == sorted(r["label"] for r in loc),
