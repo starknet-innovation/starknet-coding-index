@@ -734,7 +734,7 @@ def build(all_runs):
     # question "Open weights in detail" already answers below. One table.
     local_html = f"""
 <section>
-  <h2>Local-inference class <span style="text-transform:none">(runs on one {LOCAL_VRAM_GB} GB machine)</span></h2>
+  <h2>Local-inference class</h2>
   <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is <b>memory rather than parameter count</b>: the published <code>{LOCAL_QUANT}</code> weight file has to fit the {LOCAL_VRAM_GB} GB of unified memory that today's biggest buyable machines top out at (a DGX Spark, a Strix Halo box, an M5 Max MacBook Pro), minus {LOCAL_RESERVE_GB} GB reserved for the OS and a KV cache. <b>Total parameters count, not active ones</b>, because every weight has to be resident even when a sparse model fires only a few experts per token.</p>
   <p class="takeaway" style="margin:0 0 10px"><code>{LOCAL_QUANT}</code> draws the line because it is the default 4-bit quant, <b>the file most people actually download and run</b>, and the sweet spot where memory halves against 8-bit while quality holds. Below 4-bit, degradation stops being minor, and coding feels it first. These scores were measured on the full-precision models, so the class stops at the quant level where <b>the local copy still resembles the model that was scored</b>.</p>
   {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts))}
