@@ -3,7 +3,7 @@
 How good is each frontier LLM at writing Starknet smart contracts on its own, and which
 models get better when you hand them a Cairo documentation tool?
 
-This repository is the benchmark behind both answers: 22 models from 12 labs, **7,654
+This repository is the benchmark behind both answers: 22 models from 12 labs, **7,862
 agentic runs** on 13 hand-written contract tasks, graded by 106 hidden `snforge` tests.
 Every model ran the suite both ways, alone and with the
 [Cairo Coder](https://www.cairo-coder.com/) MCP documentation tool.
@@ -19,14 +19,14 @@ documentation tool:
 | # | Model | Setting | SCI | Solved on first submission |
 |---|-------|---------|-----|----------------------------|
 | 1 | Opus 5 | low | 92.0 ±0.7 | 100% |
-| 2 | Fable 5 | high | 88.4 ±2.4 | 96% |
-| 3 | Grok 4.5 | max | 88.0 ±4.7 | 74% |
+| 2 | Fable 5 | xhigh | 89.3 ±1.2 | 100% |
+| 3 | Grok 4.5 | medium | 88.3 ±3.8 | 75% |
 | 4 | Sonnet 5 | high | 83.4 ±4.3 | 67% |
 | 5 | Kimi K3 | max | 83.1 ±3.0 | 87% |
 
 Intervals are bootstrapped over each model's runs (1,000 resamples). Opus 5 separates
-from every model below it except Grok 4.5, whose interval is the widest here. Ranks 2
-to 5 all overlap one another, so read them as a band and not an order.
+from every model below it except Grok 4.5; Fable 5 separates from ranks 4 and 5, while
+Grok's wide interval overlaps the whole band. Read overlapping pairs as ties, not an order.
 
 All 22 models, the difficulty breakdown and the documentation-tool deltas are in the
 report. To print the full leaderboard yourself:
@@ -98,7 +98,7 @@ version of it. Per-model deltas are charted in the report.
 
 ## Published data
 
-`results/runs/main.jsonl` holds 7,702 records, the 7,654 analysed runs plus 48 that
+`results/runs/main.jsonl` holds 7,910 records, the 7,862 analysed runs plus 48 that
 hit a transport error and are dropped at load. It is the only input the report and the
 audit need:
 

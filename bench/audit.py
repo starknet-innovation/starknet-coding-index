@@ -106,7 +106,7 @@ check("Opus 100% one-shot", one(C(o["spec"])) == 100, f"{one(C(o['spec'])):.0f}%
 check("Opus has the fastest median pass of the charted models",
       min((pass_time(by[r["label"]]["spec"]), r["label"])
           for r in lb if r["label"] in charted)[1] == "Opus 5")
-check("Opus is 3.7 clear of second", abs(o["sci"] - f["sci"] - 3.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
+check("Opus is 2.7 clear of second", abs(o["sci"] - f["sci"] - 2.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
 check("Kimi 87% vs MiMo 40% one-shot",
       round(one(C(k["spec"]))) == 87 and round(one(C(mi["spec"]))) == 40,
       f"{one(C(k['spec'])):.0f}/{one(C(mi['spec'])):.0f}")
@@ -188,7 +188,7 @@ print("\n== findings: documentation lift at each condition's own best")
 for lab, want in (("Qwen3.6-27B", 22.0), ("Qwen3.8 Max", 16.3), ("Qwen3.6-35B-A3B", 15.6),
                   ("GLM 5.2", 6.4), ("GPT-5.6 Terra", 9.1),
                   ("GPT-5.6 Sol", 7.9), ("Qwen3 Coder Next", 6.3), ("MiniMax M3", 5.2), ("Hy3", 2.3),
-                  ("Opus 5", -0.1), ("Kimi K3", -0.3), ("Fable 5", -1.6),
+                  ("Opus 5", -0.1), ("Kimi K3", -0.3), ("Fable 5", -2.5),
                   ("MiMo-V2.5-Pro", -2.6), ("Sonnet 5", -5.4),
                   ("Gemma 4 31B", -1.8), ("gpt-oss-120b", -1.7)):
     got = mcp[lab]["sci"] - by[lab]["sci"]
@@ -341,13 +341,19 @@ check("the dial section draws the top 8 by index, in rank order",
 sol = [sci(C(f"openai/gpt-5.6-sol@{t}")) for t in ("disabled", "low", "high", "xhigh", "max")]
 check("Sol's ladder rises at every step",
       all(a < b for a, b in zip(sol, sol[1:])), " -> ".join(f"{v:.1f}" for v in sol))
-grok = [sci(C(f"x-ai/grok-4.5@{t}")) for t in ("minimal", "high", "max")]
-check("Grok's ladder spans under 2 points",
-      max(grok) - min(grok) < 2, f"span {max(grok) - min(grok):.1f}")
-kimi = {t: sci(C(f"moonshotai/kimi-k3@{t}")) for t in ("low", "high")}
+grok = [sci(C(f"x-ai/grok-4.5@{t}")) for t in ("minimal", "low", "medium", "high", "max")]
+check("Grok's five tiers land within 3 points",
+      max(grok) - min(grok) < 3, f"span {max(grok) - min(grok):.1f}")
+fable = {t: sci(C(f"anthropic/claude-fable-5@{t}")) for t in ("xhigh", "max")}
+check("Fable's max drops 5.6 below its xhigh plateau",
+      abs(fable["xhigh"] - fable["max"] - 5.6) < 0.15,
+      f"{fable['xhigh']:.1f} vs {fable['max']:.1f}")
+kimi = {t: sci(C(f"moonshotai/kimi-k3@{t}")) for t in ("disabled", "low", "high")}
 kimi["max"] = sci(C("moonshotai/kimi-k3"))  # bare spec = documented max default
-check("Kimi dips at high and recovers at its max default",
-      kimi["high"] < kimi["low"] - 2 and kimi["high"] < kimi["max"] - 2,
+check("Kimi is level at off, low and max, and dips only at high",
+      max(kimi["disabled"], kimi["low"], kimi["max"])
+      - min(kimi["disabled"], kimi["low"], kimi["max"]) < 1
+      and all(kimi["high"] < kimi[t] - 2 for t in ("disabled", "low", "max")),
       ", ".join(f"{t} {v:.1f}" for t, v in kimi.items()))
 local_svg = svgs("Local-inference class")
 check(f"the local chart draws all {len(loc)} models that fit one machine",
@@ -444,7 +450,7 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("eight of twenty-two differ, five downward", len(diff) == 8 and len(down) == 5,
+check("ten of twenty-two differ, six downward", len(diff) == 10 and len(down) == 6,
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))

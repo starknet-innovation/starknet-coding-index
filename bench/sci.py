@@ -234,7 +234,8 @@ MODEL_REGISTRY = [
     # is gone; OpenRouter now points this id at that repo
     # bare = provider default (max); @high/@low added 2026-07-25 after OpenRouter
     # showed K3 accepts them and we had only ever measured one configuration
-    {"specs": ["moonshotai/kimi-k3", "moonshotai/kimi-k3@high", "moonshotai/kimi-k3@low"],
+    {"specs": ["moonshotai/kimi-k3", "moonshotai/kimi-k3@high", "moonshotai/kimi-k3@low",
+               "moonshotai/kimi-k3@disabled"],
      "label": "Kimi K3", "lab": "Moonshot", "open_weight": True},
     {"specs": ["xiaomi/mimo-v2.5-pro@max", "xiaomi/mimo-v2.5-pro@xhigh",
                "xiaomi/mimo-v2.5-pro@high", "xiaomi/mimo-v2.5-pro@medium",
@@ -354,12 +355,12 @@ MODEL_REGISTRY = [
      # that reopens a value-based drop, and the full ladder was already measured
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
     {"specs": ["x-ai/grok-4.5@max", "x-ai/grok-4.5@xhigh", "x-ai/grok-4.5@high",
-               "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
+               "x-ai/grok-4.5@medium", "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
      # thinking mandatory (@disabled rejected); bare = dynamic, skipped
      "label": "Grok 4.5", "lab": "xAI", "open_weight": False},
     {"specs": ["anthropic/claude-fable-5@max", "anthropic/claude-fable-5@xhigh",
-               "anthropic/claude-fable-5@high", "anthropic/claude-fable-5@low",
-               "anthropic/claude-fable-5@minimal"],
+               "anthropic/claude-fable-5@high", "anthropic/claude-fable-5@medium",
+               "anthropic/claude-fable-5@low", "anthropic/claude-fable-5@minimal"],
      # thinking mandatory (no off tier); bare = adaptive/unnameable, skipped
      "label": "Fable 5", "lab": "Anthropic", "open_weight": False},
     {"specs": ["anthropic/claude-opus-4.8@max", "anthropic/claude-opus-4.8@xhigh",

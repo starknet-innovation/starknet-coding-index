@@ -907,7 +907,7 @@ def build(all_runs):
 <section>
   <h2>The thinking dial</h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the top {word(DIAL_TOP_N)} models, each drawn across its own effort ladder. The ring marks <b>the tier the leaderboard scores</b>.</p>
-  <p class="takeaway" style="margin:0 0 10px">Things to look for: <b>GPT-5.6 Sol is the only ladder that rises at every step</b> (58.4 to 69.5), Opus 5 peaks at <code>low</code> and pays 7 points for <code>max</code>, Sonnet 5 holds a plateau until <code>max</code> costs it 10, <b>Grok 4.5 barely notices its dial</b>, and Kimi K3 dips at <code>high</code> only to recover at its <code>max</code> default.</p>
+  <p class="takeaway" style="margin:0 0 10px">Things to look for: <b>GPT-5.6 Sol is the only ladder that rises at every step</b> (58.4 to 69.5). <b>All three Anthropic models pay for <code>max</code></b>: Opus 5 peaks at <code>low</code> and gives back 7 points, while Fable 5 and Sonnet 5 hold plateaus that <code>max</code> drops by 5.6 and 10. Grok 4.5's five tiers land within 3 points of each other, and Kimi K3 is level at off, low and its <code>max</code> default, dipping only at <code>high</code>.</p>
   {dial_grid(dial_labels)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span></div>
 </section>"""
@@ -920,7 +920,7 @@ def build(all_runs):
         ("Why does Opus 5 win?", "100% one-shot",
          "Every task in every rep solved on the first submission, at the field's fastest "
          "median pass. Nothing else in the field is perfect on that measure, which is why a "
-         "flagship price tag still leaves it 3.7 points clear."),
+         "flagship price tag still leaves it 2.7 points clear."),
         ("Kimi K3 over MiMo? MiMo is far cheaper", "87% vs 40% one-shot",
          "This is the index working as intended. MiMo serves a pass 4.5× faster and 21× cheaper, "
          "and still loses 4.2 points, because it delivers broken code first about three runs in "
