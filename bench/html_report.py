@@ -521,7 +521,7 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
     return "".join(parts)
 
 
-def attempts_chart(groups, w=760, h=210, y_max=None, fmt=None, ticks=None):
+def attempts_chart(groups, w=760, h=234, y_max=None, fmt=None, ticks=None):
     """Grouped columns per task difficulty, one pair (closed lavender, open blue)
     per tier.
 
@@ -532,7 +532,12 @@ def attempts_chart(groups, w=760, h=210, y_max=None, fmt=None, ticks=None):
 
     groups: [(tier_label, val_closed, val_open)]
     """
-    pad_l, pad_r, pad_t, pad_b = 64, 40, 18, 30
+    # pad_t 42, not the 26 of the other titled charts: the champions post 100%,
+    # so bars reach the top gridline and their labels ride 7px above it. The
+    # extra headroom keeps the ink-to-title gap the .chart-title contract
+    # expects (see the comment on .chart-title). h grew 210 -> 234 in step, so
+    # the plot itself kept its height.
+    pad_l, pad_r, pad_t, pad_b = 64, 40, 42, 30
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
     fmt = fmt or (lambda v: f"{v:g}")
     y_max = y_max or max(3, max(max(a, b) for _, a, b in groups) + 1)
