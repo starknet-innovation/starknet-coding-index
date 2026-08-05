@@ -908,7 +908,7 @@ def build(all_runs):
   <h3 class="chart-title">First-submission rate by task difficulty</h3>
   {chart(attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
                   ticks=[(t * 25, f"{t * 25}%") for t in range(5)]))}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span><span>top chart: bars scaled per row, and lower is better on every row but the two rates</span></div>
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span></div>
 </section>"""
 
     # score definition applies to both charts above, so it gets its own section
