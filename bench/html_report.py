@@ -368,7 +368,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None
 
 
 def head_to_head_chart(metrics, w=760):
-    """Paired horizontal bars, one group per metric: closed champion (grey)
+    """Paired horizontal bars, one group per metric: closed champion (lavender)
     over open champion (blue). Bars are scaled per row to the larger of the
     pair — the point is the ratio within a metric, not across metrics.
 
@@ -418,9 +418,9 @@ FITS_BG = "#dbe7fc"         # blue-05 wash: a quant that fits one local machine
 def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L):
     """Stacked column per model, covering 100% of that model's runs.
 
-    Segments are how many submissions the working code took; the grey band on
+    Segments are how many submissions the working code took; the tan band on
     top is runs that never worked at all, so solve rate reads as everything
-    below the grey. A column that is mostly dark blue is a model that just
+    below it. A column that is mostly dark blue is a model that just
     works.
     """
     pad_r, pad_t = 40, 26
@@ -457,7 +457,7 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L):
         elif solved_share >= 14:            # too thin to fill: sits on the axis,
             ly_pct, fill = sy(0) - 7, "#FFFFFF"     # over a solid segment
         else:                               # barely solves: the axis sits in the
-            ly_pct, fill = sy(0) - 7, SNF_BLUE      # grey band, so ink not white
+            ly_pct, fill = sy(0) - 7, SNF_BLUE      # unsolved band, so ink not white
         parts.append(f'<text x="{cx:.0f}" y="{ly_pct:.0f}" font-size="10.5" font-weight="600" '
                      f'fill="{fill}" text-anchor="middle">{first:.0f}%</text>')
         ly = sy(0) + 12
@@ -522,7 +522,7 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
 
 
 def attempts_chart(groups, w=760, h=210, y_max=None, fmt=None, ticks=None):
-    """Grouped columns per task difficulty, one pair (closed grey, open blue)
+    """Grouped columns per task difficulty, one pair (closed lavender, open blue)
     per tier.
 
     Started life as median attempts per tier, which v3 made useless: both
@@ -793,7 +793,7 @@ def build(all_runs):
     pass_html = f"""
 <section>
   <h2>Behind the score</h2>
-  <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a grey band for the runs that never worked. Solve rate is everything below the grey. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
+  <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a warm-tan band ("never solved" in the legend) for the runs that never worked. Solve rate is everything below that band. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
   <h3 class="chart-title">How many submissions it takes</h3>
   {chart(attempts_dist_chart(sorted(starred(chart_rows), key=lambda r: -r["dist"][0])))}
   <div class="legend legend-bottom">{"".join(
