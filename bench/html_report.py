@@ -822,8 +822,7 @@ def build(all_runs):
          "and speed scores differ by less than a point. <b>Thirty of the 31 points come from one "
          "place</b>: whether the first submission builds. And when it builds it works, because "
          "across both models not one first submission compiled and then failed a test. That "
-         "makes this a knowledge gap rather than a reasoning gap, which is why documentation is "
-         "worth +16.3 to Qwen3.8 Max and &minus;0.3 to Kimi K3."),
+         "makes this a knowledge gap rather than a reasoning gap."),
         ("Sonnet 5 solves everything. Why 4th?", "67% vs 100% one-shot",
          "That gap against Opus 5 is most of the 8.6 points between them. Most of its dial "
          "does nothing: minimal through xhigh all land within one "
@@ -833,9 +832,7 @@ def build(all_runs):
         ("Which of these could I run myself?", "5 of 22",
          "They fit one 128 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
          "gpt-oss-120b at 63 GB, and they compare on their own footing in the section below. The "
-         "rest need a rack or are closed. Documentation pays hardest down there: it nearly triples "
-         "Qwen3.6-27B (13.3 to 35.3, solving 15% of runs without docs and 69% with) and doubles "
-         "35B-A3B, though it bounces off Gemma 4 and gpt-oss."),
+         "rest need a rack or are closed."),
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
          "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code); its "
          "habit is: a median of two submissions per task at $0.0895, about nine times Grok's bill for "
@@ -1065,21 +1062,34 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   </table></div>
 </section>"""
 
-    findings_html = """
-<section class="findings">
+    # Same card grammar as Fair questions, by request: qcard grid, bold stat
+    # lede, no tag chips. Declarative titles where the FAQ asks questions is
+    # the one deliberate difference between the sections.
+    FINDINGS = [
+        ("Give the docs tool to a model that needs it", "+22.0 at the bottom",
+         "The weaker the Cairo, the bigger the lift: Qwen3.6-27B goes from 15% of runs solved "
+         "to 69%; frontier-sized Qwen3.8 Max gains +16.3; at the top it fades to zero and below "
+         "(Sonnet 5 &minus;5.4)."),
+        ("The thinking dial rarely buys correctness", "3 to 34x the tokens",
+         "Most models are equally correct at every effort; <code>max</code> buys first-try "
+         "polish and a lower score (Opus 5: 92.0 at low against 85.0 at max)."),
+        ("Pro-style serving modes are strictly dominated", "2 to 3x for less",
+         "Both pro modes we funded scored below their model's <code>max</code> tier "
+         "(terra-pro 53.8 against terra@max 55.2)."),
+        ("Why the tool works: the models write an older Cairo", "one lookup",
+         "Failing models write the pre-2024 <code>Map.read(key)</code> instead of "
+         "<code>Map.entry(key).read()</code>; one lookup fixes it, which is why the tool can "
+         "make a model <i>cheaper</i>."),
+        ("Cairo Coder confabulates outside its index", "no signal off-index",
+         "Asked about an invented token standard, it returned a complete, confident, "
+         "fabricated interface. Worth fixing upstream."),
+    ]
+    findings_html = f"""
+<section>
   <h2>Findings</h2>
-  <div class="finding"><h3><span class="tag win">law</span>Give the docs tool to a model that needs it</h3>
-  <p>The weaker the Cairo, the bigger the lift: <b>+22.0</b> for Qwen3.6-27B (15% of runs solved to 69%), <b>+16.3</b> for frontier-sized Qwen3.8 Max, fading to zero and below at the top (Sonnet 5 <b>&minus;5.4</b>).</p></div>
-  <div class="finding"><h3><span class="tag win">thinking</span>The thinking dial rarely buys correctness, but it can buy first-try delivery</h3>
-  <p>Most models are equally correct at every effort; paying for <code>max</code> buys first-try polish at 3 to 34x the tokens and a lower score (Opus 5: <b>92.0 at low</b> against 85.0 at max).</p></div>
-  <div class="finding"><h3><span class="tag cost">habits</span>First-try delivery is a model habit, and documentation is what moves it</h3>
-  <p>GPT-5.6 Sol iterates (40% first-try at its best tier); hand it the docs and it jumps to <b>72%</b>, the biggest shift in the study, 69.5 to 77.4.</p></div>
-  <div class="finding"><h3><span class="tag cost">economics</span>Pro-style serving modes are strictly dominated</h3>
-  <p>Both pro modes we funded cost 2 to 3x their model's <code>max</code> tier and scored below it (terra-pro 53.8 against terra@max 55.2).</p></div>
-  <div class="finding"><h3><span class="tag win">mechanism</span>Why the tool works: the models are writing an older Cairo</h3>
-  <p>Failures are mostly the pre-2024 storage API (<code>Map.read(key)</code> instead of <code>Map.entry(key).read()</code>); one lookup fixes it, which is why the tool can make a model <i>cheaper</i>.</p></div>
-  <div class="finding"><h3><span class="tag warn">caveat</span>Cairo Coder confabulates outside its index</h3>
-  <p>Asked about an invented token standard, it returned a complete, confident, fabricated interface; agents get no signal when a query falls outside coverage.</p></div>
+  <div class="faq">{"".join(
+      f'<div class="qcard"><h3>{q}</h3><p><b class="ans">{stat}.</b> {a}</p></div>'
+      for q, stat, a in FINDINGS)}</div>
 </section>"""
 
     # charset first: without it a browser guesses the encoding (file:// has no
@@ -1191,12 +1201,6 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .qcard p{{margin:0;font-size:13.5px}}
   .qcard .ans{{font-weight:700}}
   @media(max-width:760px){{.faq{{grid-template-columns:1fr}}}}
-  .findings{{display:flex;flex-direction:column;gap:18px}}
-  .finding h3{{font-size:14px;margin-bottom:4px}}
-  .finding p{{margin:0;font-size:14px}}
-  .finding p + p{{margin-top:9px}}
-  .tag{{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:3px;margin-right:8px;vertical-align:1px}}
-  .tag.win{{background:{LINE};color:{SNF_BLUE_DEEP}}} .tag.cost{{background:{SNF_ORANGE_TINT};color:{SNF_ORANGE_INK}}} .tag.warn{{background:{SNF_PINK_TINT};color:{SNF_PINK_INK}}}
   code{{font-family:var(--mono);font-size:.92em;background:var(--ground);border:1px solid var(--line);border-radius:3px;padding:1px 5px}}
   .split{{display:grid;grid-template-columns:1fr 1fr;gap:28px}}
   @media(max-width:760px){{.split{{grid-template-columns:1fr}}}}
