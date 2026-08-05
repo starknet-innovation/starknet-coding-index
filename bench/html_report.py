@@ -630,8 +630,7 @@ def build(all_runs):
     # while the table still prints `open*`; the audit's exactly-once count then
     # fails loudly rather than shipping an unexplained star.
     pending_note = (
-        '<span>* open classification based on an announced weights release, '
-        'not yet published</span>'
+        '<span>* weights promised but not yet released</span>'
         if any(r.get("weights_pending") for r in chart_rows) else ""
     )
 
