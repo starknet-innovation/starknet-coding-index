@@ -782,7 +782,6 @@ def build(all_runs):
   <h3 class="chart-title">Top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
   {chart(sci_bar_chart(starred(chart_rows)))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Below the cut, in order: {", ".join(f'{r["label"]} {r["sci"]:.1f}' for r in sci_rows[CHART_TOP_N:])}. {word(n_below).capitalize()} of those {word(len(sci_rows) - CHART_TOP_N)} run on one machine and are charted in the local-inference section; every one of them keeps a row in the models table and a place in the findings.</p>
   {tip_js}
 </section>"""
     import math

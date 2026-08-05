@@ -353,11 +353,6 @@ check("the local section is the only chart for the small models, and counts them
       bool(local_note)
       and [numword(g) for g in local_note.groups()] == [len(only_local), len(loc), CHART_TOP_N],
       f"{local_note.group(0)} | only there: {', '.join(only_local)}" if local_note else "no note")
-cut_note = re.search(r"Below the cut, in order: (.*?)\.\s", report_html)
-check("the leaderboard names every model below the cut",
-      bool(cut_note) and [s.rsplit(" ", 1)[0] for s in cut_note.group(1).split(", ")]
-      == [r["label"] for r in lb[CHART_TOP_N:]],
-      cut_note.group(1) if cut_note else "no note")
 
 # The five ladder rungs the report prints are picks out of a much longer list
 # (13 to 38 files per repo), so check the pick rather than trusting it: each
