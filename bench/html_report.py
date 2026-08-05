@@ -778,7 +778,8 @@ def build(all_runs):
     sci_html = f"""
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task. This chart and the three below it show the <b>top {word(CHART_TOP_N)} of {word(len(sci_rows))}</b>; the rest are in the models table, and the ones you could run yourself have their own section either way.</p>
+  <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
+  <h3 class="chart-title">Top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
   {chart(sci_bar_chart(starred(chart_rows)))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
   <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Below the cut, in order: {", ".join(f'{r["label"]} {r["sci"]:.1f}' for r in sci_rows[CHART_TOP_N:])}. {word(n_below).capitalize()} of those {word(len(sci_rows) - CHART_TOP_N)} run on one machine and are charted in the local-inference section; every one of them keeps a row in the models table and a place in the findings.</p>

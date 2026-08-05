@@ -320,6 +320,10 @@ sci_svg = svgs("Starknet Coding Index")
 check(f"index chart draws the top {CHART_TOP_N}, in rank order",
       len(sci_svg) == 1 and chart_labels(sci_svg[0]) == top_n,
       " > ".join(chart_labels(sci_svg[0])) if sci_svg else "no chart found")
+cut_title = re.search(r"Top (\d+) of the (\d+) models tested", report_html)
+check("the index chart title states the cut",
+      bool(cut_title) and [int(g) for g in cut_title.groups()] == [CHART_TOP_N, len(lb)],
+      cut_title.group(0) if cut_title else "no title")
 behind = svgs("Behind the score")
 check("all three 'Behind the score' charts draw the same top models",
       len(behind) == 3 and all(sorted(chart_labels(s)) == sorted(top_n) for s in behind),
