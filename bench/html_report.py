@@ -1137,7 +1137,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .key{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}}
   .takeaway{{font-size:14.5px;margin:14px 0 0}}
   .takeaway b{{color:var(--ink)}}
-  .tablewrap{{overflow-x:auto}}
+  .tablewrap{{overflow-x:auto;margin:24px 0}}
   table{{border-collapse:collapse;width:100%;min-width:900px;font-variant-numeric:tabular-nums}}
   th{{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}}
   table.sortable td:first-child{{white-space:nowrap}}
