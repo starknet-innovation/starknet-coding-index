@@ -817,27 +817,23 @@ def build(all_runs):
          "five. First-submission success carries twice the weight of the bill."),
         ("Kimi K3 and Qwen3.8 Max are the same size. Why 31 points apart?",
          "87% vs 9% first-try compiles",
-         "Two mixture-of-experts flagships released a week apart, 2.8T parameters activating "
-         "104B against 2.4T activating 95B, and both solve essentially every task. Their cost "
-         "and speed scores differ by less than a point. <b>Thirty of the 31 points come from one "
-         "place</b>: whether the first submission builds. And when it builds it works, because "
-         "across both models not one first submission compiled and then failed a test. That "
-         "makes this a knowledge gap rather than a reasoning gap."),
+         "Same class of MoE flagship, released a week apart, and both solve essentially every "
+         "task; cost and speed differ by less than a point. <b>Thirty of the 31 points come "
+         "from one place</b>: whether the first submission builds. Across both models no first "
+         "submission compiled and then failed a test, so the gap is knowledge, not reasoning."),
         ("Sonnet 5 solves everything. Why 4th?", "67% vs 100% one-shot",
-         "That gap against Opus 5 is most of the 8.6 points between them. Most of its dial "
-         "does nothing: minimal through xhigh all land within one "
-         "interval of each other on ~1.8k output tokens and 14 seconds. Only <code>max</code> is "
-         "different, and it is a cliff, not a step: 88% one-shot, the best of any Sonnet setting, for "
-         "61k output tokens at $0.68 a task and nine minutes of thinking."),
+         "That first-try gap against Opus 5 is most of the 8.6 points between them. The dial "
+         "does nothing until <code>max</code>, and that is a cliff, not a step: 88% one-shot, "
+         "the best of any Sonnet setting, for 61k output tokens, $0.68 and nine minutes a task."),
         ("Which of these could I run myself?", "5 of 22",
          "They fit one 128 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
          "gpt-oss-120b at 63 GB, and they compare on their own footing in the section below. The "
          "rest need a rack or are closed."),
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
-         "Its Cairo knowledge is not the problem (100% of hidden tests pass on delivered code); its "
-         "habit is: a median of two submissions per task at $0.0895, about nine times Grok's bill for "
-         "half of Grok's first-try rate. Give it the documentation tool and the habit changes, to 72% "
-         "and a median of one submission, which is the largest such shift in the study."),
+         "Cairo knowledge is not the problem (100% of hidden tests pass on delivered code); the "
+         "habit is: a median of two submissions per task at $0.0895, nine times Grok's bill for "
+         "half of Grok's first-try rate. The docs change the habit: 72% first-try and a median "
+         "of one, the largest such shift in the study."),
     ]
     faq_cards = "".join(
         f'<div class="qcard"><h3>{q}</h3><p><b class="ans">{stat}.</b> {a}</p></div>'
@@ -1071,18 +1067,21 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
          "to 69%; frontier-sized Qwen3.8 Max gains +16.3; at the top it fades to zero and below "
          "(Sonnet 5 &minus;5.4)."),
         ("The thinking dial rarely buys correctness", "3 to 34x the tokens",
-         "Most models are equally correct at every effort; <code>max</code> buys first-try "
-         "polish and a lower score (Opus 5: 92.0 at low against 85.0 at max)."),
+         "Most models are equally correct at every effort. Paying for <code>max</code> buys "
+         "first-try polish at a lower score (Opus 5: 92.0 at low against 85.0 at max), and "
+         "Kimi K3's <code>low</code> tier matches its default at a third of the price."),
         ("Pro-style serving modes are strictly dominated", "2 to 3x for less",
          "Both pro modes we funded scored below their model's <code>max</code> tier "
-         "(terra-pro 53.8 against terra@max 55.2)."),
+         "(terra-pro 53.8 against terra@max 55.2). Neither ever produced its model's best "
+         "configuration, so sol-pro was not funded on that record."),
         ("Why the tool works: the models write an older Cairo", "one lookup",
          "Failing models write the pre-2024 <code>Map.read(key)</code> instead of "
-         "<code>Map.entry(key).read()</code>; one lookup fixes it, which is why the tool can "
-         "make a model <i>cheaper</i>."),
+         "<code>Map.entry(key).read()</code>, then burn their turns arguing with the compiler. "
+         "One lookup fixes it, which is why the tool can make a model <i>cheaper</i>."),
         ("Cairo Coder confabulates outside its index", "no signal off-index",
-         "Asked about an invented token standard, it returned a complete, confident, "
-         "fabricated interface. Worth fixing upstream."),
+         "Asked about a token standard we invented (\"STRK77\"), it returned a complete, "
+         "confident, fabricated Cairo interface. Within its index it is accurate; agents get "
+         "no signal when a query falls outside coverage. Worth fixing upstream."),
     ]
     findings_html = f"""
 <section>
