@@ -106,7 +106,7 @@ def chart(svg, small=False):
     return f'<div class="chartwrap{" small" if small else ""}">{svg}</div>'
 
 
-def line_chart(x_labels, vals, win_i, color, w=380, h=230, y_min=0, y_max=100):
+def line_chart(x_labels, vals, win_i, color, w=380, h=200, y_min=0, y_max=100):
     """One model's index across its effort ladder, for the dial multiples.
 
     win_i rings the tier the leaderboard scores, so each mini chart answers
@@ -136,8 +136,10 @@ def line_chart(x_labels, vals, win_i, color, w=380, h=230, y_min=0, y_max=100):
         # on the y-axis tick text when the line runs near a gridline (Grok's
         # flat 86 under the 90 tick printed as "9086")
         anchor = "start" if i == 0 else "middle"
+        # one decimal: integer labels made ties look like errors (Gemini printed
+        # 71/71/71/71 with the ring on 70.9)
         parts.append(f'<text x="{sx(i) + (2 if i == 0 else 0):.0f}" y="{sy(v) - 11:.1f}" '
-                     f'font-size="11" fill="{INK}" text-anchor="{anchor}" font-weight="600">{v:.0f}</text>')
+                     f'font-size="11" fill="{INK}" text-anchor="{anchor}" font-weight="600">{v:.1f}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -871,32 +873,36 @@ def build(all_runs):
         return (row["label"], row["open_weight"], pts, row["spec"].partition("@")[2] or "default")
 
     dial_rows = {lab: dial_row(lab) for lab in DIAL_PAYS + DIAL_COSTS}
-    _vals = [p[2] for _, _, pts, _ in dial_rows.values() for p in pts]
-    dial_y_min = 5 * math.floor(min(_vals) / 5)
-    dial_y_max = 5 * math.ceil(max(_vals) / 5)
     _ns = [p[3] for _, _, pts, _ in dial_rows.values() for p in pts]
+    DIAL_SPAN = 25  # same span in every panel: slopes compare, no dead air
 
     def dial_grid(labels):
-        return '<div class="multiples">' + "".join(
-            f'<div class="multiple"><h3>{label}</h3>'
-            + chart(line_chart([EFFORT_SHORT.get(e, e) for _, e, _, _ in pts],
-                               [v for _, _, v, _ in pts],
-                               [e for _, e, _, _ in pts].index(win_eff),
-                               SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
-                               y_min=dial_y_min, y_max=dial_y_max), small=True)
-            + "</div>"
-            for label, open_w, pts, win_eff in (dial_rows[lab] for lab in labels)
-        ) + "</div>"
+        out = []
+        for lab in labels:
+            label, open_w, pts, win_eff = dial_rows[lab]
+            vals = [v for _, _, v, _ in pts]
+            # a shared absolute axis left every panel mostly empty (each line
+            # moves within 4-12 points of a 50-point scale); a fixed span
+            # centered per ladder keeps points-per-pixel identical instead
+            y_lo = 5 * math.floor(((min(vals) + max(vals)) / 2 - DIAL_SPAN / 2) / 5)
+            out.append(
+                f'<div class="multiple"><h3>{label}</h3>'
+                + chart(line_chart([EFFORT_SHORT.get(e, e) for _, e, _, _ in pts],
+                                   vals, [e for _, e, _, _ in pts].index(win_eff),
+                                   SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
+                                   y_min=y_lo, y_max=y_lo + DIAL_SPAN), small=True)
+                + "</div>")
+        return f'<div class="multiples">{"".join(out)}</div>'
 
     dial_html = f"""
 <section>
   <h2>The thinking dial</h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the four clearest examples of each shape among the top {word(CHART_TOP_N)}, each drawn across its own effort ladder on one shared scale. <b>Effort pays</b> where a first-try deficit is left to close, and the ring marking the tier the leaderboard scores sits high on the ladder. <b>Effort costs</b> where delivery is already first-try, and the ring sits at the bottom.</p>
+  <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the four clearest examples of each shape among the top {word(CHART_TOP_N)}, each drawn across its own effort ladder. <b>Effort pays</b> where a first-try deficit is left to close, and the ring marking the tier the leaderboard scores sits high on the ladder. <b>Effort costs</b> where delivery is already first-try, and the ring sits at the bottom.</p>
   <h3 class="chart-title">Effort pays</h3>
   {dial_grid(DIAL_PAYS)}
   <h3 class="chart-title">Effort costs</h3>
   {dial_grid(DIAL_COSTS)}
-  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span><span>ring: the tier the leaderboard scores</span><span>x is the requested effort; some neighbouring tiers are the same provider setting</span><span>{min(_ns)}–{max(_ns)} runs per point</span></div>
+  <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span><span>ring: the tier the leaderboard scores (ties go to the deepest-measured tier)</span><span>every panel spans {DIAL_SPAN} index points, centered on its own ladder</span><span>x is the requested effort; some neighbouring tiers are the same provider setting</span><span>{min(_ns)}–{max(_ns)} runs per point</span></div>
 </section>"""
 
     # Fair questions: the priors readers arrive with. The QUESTION is the hook a
@@ -1298,10 +1304,12 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   .qcard p{{margin:0;font-size:13.5px}}
   .qcard .ans{{font-weight:700}}
   @media(max-width:760px){{.faq{{grid-template-columns:1fr}}}}
-  .multiples{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}
+  /* row gap well above the h3's gap to its own chart, so a model name reads
+     as a caption of the chart BELOW it, not the one above */
+  .multiples{{display:grid;grid-template-columns:1fr 1fr;gap:32px 18px}}
   @media(max-width:760px){{.multiples{{grid-template-columns:1fr}}}}
   .multiple{{text-align:center}}
-  .multiple h3{{font-size:13px;margin-bottom:6px}}
+  .multiple h3{{font-size:13px;margin-bottom:2px}}
   code{{font-family:var(--mono);font-size:.92em;background:var(--ground);border:1px solid var(--line);border-radius:3px;padding:1px 5px}}
   .split{{display:grid;grid-template-columns:1fr 1fr;gap:28px}}
   @media(max-width:760px){{.split{{grid-template-columns:1fr}}}}
