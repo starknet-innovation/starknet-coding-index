@@ -622,23 +622,17 @@ def build(all_runs):
     starred = lambda rows: [
         dict(r, label=r["label"] + "*") if r.get("weights_pending") else r for r in rows
     ]
+    # The ONE place the report explains the star, by request: the legend of the
+    # leaderboard chart, where a pending model first appears. Every later star
+    # (the Behind-the-score charts, the MCP chart, the head-to-head paragraph,
+    # the models table's `open*` cell) wears the mark unexplained on purpose.
+    # If a pending model ever ranks below the chart cut this renders nothing
+    # while the table still prints `open*`; the audit's exactly-once count then
+    # fails loudly rather than shipping an unexplained star.
     pending_note = (
         '<span>* open classification based on an announced weights release, '
         'not yet published</span>'
         if any(r.get("weights_pending") for r in chart_rows) else ""
-    )
-    # The chart legend above only fires when a FLAGGED model is actually drawn
-    # in that chart, and a pending model can rank below the cut: Qwen3.8 Max
-    # printed `open*` in the models table with nothing anywhere explaining the
-    # star. The models table lists every model, so the explanation belongs here
-    # too, phrased the same way, and derived from the flag rather than typed.
-    _pending = [r["label"] for r in sci_rows if r.get("weights_pending")]
-    pending_table_note = (
-        f'{" and ".join(_pending)} carr{"ies" if len(_pending) == 1 else "y"} an '
-        f'<b>open*</b> classification based on an announced weights release that is '
-        f'not yet published: Alibaba has said the first Max-class Qwen ships its '
-        f'weights the week of 2026-08-10, after this run window.'
-        if _pending else ""
     )
 
     # Chart 2: best-without vs best-with the MCP, per model. Each condition
@@ -700,7 +694,7 @@ def build(all_runs):
                       'with-MCP</span>' if two else '<span>effort in parentheses</span>')
         return (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
                 + key_mcp + effort_key)
-    lift_legend = f'<div class="legend legend-bottom">{keys_for(chart_rows)}{pending_note}</div>'
+    lift_legend = f'<div class="legend legend-bottom">{keys_for(chart_rows)}</div>'
     lift_legend_local = f'<div class="legend legend-bottom">{keys_for(local_rows)}</div>'
 
     # The substitution count is field-wide and always was; the sentence below
@@ -904,7 +898,7 @@ def build(all_runs):
     h2h_html = f"""
 <section>
   <h2>Head to head: best closed vs best open weights</h2>
-  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.{" * Weights announced but not yet published, as noted in the table below." if best_open.get("weights_pending") else ""}</p>
+  <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart is where it opens: they run close on easy and level on medium, then the hard tier separates them. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
   {chart(head_to_head_chart(h2h_metrics))}
   <h3 class="chart-title">First-submission rate by task difficulty</h3>
   {chart(attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
@@ -1059,7 +1053,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">The full field, including the {word(len(sci_rows) - CHART_TOP_N)} models below the chart cut. Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. {pending_table_note} Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
+  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">The full field, including the {word(len(sci_rows) - CHART_TOP_N)} models below the chart cut. Both SCI columns score each condition at its own best thinking variant, and the &plusmn; after a baseline index is its 95% interval, bootstrapped over that model's runs: two scores whose intervals overlap are a tie, not an ordering. Kimi K3 was API-only while these runs were collected; Moonshot published its weights on 2026-07-27, after the run window. Pricing and context as listed on OpenRouter, {meta["snapshot_date"]}, in $ per million tokens (Grok's prices double above 200k prompt tokens; cache pricing omitted for space). Tok/s is observed in this benchmark's best-variant baseline runs: median per-run output tokens over model time, so reasoning and queueing count against it. Architecture and memory for the open-weight models are in the next section; the closed ones disclose neither.</p>
 </section>
 
 <section>

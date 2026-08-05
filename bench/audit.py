@@ -449,9 +449,10 @@ check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in l
 # report explaining an asterisk it no longer printed.
 print("\n== weights-pending annotation")
 pending = [e["label"] for e in active_models() if e.get("weights_pending")]
-noted = "announced weights release" in report_html
-check("pending-weights note appears only when a model is flagged", noted == bool(pending),
-      f"flagged: {', '.join(pending) or 'none'}; note in report: {noted}")
+noted = report_html.count("announced weights release")
+check("the pending-weights star is explained exactly once, and only when flagged",
+      noted == (1 if pending else 0),
+      f"flagged: {', '.join(pending) or 'none'}; explanations in report: {noted}")
 starred = [e["label"] for e in active_models()
            if e["label"] + "*" in report_html and not e.get("weights_pending")]
 check("no unexplained star on a model label", not starred, ", ".join(starred) or "none")
