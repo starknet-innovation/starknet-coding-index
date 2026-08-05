@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import (CHART_TOP_N, LOCAL_FALLBACK_BITS, LOCAL_QUANT,
+from .sci import (CHART_TOP_N, LOCAL_QUANT,
                   LOCAL_RESERVE_GB, LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB,
                   SCI_SPEC, attempt_score, attempts, index_ci,
                   leaderboard, param_count, run_cost)
@@ -1050,12 +1050,12 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 
 <section>
   <h2>Open weights in detail</h2>
-  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself. Sizes are the weight files as published, not arithmetic: a real <code>Q4_K_M</code> runs 4.8 to 5.0 bits per weight rather than the 4.5 a formula assumes, which understates a large model by about 10%, and gpt-oss-120b breaks the formula outright because it ships natively in 4-bit and weighs the same at every level. <span class="swatch" style="background:{FITS_BG}"></span> marks a quantization that <b>fits one {LOCAL_VRAM_GB} GB machine</b>, meaning it lands inside the {LOCAL_WEIGHT_BUDGET_GB} GB left for weights once the OS and a KV cache are paid for; grey is out of reach. Columns run heaviest first, so the wash reads as a waterline: how far left along the ladder a model stays runnable on one machine. The <code>{LOCAL_QUANT}</code> column is the line the local-inference class above is drawn on, and the <b>SCI</b> column is the same baseline index as the leaderboard, carried here so the table can be read in score order as well as by size.</p>
+  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself: every quantization published for each, in GB, from the <a href="https://huggingface.co/unsloth">unsloth</a> GGUF files. A blank means that quantization was never published; <b>~</b> marks an estimated size.</p>
+  <p class="takeaway" style="margin:0 0 10px">Columns run heaviest first, and <span class="swatch" style="background:{FITS_BG}"></span> marks a file that <b>fits the {LOCAL_VRAM_GB} GB machine</b> from the section above, so the wash reads as a <b>waterline</b>: how far left a model stays runnable. <b>SCI</b> carries the leaderboard index across, so the table sorts by score as well as by size.</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in reversed(QUANT_LADDER))}</tr>
     {"".join(open_rows_html)}
   </table></div>
-  <p class="takeaway" style="font-size:12.5px;color:var(--muted)">Memory in GB, from the GGUF files published by <a href="https://huggingface.co/unsloth">unsloth</a>; a blank means that quantization was never published for that model, and <b>~</b> marks a size estimated at {LOCAL_FALLBACK_BITS} bits per weight, calibrated on the eight files that were measured. Six models need that estimate: Hy3, DeepSeek V4-Pro, Inkling and Qwen3.8 Max have no GGUF at all (Inkling's only quantized repo is a different and much smaller model; Qwen3.8 Max's weights are announced but unpublished), while Kimi K3 and DeepSeek V4 Flash have repos that skip <code>Q4_K_M</code> entirely, publishing 1- and 2-bit quants and an <code>XL</code> variant instead. <code>IQ4_XS</code> is the smallest quantization most people would still call 4-bit.</p>
 </section>"""
 
     findings_html = """
