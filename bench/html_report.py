@@ -733,7 +733,8 @@ def build(all_runs):
     lift_html = f"""
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
-  <p class="takeaway" style="margin:0 0 10px">Same index and the same top {word(CHART_TOP_N)}, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.{offchart_note}</p>
+  <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.{offchart_note}</p>
+  <h3 class="chart-title">Top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
   {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts))}
   {lift_legend}
 </section>"""
