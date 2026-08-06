@@ -91,13 +91,17 @@ def svg_open(w, h):
     )
 
 
-def y_axis_label(text, pad_t, ch):
-    """Rotated measure name in the left gutter, so a chart screenshotted on
-    its own still says what the y-axis is. Builders that pass y_label widen
-    their own left pad to make room."""
+def y_axis_label(text, pad_t, ch, pad_l, tick_texts, gap=8):
+    """Rotated measure name hugging the y-axis tick labels, so a chart
+    screenshotted on its own still says what the y-axis is.
+
+    Positioned just left of the widest tick label rather than at the SVG edge:
+    a fixed x drifted far from the axis on charts with wide gutters. gap is
+    the builder's own tick-to-axis offset (6 or 8)."""
+    x = max(11, pad_l - gap - max((label_width(t) for t in tick_texts), default=0) - 10)
     cy = pad_t + ch / 2
-    return (f'<text x="11" y="{cy:.0f}" font-size="11" fill="{MUTED}" text-anchor="middle" '
-            f'transform="rotate(-90 11 {cy:.0f})">{text}</text>')
+    return (f'<text x="{x:.0f}" y="{cy:.0f}" font-size="11" fill="{MUTED}" text-anchor="middle" '
+            f'transform="rotate(-90 {x:.0f} {cy:.0f})">{text}</text>')
 
 
 def chart(svg, small=False):
@@ -128,10 +132,11 @@ def line_chart(x_labels, vals, win_i, color, w=380, h=200, y_min=0, y_max=100,
     sx = lambda i: pad_l + (i * cw / (n - 1) if n > 1 else cw / 2)
     sy = lambda v: pad_t + (y_max - v) / (y_max - y_min) * ch
     parts = [svg_open(w, h)]
-    if y_label:
-        parts.append(y_axis_label(y_label, pad_t, ch))
     step = 20 if y_max - y_min > 60 else 10
-    for gv in range(y_min + (step - y_min % step) % step, int(y_max) + 1, step):
+    ticks = list(range(y_min + (step - y_min % step) % step, int(y_max) + 1, step))
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch, pad_l, [str(t) for t in ticks], gap=6))
+    for gv in ticks:
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
         parts.append(f'<text x="{pad_l - 6}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{gv}</text>')
@@ -262,7 +267,7 @@ def sci_bar_chart(rows, w=760, h=389, y_label=None):
     sy = lambda v: pad_t + (100 - v) / 100 * ch
     parts = [svg_open(w, h)]
     if y_label:
-        parts.append(y_axis_label(y_label, pad_t, ch))
+        parts.append(y_axis_label(y_label, pad_t, ch, pad_l, [str(g) for g in range(0, 101, 20)]))
     for gv in range(0, 101, 20):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -350,7 +355,7 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None
     sy = lambda v: pad_t + (100 - v) / 100 * ch
     parts = [svg_open(w, h)]
     if y_label:
-        parts.append(y_axis_label(y_label, pad_t, ch))
+        parts.append(y_axis_label(y_label, pad_t, ch, pad_l, [str(g) for g in range(0, 101, 20)]))
     for gv in range(0, 101, 20):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -490,7 +495,7 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L, y_label=None):
     fills = ATTEMPT_COLORS + [UNSOLVED_COLOR]
     parts = [svg_open(w, h)]
     if y_label:
-        parts.append(y_axis_label(y_label, pad_t, ch))
+        parts.append(y_axis_label(y_label, pad_t, ch, pad_l, [f"{g}%" for g in range(0, 101, 25)]))
     for gv in range(0, 101, 25):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -550,7 +555,7 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
     sy = lambda v: pad_t + (y_max - v) / y_max * ch
     parts = [svg_open(w, h)]
     if y_label:
-        parts.append(y_axis_label(y_label, pad_t, ch))
+        parts.append(y_axis_label(y_label, pad_t, ch, pad_l, [g for _, g in y_ticks]))
     for gv, glabel in y_ticks:
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -607,9 +612,10 @@ def attempts_chart(groups, w=760, h=234, y_max=None, fmt=None, ticks=None,
     group_w = cw / len(groups)
     bar_w, bar_gap = 46, 10
     parts = [svg_open(w, h)]
+    tick_list = ticks or [(v, f"{v:g}") for v in range(0, int(y_max) + 1)]
     if y_label:
-        parts.append(y_axis_label(y_label, pad_t, ch))
-    for gv, tick_label in (ticks or [(v, f"{v:g}") for v in range(0, int(y_max) + 1)]):
+        parts.append(y_axis_label(y_label, pad_t, ch, pad_l, [t for _, t in tick_list]))
+    for gv, tick_label in tick_list:
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
         parts.append(f'<text x="{pad_l - 8}" y="{y:.0f}" font-size="11" fill="{MUTED}" text-anchor="end" dominant-baseline="middle">{tick_label}</text>')
