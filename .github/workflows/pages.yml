@@ -1,0 +1,40 @@
+# Deploys results/report.html to GitHub Pages on every push to main.
+# Publishing the report IS pushing: the report is committed alongside the
+# change that produced it (see AGENTS.md), so main always carries the version
+# the gates approved.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # first run also creates the Pages site itself: the sandbox PAT lacks
+      # the Pages permission, but the workflow token has pages:write
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Stage the report as the site root
+        run: |
+          mkdir -p _site
+          cp results/report.html _site/index.html
+      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/deploy-pages@v4
+        id: deployment
