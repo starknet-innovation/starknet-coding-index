@@ -98,7 +98,7 @@ def y_axis_label(text, pad_t, ch, pad_l, tick_texts, gap=8):
     Positioned just left of the widest tick label rather than at the SVG edge:
     a fixed x drifted far from the axis on charts with wide gutters. gap is
     the builder's own tick-to-axis offset (6 or 8)."""
-    x = max(11, pad_l - gap - max((label_width(t) for t in tick_texts), default=0) - 10)
+    x = max(11, pad_l - gap - max((label_width(t) for t in tick_texts), default=0) - 16)
     cy = pad_t + ch / 2
     return (f'<text x="{x:.0f}" y="{cy:.0f}" font-size="11" fill="{MUTED}" text-anchor="middle" '
             f'transform="rotate(-90 {x:.0f} {cy:.0f})">{text}</text>')
@@ -796,7 +796,7 @@ def build(all_runs):
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.{offchart_note}</p>
   <h3 class="chart-title">Cairo Coder documentation lift, top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
-  {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts, y_label="SCI"))}
+  {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts, y_label="Starknet Coding Index"))}
   {lift_legend}
 </section>"""
     # Local-inference section: prose and the chart, no table of its own. It had
@@ -808,7 +808,7 @@ def build(all_runs):
   <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is <b>memory rather than parameter count</b>: the published <code>{LOCAL_QUANT}</code> weight file has to fit the {LOCAL_VRAM_GB} GB of unified memory that today's biggest buyable machines top out at (a DGX Spark, a Strix Halo box, an M5 Max MacBook Pro), minus {LOCAL_RESERVE_GB} GB reserved for the OS and a KV cache. <b>Total parameters count, not active ones</b>, because every weight has to be resident even when a sparse model fires only a few experts per token.</p>
   <p class="takeaway" style="margin:0 0 10px"><code>{LOCAL_QUANT}</code> draws the line because it is the default 4-bit quant, <b>the file most people actually download and run</b>, and the sweet spot where memory halves against 8-bit while quality holds. Below 4-bit, degradation stops being minor, and coding feels it first. These scores were measured on the full-precision models, so the class stops at the quant level where <b>the local copy still resembles the model that was scored</b>.</p>
   <h3 class="chart-title">Documentation lift for the models that fit one {LOCAL_VRAM_GB} GB machine</h3>
-  {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts, y_label="SCI"))}
+  {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts, y_label="Starknet Coding Index"))}
   {lift_legend_local}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
@@ -843,7 +843,7 @@ def build(all_runs):
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
   <h3 class="chart-title">Starknet Coding Index, top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
-  {chart(sci_bar_chart(starred(chart_rows), y_label="SCI"))}
+  {chart(sci_bar_chart(starred(chart_rows), y_label="Starknet Coding Index"))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
   {tip_js}
 </section>"""
