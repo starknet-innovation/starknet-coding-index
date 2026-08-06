@@ -932,8 +932,7 @@ def build(all_runs):
                 + chart(line_chart([EFFORT_SHORT.get(p[2], p[2]) for p in pts],
                                    vals, win_i,
                                    SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
-                                   y_min=y_lo, y_max=y_lo + DIAL_SPAN,
-                                   y_label="SCI"), small=True)
+                                   y_min=y_lo, y_max=y_lo + DIAL_SPAN), small=True)
                 + "</div>")
         return f'<div class="multiples">{"".join(out)}</div>'
 
