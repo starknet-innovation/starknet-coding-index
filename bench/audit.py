@@ -74,7 +74,7 @@ print("   " + "  ".join(f"{r['label']}={r['sci']:.1f}({r['variant']})" for r in 
 
 print("\n== chips and coverage")
 check("13 tasks", NT == 13, f"{NT}")
-check("22 charted models", len(lb) == 22, f"{len(lb)}")
+check("23 charted models", len(lb) == 23, f"{len(lb)}")
 
 print("\n== price revisions")
 # A revision is applied as one multiplier to a recorded total, which is only
@@ -326,9 +326,11 @@ check("the dial section draws the top 8 by index, in rank order",
       dial_names == top_n[:8], " > ".join(dial_names) or "no multiples")
 # the intro's look-for pointers; Opus and Sonnet's are covered by the
 # winner-vs-max checks below
-sol = [sci(C(f"openai/gpt-5.6-sol@{t}")) for t in ("disabled", "low", "high", "xhigh", "max")]
-check("Sol's ladder rises at every step",
-      all(a < b for a, b in zip(sol, sol[1:])), " -> ".join(f"{v:.1f}" for v in sol))
+mus = {t: sci(C(f"meta/muse-spark-1.2@{t}")) for t in ("minimal", "low", "medium", "high", "xhigh")}
+check("Muse Spark's dial splits in two: 66-71 below high, 80 at high and xhigh",
+      all(66 <= mus[t] < 72 for t in ("minimal", "low", "medium"))
+      and all(79.5 <= mus[t] < 81 for t in ("high", "xhigh")),
+      ", ".join(f"{t} {v:.1f}" for t, v in mus.items()))
 grok = [sci(C(f"x-ai/grok-4.5@{t}")) for t in ("minimal", "low", "medium", "high", "max")]
 check("Grok's five tiers land within 3 points",
       max(grok) - min(grok) < 3, f"span {max(grok) - min(grok):.1f}")
@@ -438,10 +440,10 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("eleven of twenty-two differ, six downward", len(diff) == 11 and len(down) == 6,
+check("twelve of twenty-three differ, seven downward", len(diff) == 12 and len(down) == 7,
       f"{len(diff)} differ, {len(down)} down")
 # chips
-check("12 labs", len({r["lab"] for r in lb}) == 12, str(len({r["lab"] for r in lb})))
+check("13 labs", len({r["lab"] for r in lb}) == 13, str(len({r["lab"] for r in lb})))
 
 # The star on a label and the footnote explaining it are set in two different
 # places, so they can drift apart: K3's footnote was hardcoded prose while the

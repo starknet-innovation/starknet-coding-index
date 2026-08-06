@@ -3,7 +3,7 @@
 How good is each frontier LLM at writing Starknet smart contracts on its own, and which
 models get better when you hand them a Cairo documentation tool?
 
-This repository is the benchmark behind both answers: 22 models from 12 labs, **7,862
+This repository is the benchmark behind both answers: 23 models from 13 labs, **8,187
 agentic runs** on 13 hand-written contract tasks, graded by 106 hidden `snforge` tests.
 Every model ran the suite both ways, alone and with the
 [Cairo Coder](https://www.cairo-coder.com/) MCP documentation tool.
@@ -28,7 +28,7 @@ Intervals are bootstrapped over each model's runs (1,000 resamples). Opus 5 sepa
 from every model below it except Grok 4.5; Fable 5 separates from ranks 4 and 5, while
 Grok's wide interval overlaps the whole band. Read overlapping pairs as ties, not an order.
 
-All 22 models, the difficulty breakdown and the documentation-tool deltas are in the
+All 23 models, the difficulty breakdown and the documentation-tool deltas are in the
 report. To print the full leaderboard yourself:
 
 ```bash
@@ -98,7 +98,7 @@ version of it. Per-model deltas are charted in the report.
 
 ## Published data
 
-`results/runs/main.jsonl` holds 7,910 records, the 7,862 analysed runs plus 48 that
+`results/runs/main.jsonl` holds 8,235 records, the 8,187 analysed runs plus 48 that
 hit a transport error and are dropped at load. It is the only input the report and the
 audit need:
 

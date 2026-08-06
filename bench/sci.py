@@ -354,6 +354,12 @@ MODEL_REGISTRY = [
      # 2026-08-01: OpenAI cut its price 90%, which is exactly the kind of change
      # that reopens a value-based drop, and the full ladder was already measured
      "label": "GPT-5.6 Luna", "lab": "OpenAI", "open_weight": False},
+    {"specs": ["meta/muse-spark-1.2@xhigh", "meta/muse-spark-1.2@high",
+               "meta/muse-spark-1.2@medium", "meta/muse-spark-1.2@low",
+               "meta/muse-spark-1.2@minimal"],
+     # reasoning mandatory, ladder minimal..xhigh, default medium (OpenRouter
+     # reasoning block, 2026-08-06); weights closed per Meta's launch coverage
+     "label": "Muse Spark 1.2", "lab": "Meta", "open_weight": False},
     {"specs": ["x-ai/grok-4.5@max", "x-ai/grok-4.5@xhigh", "x-ai/grok-4.5@high",
                "x-ai/grok-4.5@medium", "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
      # thinking mandatory (@disabled rejected); bare = dynamic, skipped

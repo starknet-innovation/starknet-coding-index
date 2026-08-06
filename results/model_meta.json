@@ -109,6 +109,20 @@
    "params_total": null,
    "params_active": null
   },
+  "meta/muse-spark-1.2": {
+   "name": "Meta: Muse Spark 1.2",
+   "context_length": 1048576,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 1.25,
+    "output": 4.25,
+    "cache_read": 0.15,
+    "cache_write": null
+   },
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
   "tencent/hy3": {
    "name": "Tencent: Hy3",
    "context_length": 262144,
