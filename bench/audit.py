@@ -308,7 +308,7 @@ sci_svg = svgs("Starknet Coding Index")
 check(f"index chart draws the top {CHART_TOP_N}, in rank order",
       len(sci_svg) == 1 and chart_labels(sci_svg[0]) == top_n,
       " > ".join(chart_labels(sci_svg[0])) if sci_svg else "no chart found")
-cut_titles = re.findall(r"Top (\d+) of the (\d+) models tested", report_html)
+cut_titles = re.findall(r"top (\d+) of the (\d+) models tested", report_html, re.IGNORECASE)
 check("the index and MCP chart titles state the cut",
       len(cut_titles) == 2
       and all([int(a), int(b)] == [CHART_TOP_N, len(lb)] for a, b in cut_titles),

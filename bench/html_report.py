@@ -91,6 +91,15 @@ def svg_open(w, h):
     )
 
 
+def y_axis_label(text, pad_t, ch):
+    """Rotated measure name in the left gutter, so a chart screenshotted on
+    its own still says what the y-axis is. Builders that pass y_label widen
+    their own left pad to make room."""
+    cy = pad_t + ch / 2
+    return (f'<text x="11" y="{cy:.0f}" font-size="11" fill="{MUTED}" text-anchor="middle" '
+            f'transform="rotate(-90 11 {cy:.0f})">{text}</text>')
+
+
 def chart(svg, small=False):
     """Wrap a chart so a narrow screen scrolls it instead of shrinking it.
 
@@ -106,18 +115,21 @@ def chart(svg, small=False):
     return f'<div class="chartwrap{" small" if small else ""}">{svg}</div>'
 
 
-def line_chart(x_labels, vals, win_i, color, w=380, h=200, y_min=0, y_max=100):
+def line_chart(x_labels, vals, win_i, color, w=380, h=200, y_min=0, y_max=100,
+               y_label=None):
     """One model's index across its effort ladder, for the dial multiples.
 
     win_i rings the tier the leaderboard scores, so each mini chart answers
     "where on its ladder does this model actually live" without a caption.
     """
-    pad_l, pad_r, pad_t, pad_b = 40, 16, 20, 30
+    pad_l, pad_r, pad_t, pad_b = 40 + (12 if y_label else 0), 16, 20, 30
     cw, ch = w - pad_l - pad_r, h - pad_t - pad_b
     n = len(x_labels)
     sx = lambda i: pad_l + (i * cw / (n - 1) if n > 1 else cw / 2)
     sy = lambda v: pad_t + (y_max - v) / (y_max - y_min) * ch
     parts = [svg_open(w, h)]
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch))
     step = 20 if y_max - y_min > 60 else 10
     for gv in range(y_min + (step - y_min % step) % step, int(y_max) + 1, step):
         y = sy(gv)
@@ -220,7 +232,7 @@ def variant_suffixed(rows):
             for r in rows]
 
 
-def sci_bar_chart(rows, w=760, h=389):
+def sci_bar_chart(rows, w=760, h=389, y_label=None):
     """Ranked vertical column chart of SCI rows (from bench.sci.leaderboard).
 
     One solid column per model, colored by open- vs closed-weight; SCI value
@@ -239,7 +251,7 @@ def sci_bar_chart(rows, w=760, h=389):
     # nature of the thing ("Opus 5 (low)", 45px of reach against 86px of
     # clearance at fifteen columns). The charts that sort by cost or by time can
     # put any name first and pay the wider margin for it.
-    pad_l, pad_r, pad_t = 64, 40, 26
+    pad_l, pad_r, pad_t = 64 + (14 if y_label else 0), 40, 26
     pad_b = rotated_label_pad(variant_suffixed(rows))
     cw = w - pad_l - pad_r
     ch = h - pad_t - 115          # plot height stays put as the pad grows
@@ -249,6 +261,8 @@ def sci_bar_chart(rows, w=760, h=389):
     bar_w = col_w * 0.62
     sy = lambda v: pad_t + (100 - v) / 100 * ch
     parts = [svg_open(w, h)]
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch))
     for gv in range(0, 101, 20):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -298,7 +312,8 @@ def effort_suffix(efforts, label):
     return f" ({base} / {mcp})"
 
 
-def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None):
+def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None,
+                   y_label=None):
     """Baseline-vs-MCP columns: solid bar = best baseline SCI, stacked coral
     segment = the gain when the best MCP config scores higher. No segment
     means the tool doesn't improve that model's best configuration (no
@@ -334,6 +349,8 @@ def mcp_lift_chart(pairs, w=760, h=359, pad_l=AXIS_PAD_L, pad_b=85, efforts=None
     bar_w = min(col_w * 0.62, 80)
     sy = lambda v: pad_t + (100 - v) / 100 * ch
     parts = [svg_open(w, h)]
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch))
     for gv in range(0, 101, 20):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -455,7 +472,7 @@ FITS_BG = "#dbe7fc"         # blue-05 wash: a quant that fits one local machine
 # "added by the MCP" in the charts below.
 
 
-def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L):
+def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L, y_label=None):
     """Stacked column per model, covering 100% of that model's runs.
 
     Segments are how many submissions the working code took; the tan band on
@@ -472,6 +489,8 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L):
     sy = lambda v: pad_t + (100 - v) / 100 * ch
     fills = ATTEMPT_COLORS + [UNSOLVED_COLOR]
     parts = [svg_open(w, h)]
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch))
     for gv in range(0, 101, 25):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -512,7 +531,7 @@ def attempts_dist_chart(rows, w=760, h=389, pad_l=AXIS_PAD_L):
 
 
 def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
-                     pad_l=AXIS_PAD_L):
+                     pad_l=AXIS_PAD_L, y_label=None):
     """Chart-1-styled column chart for an arbitrary per-model metric: same
     geometry, angled "Model (variant)" labels, value above each column,
     open/closed palette. y runs 0..y_max with (value, label) ticks supplied
@@ -530,6 +549,8 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
     bar_w = min(col_w * 0.62, 80)
     sy = lambda v: pad_t + (y_max - v) / y_max * ch
     parts = [svg_open(w, h)]
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch))
     for gv, glabel in y_ticks:
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -561,7 +582,8 @@ def metric_bar_chart(rows, value_fn, fmt_fn, y_max, y_ticks, w=760, h=340,
     return "".join(parts)
 
 
-def attempts_chart(groups, w=760, h=234, y_max=None, fmt=None, ticks=None):
+def attempts_chart(groups, w=760, h=234, y_max=None, fmt=None, ticks=None,
+                   y_label=None):
     """Grouped columns per task difficulty, one pair (closed lavender, open blue)
     per tier.
 
@@ -585,6 +607,8 @@ def attempts_chart(groups, w=760, h=234, y_max=None, fmt=None, ticks=None):
     group_w = cw / len(groups)
     bar_w, bar_gap = 46, 10
     parts = [svg_open(w, h)]
+    if y_label:
+        parts.append(y_axis_label(y_label, pad_t, ch))
     for gv, tick_label in (ticks or [(v, f"{v:g}") for v in range(0, int(y_max) + 1)]):
         y = sy(gv)
         parts.append(f'<line x1="{pad_l}" y1="{y:.0f}" x2="{w - pad_r}" y2="{y:.0f}" stroke="{LINE}"/>')
@@ -765,8 +789,8 @@ def build(all_runs):
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.{offchart_note}</p>
-  <h3 class="chart-title">Top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
-  {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts))}
+  <h3 class="chart-title">Cairo Coder documentation lift, top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
+  {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts, y_label="SCI"))}
   {lift_legend}
 </section>"""
     # Local-inference section: prose and the chart, no table of its own. It had
@@ -777,7 +801,8 @@ def build(all_runs):
   <h2>Local-inference class</h2>
   <p class="takeaway" style="margin:0 0 10px">The models you could run yourself. The test is <b>memory rather than parameter count</b>: the published <code>{LOCAL_QUANT}</code> weight file has to fit the {LOCAL_VRAM_GB} GB of unified memory that today's biggest buyable machines top out at (a DGX Spark, a Strix Halo box, an M5 Max MacBook Pro), minus {LOCAL_RESERVE_GB} GB reserved for the OS and a KV cache. <b>Total parameters count, not active ones</b>, because every weight has to be resident even when a sparse model fires only a few experts per token.</p>
   <p class="takeaway" style="margin:0 0 10px"><code>{LOCAL_QUANT}</code> draws the line because it is the default 4-bit quant, <b>the file most people actually download and run</b>, and the sweet spot where memory halves against 8-bit while quality holds. Below 4-bit, degradation stops being minor, and coding feels it first. These scores were measured on the full-precision models, so the class stops at the quant level where <b>the local copy still resembles the model that was scored</b>.</p>
-  {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts))}
+  <h3 class="chart-title">Documentation lift for the models that fit one {LOCAL_VRAM_GB} GB machine</h3>
+  {chart(mcp_lift_chart(build_lift_pairs(local_rows), h=394, pad_b=120, efforts=lift_efforts, y_label="SCI"))}
   {lift_legend_local}
 </section>"""
     tip_js = """<div id="tip" hidden></div><script>
@@ -811,8 +836,8 @@ def build(all_runs):
 <section>
   <h2>Starknet Coding Index <span style="text-transform:none">(baseline, no assistance)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">One number per model for "how good is this LLM at writing Starknet smart contracts today", weighted toward the thing you actually get: <b>working code on the first submission</b>. Each model runs the full task suite alone, at its <b>best thinking variant</b> (labeled in parentheses), within a budget of 10 turns and 15 minutes of model time per task.</p>
-  <h3 class="chart-title">Top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
-  {chart(sci_bar_chart(starred(chart_rows)))}
+  <h3 class="chart-title">Starknet Coding Index, top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
+  {chart(sci_bar_chart(starred(chart_rows), y_label="SCI"))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span>{pending_note}</div>
   {tip_js}
 </section>"""
@@ -826,19 +851,21 @@ def build(all_runs):
 <section>
   <h2>Behind the score</h2>
   <p class="takeaway" style="margin:0 0 10px">The same top {word(CHART_TOP_N)}, winning variants unpacked, baseline condition. The first chart is the whole distribution behind the effectiveness score: every column covers 100% of that model's runs, split by whether the code worked on submission one, two, three, or later, and topped by a warm-tan band ("never solved" in the legend) for the runs that never worked. Solve rate is everything below that band. Cost and time are the median of a complete pass over the 13-task suite. Each chart ranks best first.</p>
-  <h3 class="chart-title">How many submissions it takes</h3>
-  {chart(attempts_dist_chart(sorted(starred(chart_rows), key=lambda r: -r["dist"][0])))}
+  <h3 class="chart-title">How many submissions until the Cairo code works</h3>
+  {chart(attempts_dist_chart(sorted(starred(chart_rows), key=lambda r: -r["dist"][0]), y_label="% of runs"))}
   <div class="legend legend-bottom">{"".join(
       f'<span><span class="key" style="background:{ATTEMPT_COLORS[k]};border-radius:2px"></span>{lbl}</span>'
       for k, lbl in enumerate(["1 submission", "2", "3", "4 or more"]))}<span><span class="key" style="background:{UNSOLVED_COLOR};border-radius:2px"></span>never solved</span><span>labels: first-submission share</span></div>
-  <h3 class="chart-title">Cost per pass</h3>
+  <h3 class="chart-title">Median cost of a full {n_tasks}-task pass</h3>
   {chart(metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["cost"]),
                     lambda r: r["tip"]["cost"], lambda v: f"${v:.2f}",
-                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)]))}
-  <h3 class="chart-title">Model time per pass</h3>
+                    cost_max, [(t * 0.5, f"${t * 0.5:.2f}") for t in range(int(cost_max / 0.5) + 1)],
+                    y_label="USD per pass"))}
+  <h3 class="chart-title">Median model time for a full {n_tasks}-task pass</h3>
   {chart(metric_bar_chart(sorted(starred(chart_rows), key=lambda r: r["tip"]["secs"]),
                     lambda r: r["tip"]["secs"], mins,
-                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)]))}
+                    time_max_m * 60, [(t * 20 * 60, f"{t * 20}m") for t in range(int(time_max_m / 20) + 1)],
+                    y_label="minutes per pass"))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>closed weights</span></div>
 </section>"""
 
@@ -899,7 +926,8 @@ def build(all_runs):
                 + chart(line_chart([EFFORT_SHORT.get(p[2], p[2]) for p in pts],
                                    vals, win_i,
                                    SCI_OPEN_COLOR if open_w else SCI_CLOSED_COLOR,
-                                   y_min=y_lo, y_max=y_lo + DIAL_SPAN), small=True)
+                                   y_min=y_lo, y_max=y_lo + DIAL_SPAN,
+                                   y_label="SCI"), small=True)
                 + "</div>")
         return f'<div class="multiples">{"".join(out)}</div>'
 
@@ -994,10 +1022,12 @@ def build(all_runs):
 <section>
   <h2>Head to head: best closed vs best open weights</h2>
   <p class="takeaway" style="margin:0 0 14px">The ranking's two champions, <b>{best_closed["label"]} ({best_closed["variant"]})</b> from {best_closed["lab"]} and <b>{best_open["label"]}{"*" if best_open.get("weights_pending") else ""} ({best_open["variant"]})</b> from {best_open["lab"]}, both solve every task; the gap is in <i>how</i>. The second chart shows it is not about difficulty: Opus 5 first-tries every tier while Kimi sits near 70% across all three. Baseline condition, {sa["n"]} and {sb["n"]} runs.</p>
+  <h3 class="chart-title">{best_closed["label"]} ({best_closed["variant"]}) vs {best_open["label"]} ({best_open["variant"]}): five measures, best baseline configs</h3>
   {chart(head_to_head_chart(h2h_metrics))}
-  <h3 class="chart-title">First-submission rate by task difficulty</h3>
+  <h3 class="chart-title">First-submission rate by task difficulty, {best_closed["label"]} vs {best_open["label"]}</h3>
   {chart(attempts_chart(h2h_attempts, y_max=100, fmt=lambda v: f"{v:.0f}%",
-                  ticks=[(t * 25, f"{t * 25}%") for t in range(5)]))}
+                  ticks=[(t * 25, f"{t * 25}%") for t in range(5)],
+                  y_label="% solved first try"))}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_CLOSED_COLOR};border-radius:2px"></span>{best_closed["label"]} ({best_closed["variant"]}), closed</span><span><span class="key" style="background:{SCI_OPEN_COLOR};border-radius:2px"></span>{best_open["label"]} ({best_open["variant"]}), open</span></div>
 </section>"""
 
@@ -1503,15 +1533,19 @@ def angled_labels_overhanging(html, margin=4):
     bad = []
     for svg in re.findall(r"<svg.*?</svg>", html, re.S):
         for m in re.finditer(
-            r'rotate\(-[\d.]+ ([\d.]+) [\d.]+\)"[^>]*(?:x="([\d.]+)")?[^>]*>(.*?)</text>',
+            r'rotate\(-([\d.]+) ([\d.]+) [\d.]+\)"[^>]*(?:x="([\d.]+)")?[^>]*>(.*?)</text>',
             svg, re.S,
         ):
-            cx = float(m.group(1))
-            anchor = float(m.group(2)) if m.group(2) else cx
-            text = re.sub(r"<[^>]+>", "", m.group(3)).strip()
+            # use the label's own angle: column labels lean at LABEL_ANGLE and
+            # spill left by width*cos(angle); a vertical y-axis label (90deg)
+            # spills by ~nothing and must not be measured as if it leaned
+            angle = float(m.group(1))
+            cx = float(m.group(2))
+            anchor = float(m.group(3)) if m.group(3) else cx
+            text = re.sub(r"<[^>]+>", "", m.group(4)).strip()
             if not text:
                 continue
-            need = label_width(text) * math.cos(math.radians(LABEL_ANGLE))
+            need = label_width(text) * math.cos(math.radians(angle))
             if need > anchor - margin:
                 bad.append((text, need, anchor - margin))
     return bad
