@@ -25,16 +25,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      # first run also creates the Pages site itself: the sandbox PAT lacks
-      # the Pages permission, but the workflow token has pages:write
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      - uses: actions/checkout@v7
+      # the Pages site itself was created once by hand (Settings > Pages >
+      # Source: GitHub Actions); no token available here can create it
+      - uses: actions/configure-pages@v6
       - name: Stage the report as the site root
         run: |
           mkdir -p _site
           cp results/report.html _site/index.html
-      - uses: actions/upload-pages-artifact@v3
-      - uses: actions/deploy-pages@v4
+      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/deploy-pages@v5
         id: deployment
