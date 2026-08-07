@@ -8,7 +8,9 @@ agentic runs** on 13 hand-written contract tasks, graded by 106 hidden `snforge`
 Every model ran the suite both ways, alone and with the
 [Cairo Coder](https://www.cairo-coder.com/) MCP documentation tool.
 
-The finished report is [`results/report.html`](results/report.html): self-contained,
+The finished report is live at
+[starknet-innovation.github.io/starknet-coding-index](https://starknet-innovation.github.io/starknet-coding-index/),
+deployed from [`results/report.html`](results/report.html) on every push: self-contained,
 no JavaScript, generated from the data in this repo.
 
 ## Results
