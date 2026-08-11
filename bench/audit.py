@@ -16,8 +16,9 @@ import statistics as st
 import sys
 
 from bench.report import load_runs
-from bench.sci import (CHART_TOP_N, LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB,
-                       PRICE_REVISIONS, SCI_SPEC, active_models, attempts,
+from bench.sci import (BUDGET_RESERVE, CHART_TOP_N, LOCAL_QUANT,
+                       LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS, SCI_SPEC,
+                       VRAM_BUDGETS, active_models, attempts, best_quant_for,
                        compute_sci, fits_locally, index_ci, leaderboard,
                        price_ratio, run_cost)
 
@@ -390,6 +391,41 @@ check("every printed quant size is the one in the published ladder",
       not bad_pick, "; ".join(bad_pick) or
       f"{sum(len((v.get('gguf') or {}).get('files') or {}) for v in _mm.values())} files across "
       f"{sum(1 for v in _mm.values() if (v.get('gguf') or {}).get('files'))} repos")
+
+# The per-machine table recommends a file to download, so every cell is checked
+# back against the published ladder rather than trusted: the name must be a real
+# file in that model's repo, the size must be the size that repo lists, and it
+# must fit the machine after its reserve. Read out of the shipped HTML, because a
+# cell built from the wrong pick renders perfectly.
+print("\n== which quantization for my machine")
+open_sec = section_html("Which quantization")
+cells = re.findall(r"<tr><td>(.*?)</td>(.*?)</tr>", open_sec, re.S)
+bad_cell, n_cell = [], 0
+for label, rest in cells:
+    spec = next((r["spec"] for r in lb if r["label"] == label), None)
+    if spec is None:
+        bad_cell.append(f"{label}: not a leaderboard row")
+        continue
+    files = (_mm.get(spec.partition("@")[0], {}).get("gguf") or {}).get("files") or {}
+    # the budget columns are the trailing cells, in VRAM_BUDGETS order
+    tds = re.findall(r'<td class="r[^"]*"[^>]*>(.*?)</td>', rest, re.S)[-len(VRAM_BUDGETS):]
+    for budget, td in zip(VRAM_BUDGETS, tds):
+        want = best_quant_for(spec, budget)
+        got = re.sub(r"<[^>]+>", "", td).strip()
+        if not got:
+            if want:
+                bad_cell.append(f"{label} at {budget} GB: blank, expected {want[0]}")
+            continue
+        n_cell += 1
+        name, _, size = got.rpartition(" ")
+        if not want or name != want[0] or round(want[1]) != int(size.replace(",", "")):
+            bad_cell.append(f"{label} at {budget} GB: prints {got!r}, picker says {want}")
+        elif name not in files:
+            bad_cell.append(f"{label} at {budget} GB: {name} is not in the published ladder")
+        elif files[name] > budget - BUDGET_RESERVE[budget]:
+            bad_cell.append(f"{label} at {budget} GB: {name} is {files[name]} GB, over budget")
+check("every recommended quant is a real file that fits its machine",
+      not bad_cell, "; ".join(bad_cell[:6]) or f"{n_cell} cells across {len(cells)} models")
 
 # Which open models are measured is not a number to type, it is a consequence of
 # which repos got snapshotted: a model is estimated exactly when no GGUF repo was

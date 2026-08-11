@@ -186,6 +186,86 @@ def local_vram_gb(spec):
     return weights_gb(param_count(mm.get("params_total"))), False
 
 
+# The machines the open-weight table answers for, largest first, and what each
+# has to keep back for the OS, the KV cache and activations. 128 GB is unified
+# memory where the OS lives in the same pool, hence the larger reserve; the
+# smaller tiers are dedicated cards, where only the KV cache and activations
+# compete with the weights.
+#
+# 16 GB is deliberately absent: the smallest 4-bit file any of these models
+# publishes is 15 to 18 GB, so every cell came out empty and the column only
+# repeated what the prose says.
+VRAM_BUDGETS = [128, 64, 32, 24]
+BUDGET_RESERVE = {128: 16, 64: 8, 32: 4, 24: 4}
+
+# The band a recommendation may sit in, in bits per weight. The ceiling is just
+# above Q8_0: past that a bigger file is more container, not more quality, and
+# nobody should be told to run BF16 to write Cairo. The floor is the same 4-bit
+# line the local-inference class draws, so a cell is EMPTY rather than filled
+# with a 2-bit quant the rest of this report says not to trust.
+#
+# Measured bits, not the name: K-quants keep some tensors wider than the label
+# suggests, so Q3_K_L on a 30B model really is 4.0 bits/weight. On this roster a
+# name floor and a measured floor pick identically, because the cell takes the
+# largest fitting file and the floor only decides empty-vs-degraded.
+QUANT_CEILING_BITS = 8.6
+QUANT_FLOOR_BITS = 3.9
+
+# Formats that are strictly worse than a K-quant of the same weight: legacy
+# fixed-block layouts, kept in repos for compatibility. Only consulted to break
+# a near-tie on size, never to exclude a file outright.
+LEGACY_QUANTS = ("Q4_0", "Q4_1", "Q5_0", "Q5_1")
+
+
+def best_quant_for(spec, vram_gb):
+    """(quant name, GB) of the best published file that runs on a vram_gb machine.
+
+    None when the model publishes nothing 4-bit or better that fits, which is the
+    honest answer for most of the field: a 466 GB floor does not become runnable
+    by naming a smaller file.
+
+    Reads the whole published ladder rather than the canonical five, because the
+    answer is usually a rung the five skip (Muse Glimmer at 32 GB is Q6_K_L, which
+    is not one of them). That ladder is what `files` in model_meta.json is for.
+    """
+    mm = _model_meta().get(spec.partition("@")[0], {})
+    gg = mm.get("gguf") or {}
+    files = gg.get("files") or {}
+    params = param_count(mm.get("params_total"))
+    if not files or not params:
+        return None
+    budget = vram_gb - BUDGET_RESERVE[vram_gb]
+    q4 = gg.get(LOCAL_QUANT)
+    ok = {}
+    for name, gb in files.items():
+        if gb > budget:
+            continue
+        bits = gb * 8e9 / params
+        if not QUANT_FLOOR_BITS <= bits <= QUANT_CEILING_BITS:
+            continue
+        # Same guard the size grid used to carry: a native-4-bit release
+        # (gpt-oss ships MXFP4) repacks to within a few percent at every level,
+        # so its heavier rungs are bigger containers holding identical weights.
+        # Without this, picking by size recommends gpt-oss's "F16" at 65 GB.
+        if q4 and gb > q4 and gb < q4 * 1.10:
+            continue
+        ok[name] = gb
+    if not ok:
+        return None
+    best = max(ok.values())
+    # Among files within 5% of the largest, prefer a modern K or IQ quant: at
+    # equal weight a legacy layout is worse, and picking on size alone printed
+    # Gemma's Q4_1 over a K-quant of the same size.
+    near = [n for n, gb in ok.items() if gb >= best * 0.95]
+    modern = [n for n in near if not any(l in n for l in LEGACY_QUANTS)]
+    pool = modern or near
+    # On an exact size tie prefer Q4_K_M, the name the rest of the report uses:
+    # gpt-oss publishes Q4_K_S and Q4_K_M at the same 62.8 GB, and picking
+    # between them on size alone is a coin toss the reader has to interpret.
+    winner = max(pool, key=lambda n: (ok[n], n == LOCAL_QUANT))
+    return winner, ok[winner]
+
+
 def fits_locally(entry):
     """True when this model's Q4_K_M weights fit one 128 GB machine.
 

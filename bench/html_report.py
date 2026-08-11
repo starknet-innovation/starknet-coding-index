@@ -20,10 +20,10 @@ from pathlib import Path
 
 from . import config
 from .report import load_runs
-from .sci import (BARE_VARIANT_LABELS, CHART_TOP_N, LOCAL_QUANT,
-                  LOCAL_RESERVE_GB, LOCAL_VRAM_GB, LOCAL_WEIGHT_BUDGET_GB,
-                  SCI_SPEC, attempt_score, attempts, compute_sci, index_ci,
-                  leaderboard, param_count, run_cost)
+from .sci import (BARE_VARIANT_LABELS, BUDGET_RESERVE, CHART_TOP_N, LOCAL_QUANT,
+                  LOCAL_RESERVE_GB, LOCAL_VRAM_GB, SCI_SPEC, VRAM_BUDGETS,
+                  attempt_score, attempts, best_quant_for, compute_sci,
+                  index_ci, leaderboard, param_count, run_cost)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -462,10 +462,6 @@ def head_to_head_chart(metrics, w=760):
 
 
 
-
-# Quantizations shown in the open-weight table, smallest first. IQ4_XS is the
-# floor of what most people still call 4-bit; BF16 is the unquantized weight.
-QUANT_LADDER = ["IQ4_XS", "Q4_K_M", "Q6_K", "Q8_0", "BF16"]
 
 ATTEMPT_COLORS = [SNF_BLUE, "#7c7ba2", "#bab7df", "#cecde7"]  # 1, 2, 3, 4+ submissions
 UNSOLVED_COLOR = "#bdb5ad"  # never solved: the band that tops every column
@@ -1105,59 +1101,74 @@ def build(all_runs):
             + "</tr>"
         )
 
-    # Open-weight deep dive: architecture and what the published weight files
-    # actually weigh. Only Q4_K_M ever falls back to arithmetic, because that is
-    # the one figure the local-inference class depends on; every other cell is a
-    # real file size or blank, since a ladder of numbers I derived myself would
-    # be worth less than the honest gap.
-    open_rows = [r for r in sci_rows if r["open_weight"]]
+    # Open-weight deep dive, framed as the question a reader actually arrives
+    # with: I have a machine with N GB, what is the best quantization I can run?
+    # This used to print a grid of five quant sizes per model and leave the
+    # reader to compare each against their own budget, which put the emphasis on
+    # the ladder rather than on the answer.
+    #
+    # One cell per machine now, naming the file and what it weighs. Every cell is
+    # a real published file: nothing here is derived arithmetic, and an empty cell
+    # means nothing 4-bit or better fits rather than "unknown".
+    all_open_rows = [r for r in sci_rows if r["open_weight"]]
     # Who published the files, derived rather than named: this sentence said
     # "unsloth" alone until Muse Glimmer's sizes came from bartowski, whose repo
     # is the one publishing the plain Q4_K_M the class rule reads.
     _owners = sorted({(meta["models"][r["spec"].partition("@")[0]].get("gguf") or {})
                       .get("repo", "").partition("/")[0]
-                      for r in open_rows} - {""})
+                      for r in all_open_rows} - {""})
     _links = [f'<a href="https://huggingface.co/{o}">{o}</a>' for o in _owners]
     # reads at one owner ("the unsloth GGUF files") and at several
     gguf_sources = ("published" if not _links else _links[0] if len(_links) == 1
                     else " and ".join([", ".join(_links[:-1]), _links[-1]]))
+
+    # One pick per machine, from sci so the audit can recompute it independently.
+    budget_picks = {r["label"]: [best_quant_for(r["spec"], b) for b in VRAM_BUDGETS]
+                    for r in all_open_rows}
+    # A row earns its place by running somewhere. The rest would be four dashes
+    # apiece, which is a roster, not an answer, so they are named in the prose.
+    open_rows = [r for r in all_open_rows if any(budget_picks[r["label"]])]
+    too_big = [r["label"] for r in all_open_rows if not any(budget_picks[r["label"]])]
+    # Both sentences are derived, and both have to read when the list is empty or
+    # holds one name, per the counting-prose rule: an empty roster used to leave a
+    # parenthetical wrapped around nothing.
+    budget_reserve_note = ", ".join(
+        f"{BUDGET_RESERVE[b]} GB at {b}" for b in VRAM_BUDGETS)
+    _biggest = max(VRAM_BUDGETS)
+    if not too_big:
+        too_big_note = ""
+    elif len(too_big) == 1:
+        too_big_note = (f"{too_big[0]} is not listed, because it needs more than "
+                        f"{_biggest} GB even at 4-bit.")
+    else:
+        too_big_note = (
+            f"The {word(len(too_big))} open models not listed need more than "
+            f"{_biggest} GB even at 4-bit: "
+            + ", ".join(too_big[:-1]) + f" and {too_big[-1]}.")
     open_rows_html = []
     for r in open_rows:
         mm = meta["models"][r["spec"].partition("@")[0]]
-        gg = mm.get("gguf") or {}
         cells = ""
-        # heaviest first: a reader scanning left to right meets full precision
-        # before the compromises, and the fits-wash reads as a run in from the
-        # right rather than a stub on the left
-        for q in reversed(QUANT_LADDER):
-            gb = gg.get(q)
-            # A native-4-bit release (gpt-oss ships MXFP4) repacks to the same
-            # ~63 GB at every level: rungs above Q4 that add <10% over Q4_K_M
-            # are bigger containers, not more precision, so they print blank
-            # instead of a flat row of the same number.
-            if gb and gg.get(LOCAL_QUANT) and q in ("Q6_K", "Q8_0", "BF16") \
-                    and gb < gg[LOCAL_QUANT] * 1.10:
-                gb = None
-            est = gb is None and q == LOCAL_QUANT and r["vram_gb"]
-            if gb is None and not est:
+        # largest machine first, matching VRAM_BUDGETS, so the row reads as a
+        # descent: the quant gives way as the machine shrinks, and where a row
+        # runs out of options the blanks trail off to the right.
+        for pick in budget_picks[r["label"]]:
+            if pick is None:
                 cells += '<td class="r"></td>'
                 continue
-            v = gb or r["vram_gb"]
-            # two channels, not one: a lightness-only difference between "fits"
-            # and "does not" was unreadable at this digit size. The wash also
-            # draws a waterline across each row, so how far along the ladder a
-            # model stays runnable reads without comparing any two numbers.
-            fit = "fits" if v <= LOCAL_WEIGHT_BUDGET_GB else "nofit"
-            cells += f'<td class="r {fit}" data-s="{v:.1f}">{"~" if est else ""}{v:,.0f}</td>'
+            name, gb = pick
+            # Two channels rather than lightness alone, as before, but pointed at
+            # what varies now: every filled cell fits by construction, so the wash
+            # marks the QUALITY tier instead. Q6 and up keeps the waterline
+            # readable without comparing any two numbers.
+            tier = "fits" if gb * 8e9 / param_count(mm["params_total"]) >= 5.9 else "nofit"
+            cells += (f'<td class="r {tier}" data-s="{gb:.1f}">'
+                      f'<b>{name}</b> {gb:,.0f}</td>')
         open_rows_html.append(
             f'<tr><td>{r["label"]}</td>'
             # the index rides along so this table can be read in score order too,
             # which is the order it ships in; the models table above has the rest
             + num_td(r["sci"], f'{r["sci"]:.1f}')
-            + f'<td>{mm["type"] or "n/a"}</td>'
-            + num_td(param_count(mm["params_total"]), mm["params_total"] or "n/a")
-            + num_td(param_count(mm["params_active"]), mm["params_active"] or "n/a")
-            + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
             + cells + "</tr>"
         )
 
@@ -1211,11 +1222,12 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 </section>
 
 <section>
-  <h2>Open weights in detail</h2>
-  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself: every quantization published for each, in GB, from the {gguf_sources} GGUF files. A blank means that quantization was never published; <b>~</b> marks an estimated size.</p>
-  <p class="takeaway" style="margin:0 0 10px">Columns run heaviest first, and <span class="swatch" style="background:{FITS_BG}"></span> marks a file that <b>fits the {LOCAL_VRAM_GB} GB machine</b> from the section above, so the wash reads as a <b>waterline</b>: how far left a model stays runnable. <b>SCI</b> carries the leaderboard index across, so the table sorts by score as well as by size.</p>
+  <h2>Which quantization for my machine</h2>
+  <p class="takeaway" style="margin:0 0 10px"><b>Pick your memory, read across.</b> Each cell is the <b>best quantization that fits</b>, named as the file you would download from the {gguf_sources} GGUF repos, and what it weighs in GB. Every figure is a real published file, not arithmetic.</p>
+  <p class="takeaway" style="margin:0 0 10px">The weights do not get the whole machine, so each column reserves room for the OS, the KV cache and activations: {budget_reserve_note}. <span class="swatch" style="background:{FITS_BG}"></span> marks a pick at <b>Q6 or better</b>, where quantization is not the thing holding the model back.</p>
+  <p class="takeaway" style="margin:0 0 10px">A blank means <b>nothing 4-bit or better fits</b>, which is a real answer rather than a missing one: below 4-bit degradation stops being minor and coding feels it first, so no cell recommends going lower. {too_big_note}</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in reversed(QUANT_LADDER))}</tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th>{"".join(f'<th class="r" data-num>{b} GB</th>' for b in VRAM_BUDGETS)}</tr>
     {"".join(open_rows_html)}
   </table></div>
 </section>"""
@@ -1319,10 +1331,19 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   table.sortable th:hover,table.sortable th:focus-visible{{color:var(--ink)}}
   table.sortable th.asc::after{{content:" \\25B2";font-size:9px}}
   table.sortable th.desc::after{{content:" \\25BC";font-size:9px}}
-  /* runs on one machine vs does not: shaded ground plus ink, against no ground
-     and muted text. Colour alone was too close to read at this size. */
+  /* Q6-or-better vs a 4-to-5-bit compromise: shaded ground plus ink, against no
+     ground and muted text. Colour alone was too close to read at this size. */
   #opentable td.fits{{background:{FITS_BG};color:var(--ink);font-weight:600}}
   #opentable td.nofit{{color:var(--muted)}}
+  /* Six narrow columns, not ten, so this one does not need the 900px floor the
+     wide tables do. Lowering it is what puts the ANSWER columns on screen at
+     390px: at 900 the phone showed Model and SCI and scrolled every budget
+     column out of view, which hid the whole point of the table. */
+  #opentable{{min-width:560px}}
+  /* A quant name and its size are one atom. Letting them wrap split "Q4_K_M 63"
+     across two lines and left the rows at uneven heights; the table scrolls, so
+     there is no reason to break the cell instead. */
+  #opentable td.r{{white-space:nowrap}}
   .swatch{{display:inline-block;width:22px;height:12px;border-radius:2px;vertical-align:-1px}}
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
