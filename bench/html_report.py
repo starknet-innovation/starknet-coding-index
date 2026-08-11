@@ -1172,12 +1172,8 @@ def build(all_runs):
             # the index rides along so this table can be read in score order too,
             # which is the order it ships in; the models table above has the rest
             + num_td(r["sci"], f'{r["sci"]:.1f}')
-            # Context sits after the budget columns rather than before them: it is
-            # reference, not the answer, and in front it pushed every budget column
-            # off a 390px screen.
-            + cells
             + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
-            + "</tr>"
+            + cells + "</tr>"
         )
 
     # every sortable table on the page, not one by id: the open-weight table
@@ -1235,7 +1231,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   <p class="takeaway" style="margin:0 0 10px">The weights do not get the whole machine, so each column reserves room for the OS, the KV cache and activations: {budget_reserve_note}. A quant in <b>full black</b> is <b>Q6 or better</b>, where quantization is not the thing holding the model back; a greyed one is a 4-to-5-bit compromise.</p>
   <p class="takeaway" style="margin:0 0 10px">A blank means <b>nothing 4-bit or better fits</b>, which is a real answer rather than a missing one: below 4-bit degradation stops being minor and coding feels it first, so no cell recommends going lower. {too_big_note}</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th>{"".join(f'<th class="r" data-num>{b} GB</th>' for b in VRAM_BUDGETS)}<th class="r" data-num>Context</th></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{b} GB</th>' for b in VRAM_BUDGETS)}</tr>
     {"".join(open_rows_html)}
   </table></div>
 </section>"""

@@ -407,10 +407,10 @@ for label, rest in cells:
         bad_cell.append(f"{label}: not a leaderboard row")
         continue
     files = (_mm.get(spec.partition("@")[0], {}).get("gguf") or {}).get("files") or {}
-    # SCI leads and Context trails, so the budget columns are the cells between,
-    # in VRAM_BUDGETS order. Sliced from both ends rather than counted from one,
-    # so adding a trailing column cannot silently shift which cells are read.
-    tds = re.findall(r'<td class="r[^"]*"[^>]*>(.*?)</td>', rest, re.S)[1:-1]
+    # SCI and Context lead, so the budget columns are the last len(VRAM_BUDGETS)
+    # cells, in that order. Taken from the END rather than by a fixed offset, so
+    # another reference column added in front cannot shift which cells are read.
+    tds = re.findall(r'<td class="r[^"]*"[^>]*>(.*?)</td>', rest, re.S)[-len(VRAM_BUDGETS):]
     if len(tds) != len(VRAM_BUDGETS):
         bad_cell.append(f"{label}: {len(tds)} budget cells, expected {len(VRAM_BUDGETS)}")
         continue
