@@ -407,19 +407,31 @@ for label, rest in cells:
         bad_cell.append(f"{label}: not a leaderboard row")
         continue
     files = (_mm.get(spec.partition("@")[0], {}).get("gguf") or {}).get("files") or {}
-    # the budget columns are the trailing cells, in VRAM_BUDGETS order
-    tds = re.findall(r'<td class="r[^"]*"[^>]*>(.*?)</td>', rest, re.S)[-len(VRAM_BUDGETS):]
+    # SCI leads and Context trails, so the budget columns are the cells between,
+    # in VRAM_BUDGETS order. Sliced from both ends rather than counted from one,
+    # so adding a trailing column cannot silently shift which cells are read.
+    tds = re.findall(r'<td class="r[^"]*"[^>]*>(.*?)</td>', rest, re.S)[1:-1]
+    if len(tds) != len(VRAM_BUDGETS):
+        bad_cell.append(f"{label}: {len(tds)} budget cells, expected {len(VRAM_BUDGETS)}")
+        continue
     for budget, td in zip(VRAM_BUDGETS, tds):
         want = best_quant_for(spec, budget)
-        got = re.sub(r"<[^>]+>", "", td).strip()
-        if not got:
+        # the quant and its cost are separate spans now; read them separately so a
+        # cell that loses one of them fails rather than reparsing as the other
+        qm = re.search(r'<span class="q">(.*?)</span>', td, re.S)
+        gm = re.search(r'<span class="gb">([\d,]+) GB</span>', td, re.S)
+        if not qm:
             if want:
                 bad_cell.append(f"{label} at {budget} GB: blank, expected {want[0]}")
             continue
         n_cell += 1
-        name, _, size = got.rpartition(" ")
-        if not want or name != want[0] or round(want[1]) != int(size.replace(",", "")):
-            bad_cell.append(f"{label} at {budget} GB: prints {got!r}, picker says {want}")
+        if not gm:
+            bad_cell.append(f"{label} at {budget} GB: names a quant with no size")
+            continue
+        name, size = qm.group(1).strip(), int(gm.group(1).replace(",", ""))
+        if not want or name != want[0] or round(want[1]) != size:
+            bad_cell.append(f"{label} at {budget} GB: prints {name} {size}, "
+                            f"picker says {want}")
         elif name not in files:
             bad_cell.append(f"{label} at {budget} GB: {name} is not in the published ladder")
         elif files[name] > budget - BUDGET_RESERVE[budget]:

@@ -57,10 +57,15 @@
   table.sortable th:hover,table.sortable th:focus-visible{color:var(--ink)}
   table.sortable th.asc::after{content:" \25B2";font-size:9px}
   table.sortable th.desc::after{content:" \25BC";font-size:9px}
-  /* Q6-or-better vs a 4-to-5-bit compromise: shaded ground plus ink, against no
-     ground and muted text. Colour alone was too close to read at this size. */
-  #opentable td.fits{background:#dbe7fc;color:var(--ink);font-weight:600}
-  #opentable td.nofit{color:var(--muted)}
+  /* Two kinds of thing in one cell, set as two: the quant is a filename, so it
+     is mono and carries the ink, and the memory it costs is muted and smaller
+     beside it. No background wash on either. */
+  #opentable td.r .q{font-family:var(--mono);font-weight:700;font-size:12.5px}
+  #opentable td.r .gb{color:var(--muted);font-size:11px;white-space:nowrap}
+  #opentable td.fits .q{color:var(--ink)}
+  /* a 4-to-5-bit pick: still the best that fits, but quantization is now part of
+     what holds the model back, so the name drops to muted */
+  #opentable td.nofit .q{color:var(--muted)}
   /* Six narrow columns, not ten, so this one does not need the 900px floor the
      wide tables do. Lowering it is what puts the ANSWER columns on screen at
      390px: at 900 the phone showed Model and SCI and scrolled every budget
@@ -70,7 +75,6 @@
      across two lines and left the rows at uneven heights; the table scrolls, so
      there is no reason to break the cell instead. */
   #opentable td.r{white-space:nowrap}
-  .swatch{display:inline-block;width:22px;height:12px;border-radius:2px;vertical-align:-1px}
   td{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
   th.r,td.r{text-align:right}
   .ci{color:var(--muted);font-size:11px}
@@ -365,11 +369,11 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 <section>
   <h2 id="which-quantization-for-my-machine"><a class="anchor" href="#which-quantization-for-my-machine">Which quantization for my machine</a></h2>
   <p class="takeaway" style="margin:0 0 10px"><b>Pick your memory, read across.</b> Each cell is the <b>best quantization that fits</b>, named as the file you would download from the <a href="https://huggingface.co/bartowski">bartowski</a> and <a href="https://huggingface.co/unsloth">unsloth</a> GGUF repos, and what it weighs in GB. Every figure is a real published file, not arithmetic.</p>
-  <p class="takeaway" style="margin:0 0 10px">The weights do not get the whole machine, so each column reserves room for the OS, the KV cache and activations: 16 GB at 128, 8 GB at 64, 4 GB at 32, 4 GB at 24. <span class="swatch" style="background:#dbe7fc"></span> marks a pick at <b>Q6 or better</b>, where quantization is not the thing holding the model back.</p>
+  <p class="takeaway" style="margin:0 0 10px">The weights do not get the whole machine, so each column reserves room for the OS, the KV cache and activations: 16 GB at 128, 8 GB at 64, 4 GB at 32, 4 GB at 24. A quant in <b>full black</b> is <b>Q6 or better</b>, where quantization is not the thing holding the model back; a greyed one is a 4-to-5-bit compromise.</p>
   <p class="takeaway" style="margin:0 0 10px">A blank means <b>nothing 4-bit or better fits</b>, which is a real answer rather than a missing one: below 4-bit degradation stops being minor and coding feels it first, so no cell recommends going lower. The nine open models not listed need more than 128 GB even at 4-bit: Kimi K3, MiMo-V2.5-Pro, MiniMax M3, DeepSeek V4 Flash, Qwen3.8 Max, DeepSeek V4-Pro, Hy3, Inkling and GLM 5.2.</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>128 GB</th><th class="r" data-num>64 GB</th><th class="r" data-num>32 GB</th><th class="r" data-num>24 GB</th></tr>
-    <tr><td>Muse Glimmer 30B</td><td class="r" data-s="53.54335822195509">53.5</td><td class="r fits" data-s="29.6"><b>Q8_0</b> 30</td><td class="r fits" data-s="29.6"><b>Q8_0</b> 30</td><td class="r fits" data-s="24.1"><b>Q6_K_L</b> 24</td><td class="r nofit" data-s="19.4"><b>Q5_K_S</b> 19</td></tr><tr><td>gpt-oss-120b</td><td class="r" data-s="17.741231416968965">17.7</td><td class="r nofit" data-s="62.8"><b>Q4_K_M</b> 63</td><td class="r"></td><td class="r"></td><td class="r"></td></tr><tr><td>Qwen3.6-35B-A3B</td><td class="r" data-s="16.19082483091965">16.2</td><td class="r fits" data-s="36.9"><b>Q8_0</b> 37</td><td class="r fits" data-s="36.9"><b>Q8_0</b> 37</td><td class="r fits" data-s="26.6"><b>UD-Q5_K_XL</b> 27</td><td class="r nofit" data-s="19.5"><b>UD-IQ4_NL_XL</b> 20</td></tr><tr><td>Gemma 4 31B</td><td class="r" data-s="15.806948103252044">15.8</td><td class="r fits" data-s="32.6"><b>Q8_0</b> 33</td><td class="r fits" data-s="32.6"><b>Q8_0</b> 33</td><td class="r fits" data-s="27.5"><b>UD-Q6_K_XL</b> 28</td><td class="r nofit" data-s="18.3"><b>Q4_K_M</b> 18</td></tr><tr><td>Qwen3 Coder Next</td><td class="r" data-s="14.283251268776736">14.3</td><td class="r fits" data-s="84.8"><b>Q8_0</b> 85</td><td class="r nofit" data-s="55.8"><b>UD-Q5_K_S</b> 56</td><td class="r"></td><td class="r"></td></tr><tr><td>Qwen3.6-27B</td><td class="r" data-s="13.317904173386546">13.3</td><td class="r fits" data-s="28.6"><b>Q8_0</b> 29</td><td class="r fits" data-s="28.6"><b>Q8_0</b> 29</td><td class="r fits" data-s="25.6"><b>UD-Q6_K_XL</b> 26</td><td class="r fits" data-s="20.0"><b>UD-Q5_K_XL</b> 20</td></tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>128 GB</th><th class="r" data-num>64 GB</th><th class="r" data-num>32 GB</th><th class="r" data-num>24 GB</th><th class="r" data-num>Context</th></tr>
+    <tr><td>Muse Glimmer 30B</td><td class="r" data-s="53.54335822195509">53.5</td><td class="r fits" data-s="29.6"><span class="q">Q8_0</span> <span class="gb">30 GB</span></td><td class="r fits" data-s="29.6"><span class="q">Q8_0</span> <span class="gb">30 GB</span></td><td class="r fits" data-s="24.1"><span class="q">Q6_K_L</span> <span class="gb">24 GB</span></td><td class="r nofit" data-s="19.4"><span class="q">Q5_K_S</span> <span class="gb">19 GB</span></td><td class="r" data-s="131072">131k</td></tr><tr><td>gpt-oss-120b</td><td class="r" data-s="17.741231416968965">17.7</td><td class="r nofit" data-s="62.8"><span class="q">Q4_K_M</span> <span class="gb">63 GB</span></td><td class="r"></td><td class="r"></td><td class="r"></td><td class="r" data-s="131072">131k</td></tr><tr><td>Qwen3.6-35B-A3B</td><td class="r" data-s="16.19082483091965">16.2</td><td class="r fits" data-s="36.9"><span class="q">Q8_0</span> <span class="gb">37 GB</span></td><td class="r fits" data-s="36.9"><span class="q">Q8_0</span> <span class="gb">37 GB</span></td><td class="r fits" data-s="26.6"><span class="q">UD-Q5_K_XL</span> <span class="gb">27 GB</span></td><td class="r nofit" data-s="19.5"><span class="q">UD-IQ4_NL_XL</span> <span class="gb">20 GB</span></td><td class="r" data-s="262144">262k</td></tr><tr><td>Gemma 4 31B</td><td class="r" data-s="15.806948103252044">15.8</td><td class="r fits" data-s="32.6"><span class="q">Q8_0</span> <span class="gb">33 GB</span></td><td class="r fits" data-s="32.6"><span class="q">Q8_0</span> <span class="gb">33 GB</span></td><td class="r fits" data-s="27.5"><span class="q">UD-Q6_K_XL</span> <span class="gb">28 GB</span></td><td class="r nofit" data-s="18.3"><span class="q">Q4_K_M</span> <span class="gb">18 GB</span></td><td class="r" data-s="262144">262k</td></tr><tr><td>Qwen3 Coder Next</td><td class="r" data-s="14.283251268776736">14.3</td><td class="r fits" data-s="84.8"><span class="q">Q8_0</span> <span class="gb">85 GB</span></td><td class="r nofit" data-s="55.8"><span class="q">UD-Q5_K_S</span> <span class="gb">56 GB</span></td><td class="r"></td><td class="r"></td><td class="r" data-s="262144">262k</td></tr><tr><td>Qwen3.6-27B</td><td class="r" data-s="13.317904173386546">13.3</td><td class="r fits" data-s="28.6"><span class="q">Q8_0</span> <span class="gb">29 GB</span></td><td class="r fits" data-s="28.6"><span class="q">Q8_0</span> <span class="gb">29 GB</span></td><td class="r fits" data-s="25.6"><span class="q">UD-Q6_K_XL</span> <span class="gb">26 GB</span></td><td class="r fits" data-s="20.0"><span class="q">UD-Q5_K_XL</span> <span class="gb">20 GB</span></td><td class="r" data-s="262144">262k</td></tr>
   </table></div>
 </section>
 

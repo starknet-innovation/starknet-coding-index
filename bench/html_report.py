@@ -465,7 +465,6 @@ def head_to_head_chart(metrics, w=760):
 
 ATTEMPT_COLORS = [SNF_BLUE, "#7c7ba2", "#bab7df", "#cecde7"]  # 1, 2, 3, 4+ submissions
 UNSOLVED_COLOR = "#bdb5ad"  # never solved: the band that tops every column
-FITS_BG = "#dbe7fc"         # blue-05 wash: a quant that fits one local machine
 # Warm neutral on purpose. It has to be legible in a band 2% tall (DeepSeek
 # fails 1 run in 52), which ruled out the diagonal hatch tried first: at that
 # height it was invisible. It also has to stay off the lavender ramp, so it
@@ -1157,19 +1156,28 @@ def build(all_runs):
                 cells += '<td class="r"></td>'
                 continue
             name, gb = pick
-            # Two channels rather than lightness alone, as before, but pointed at
-            # what varies now: every filled cell fits by construction, so the wash
-            # marks the QUALITY tier instead. Q6 and up keeps the waterline
-            # readable without comparing any two numbers.
+            # The file name and the memory it costs are two different kinds of
+            # thing, so they are set as two: the quant in mono, which is what it
+            # is, a filename, and the cost muted and smaller beside it. Reading
+            # one without the other was the complaint about "Q8_0 30".
+            #
+            # Tier still shows, in ink versus muted on the name alone. Q6 and up
+            # is where quantization stops being what holds the model back.
             tier = "fits" if gb * 8e9 / param_count(mm["params_total"]) >= 5.9 else "nofit"
             cells += (f'<td class="r {tier}" data-s="{gb:.1f}">'
-                      f'<b>{name}</b> {gb:,.0f}</td>')
+                      f'<span class="q">{name}</span> '
+                      f'<span class="gb">{gb:,.0f} GB</span></td>')
         open_rows_html.append(
             f'<tr><td>{r["label"]}</td>'
             # the index rides along so this table can be read in score order too,
             # which is the order it ships in; the models table above has the rest
             + num_td(r["sci"], f'{r["sci"]:.1f}')
-            + cells + "</tr>"
+            # Context sits after the budget columns rather than before them: it is
+            # reference, not the answer, and in front it pushed every budget column
+            # off a 390px screen.
+            + cells
+            + num_td(mm["context_length"], fmt_ctx(mm["context_length"]))
+            + "</tr>"
         )
 
     # every sortable table on the page, not one by id: the open-weight table
@@ -1224,10 +1232,10 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 <section>
   <h2>Which quantization for my machine</h2>
   <p class="takeaway" style="margin:0 0 10px"><b>Pick your memory, read across.</b> Each cell is the <b>best quantization that fits</b>, named as the file you would download from the {gguf_sources} GGUF repos, and what it weighs in GB. Every figure is a real published file, not arithmetic.</p>
-  <p class="takeaway" style="margin:0 0 10px">The weights do not get the whole machine, so each column reserves room for the OS, the KV cache and activations: {budget_reserve_note}. <span class="swatch" style="background:{FITS_BG}"></span> marks a pick at <b>Q6 or better</b>, where quantization is not the thing holding the model back.</p>
+  <p class="takeaway" style="margin:0 0 10px">The weights do not get the whole machine, so each column reserves room for the OS, the KV cache and activations: {budget_reserve_note}. A quant in <b>full black</b> is <b>Q6 or better</b>, where quantization is not the thing holding the model back; a greyed one is a 4-to-5-bit compromise.</p>
   <p class="takeaway" style="margin:0 0 10px">A blank means <b>nothing 4-bit or better fits</b>, which is a real answer rather than a missing one: below 4-bit degradation stops being minor and coding feels it first, so no cell recommends going lower. {too_big_note}</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
-    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th>{"".join(f'<th class="r" data-num>{b} GB</th>' for b in VRAM_BUDGETS)}</tr>
+    <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th>{"".join(f'<th class="r" data-num>{b} GB</th>' for b in VRAM_BUDGETS)}<th class="r" data-num>Context</th></tr>
     {"".join(open_rows_html)}
   </table></div>
 </section>"""
@@ -1331,10 +1339,15 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
   table.sortable th:hover,table.sortable th:focus-visible{{color:var(--ink)}}
   table.sortable th.asc::after{{content:" \\25B2";font-size:9px}}
   table.sortable th.desc::after{{content:" \\25BC";font-size:9px}}
-  /* Q6-or-better vs a 4-to-5-bit compromise: shaded ground plus ink, against no
-     ground and muted text. Colour alone was too close to read at this size. */
-  #opentable td.fits{{background:{FITS_BG};color:var(--ink);font-weight:600}}
-  #opentable td.nofit{{color:var(--muted)}}
+  /* Two kinds of thing in one cell, set as two: the quant is a filename, so it
+     is mono and carries the ink, and the memory it costs is muted and smaller
+     beside it. No background wash on either. */
+  #opentable td.r .q{{font-family:var(--mono);font-weight:700;font-size:12.5px}}
+  #opentable td.r .gb{{color:var(--muted);font-size:11px;white-space:nowrap}}
+  #opentable td.fits .q{{color:var(--ink)}}
+  /* a 4-to-5-bit pick: still the best that fits, but quantization is now part of
+     what holds the model back, so the name drops to muted */
+  #opentable td.nofit .q{{color:var(--muted)}}
   /* Six narrow columns, not ten, so this one does not need the 900px floor the
      wide tables do. Lowering it is what puts the ANSWER columns on screen at
      390px: at 900 the phone showed Model and SCI and scrolled every budget
@@ -1344,7 +1357,6 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
      across two lines and left the rows at uneven heights; the table scrolls, so
      there is no reason to break the cell instead. */
   #opentable td.r{{white-space:nowrap}}
-  .swatch{{display:inline-block;width:22px;height:12px;border-radius:2px;vertical-align:-1px}}
   td{{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}}
   th.r,td.r{{text-align:right}}
   .ci{{color:var(--muted);font-size:11px}}
