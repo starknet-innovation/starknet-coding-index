@@ -309,6 +309,26 @@ MODEL_REGISTRY = [
      "label": "Gemma 4 31B", "lab": "Google", "open_weight": True},
     {"specs": ["qwen/qwen3-coder-next"],
      "label": "Qwen3 Coder Next", "lab": "Alibaba", "open_weight": True},
+    # Published 2026-08-09, benchmarked 2026-08-11. Dense 29.8B, Apache 2.0,
+    # multimodal; Q4_K_M is 17.3 GB, so it runs on one machine comfortably.
+    #
+    # Probe: @disabled REJECTED ("Reasoning is mandatory for this endpoint and
+    # cannot be disabled"). @minimal is ACCEPTED even though it is absent from
+    # OpenRouter's supported_efforts, and it is coerced: paired against @low on
+    # first-call output tokens across four tasks it moves +18%, +17%, -6%, -1%,
+    # mixed signs around one effective level, so it is left unswept. The four
+    # real tiers are cleanly monotone (median first-call output tokens: low 724,
+    # medium 1448, high 3605, xhigh 7197) and medium is the documented default.
+    #
+    # The curve is INVERTED end to end: the floor wins on every axis at once.
+    # @low solves 87% where @xhigh solves 47%, at a sixth of the latency and
+    # cost. The failure is a compile that never lands, not a wrong answer:
+    # unsolved runs sit at 0 tests passed and 0 failed after exhausting the
+    # 10-turn budget, which happens in 13% of @low runs and 56% of @xhigh ones.
+    # So the ladder is closed downward with nothing left below @low to try.
+    {"specs": ["meta/muse-glimmer-30b@low", "meta/muse-glimmer-30b@medium",
+               "meta/muse-glimmer-30b@high", "meta/muse-glimmer-30b@xhigh"],
+     "label": "Muse Glimmer 30B", "lab": "Meta", "open_weight": True},
     # Probe 2026-07-24: full surface honored incl. @disabled; real curve with
     # overshoot (correct 79 off -> 99 low -> 88 high); low = interior winner.
     # @medium and @max are listed in OpenRouter's supported_efforts but return

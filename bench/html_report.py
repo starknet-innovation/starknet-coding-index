@@ -945,6 +945,9 @@ def build(all_runs):
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span></div>
 </section>"""
 
+    _local_small = min(local_rows, key=lambda r: r["vram_gb"])
+    _local_big = max(local_rows, key=lambda r: r["vram_gb"])
+
     # Fair questions: the priors readers arrive with. The QUESTION is the hook a
     # reader scans for, so it leads the card; the number is evidence and sits
     # inside the answer. (The weights cards in "How the score is built" are the
@@ -968,10 +971,14 @@ def build(all_runs):
          "That first-try gap against Opus 5 is most of the 8.6 points between them. The dial "
          "does nothing until <code>max</code>, and that is a cliff, not a step: 88% one-shot, "
          "the best of any Sonnet setting, for 61k output tokens, $0.68 and nine minutes a task."),
-        ("Which of these could I run myself?", "5 of 22",
-         "They fit one 128 GB machine at Q4_K_M, from Qwen3.6-27B at 17 GB of weights to "
-         "gpt-oss-120b at 63 GB, and they compare on their own footing in the section below. The "
-         "rest need a rack or are closed."),
+        # Counts and both ends of the range are derived: this card named a fixed
+        # "5 of 22" and a fixed pair of models, so every roster change left it
+        # quietly contradicting the section it points at.
+        ("Which of these could I run myself?", f"{len(local_rows)} of {len(sci_rows)}",
+         f"They fit one {LOCAL_VRAM_GB} GB machine at <code>{LOCAL_QUANT}</code>, from "
+         f"{_local_small['label']} at {_local_small['vram_gb']:.0f} GB of weights to "
+         f"{_local_big['label']} at {_local_big['vram_gb']:.0f} GB, and they compare on their "
+         "own footing in the section below. The rest need a rack or are closed."),
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
          "Cairo knowledge is not the problem (100% of hidden tests pass on delivered code); the "
          "habit is: a median of two submissions per task at $0.0895, nine times Grok's bill for "
@@ -1104,6 +1111,16 @@ def build(all_runs):
     # real file size or blank, since a ladder of numbers I derived myself would
     # be worth less than the honest gap.
     open_rows = [r for r in sci_rows if r["open_weight"]]
+    # Who published the files, derived rather than named: this sentence said
+    # "unsloth" alone until Muse Glimmer's sizes came from bartowski, whose repo
+    # is the one publishing the plain Q4_K_M the class rule reads.
+    _owners = sorted({(meta["models"][r["spec"].partition("@")[0]].get("gguf") or {})
+                      .get("repo", "").partition("/")[0]
+                      for r in open_rows} - {""})
+    _links = [f'<a href="https://huggingface.co/{o}">{o}</a>' for o in _owners]
+    # reads at one owner ("the unsloth GGUF files") and at several
+    gguf_sources = ("published" if not _links else _links[0] if len(_links) == 1
+                    else " and ".join([", ".join(_links[:-1]), _links[-1]]))
     open_rows_html = []
     for r in open_rows:
         mm = meta["models"][r["spec"].partition("@")[0]]
@@ -1185,7 +1202,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     models_html = f"""
 <section>
   <h2>The models</h2>
-  <p class="takeaway" style="margin:0 0 10px">Every model tested, including the {word(len(sci_rows) - CHART_TOP_N)} below the chart cut. Use it to <b>shortlist by the constraint you actually have</b>: the index <b>with and without the documentation tool</b>, <b>price</b> (per million tokens, as listed on OpenRouter, {meta["snapshot_date"]}), <b>speed</b>, and <b>whether the weights are open</b>. Click a header to sort.</p>
+  <p class="takeaway" style="margin:0 0 10px">Every model tested, including the {word(len(sci_rows) - CHART_TOP_N)} below the chart cut. Use it to <b>shortlist by the constraint you actually have</b>: the index <b>with and without the documentation tool</b>, <b>price</b> (per million tokens, as listed on OpenRouter, {meta["snapshot_date"]}, or at first listing for models published since), <b>speed</b>, and <b>whether the weights are open</b>. Click a header to sort.</p>
   <div class="tablewrap"><table id="modeltable" class="sortable">
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th class="r" data-num>SCI (MCP)</th><th class="r" data-num>Δ</th><th>Lab</th><th>Weights</th><th class="r" data-num>Context</th><th class="r" data-num>$/M in</th><th class="r" data-num>$/M out</th><th class="r" data-num>Tok/s</th></tr>
     {"".join(model_rows)}
@@ -1195,7 +1212,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 
 <section>
   <h2>Open weights in detail</h2>
-  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself: every quantization published for each, in GB, from the <a href="https://huggingface.co/unsloth">unsloth</a> GGUF files. A blank means that quantization was never published; <b>~</b> marks an estimated size.</p>
+  <p class="takeaway" style="margin:0 0 10px">What it takes to run the {len(open_rows)} open models yourself: every quantization published for each, in GB, from the {gguf_sources} GGUF files. A blank means that quantization was never published; <b>~</b> marks an estimated size.</p>
   <p class="takeaway" style="margin:0 0 10px">Columns run heaviest first, and <span class="swatch" style="background:{FITS_BG}"></span> marks a file that <b>fits the {LOCAL_VRAM_GB} GB machine</b> from the section above, so the wash reads as a <b>waterline</b>: how far left a model stays runnable. <b>SCI</b> carries the leaderboard index across, so the table sorts by score as well as by size.</p>
   <div class="tablewrap"><table id="opentable" class="sortable">
     <tr><th>Model</th><th class="r desc" data-num aria-sort="descending">SCI</th><th>Type</th><th class="r" data-num>Params</th><th class="r" data-num>Active</th><th class="r" data-num>Context</th>{"".join(f'<th class="r" data-num>{q}</th>' for q in reversed(QUANT_LADDER))}</tr>
@@ -1384,7 +1401,9 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     <span class="chip">labs <b>{len({r["lab"] for r in sci_rows})}</b></span>
     <span class="chip">runs <b>{len(all_runs)}</b></span>
     <span class="chip">hidden tests <b>106</b></span>
-    <span class="chip">2026-07-22 to 07-25</span>
+    <!-- Typed, not derived: run records carry no timestamp, only durations.
+         Extend the end date whenever a sweep adds runs. -->
+    <span class="chip">2026-07-22 to 08-11</span>
   </div>
 </header>
 
@@ -1416,7 +1435,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
         <li><b>Harness:</b> agentic repair loop, max 10 assistant turns. The model submits <code>src/lib.cairo</code> via a <code>submit</code> tool; the harness runs <code>scarb build</code> + <code>snforge test</code> against hidden tests and returns the output. Conditions are identical except the MCP condition also exposes <code>assist_with_cairo</code>, replicated exactly from <code>@kasarlabs/cairo-coder-mcp</code> v0.2.5.</li>
         <li><b>Tasks:</b> 13 hand-written Starknet contracts (4 easy / 5 medium / 4 hard incl. a SNIP-6 account and a custom component); every reference solution passes 100% of its tests, every stub fails.</li>
         <li><b>Models:</b> all served via OpenRouter, throughput-sorted routing, provider-default temperature; efforts via the unified reasoning parameter (<code>disabled</code> = <code>enabled:false</code>). Costs are OpenRouter-reported.</li>
-        <li><b>Prices move after the runs do:</b> the runs were billed at the prices listed on 2026-07-24. Three models have been cut since and are re-scored at today's listing (GPT-5.6 Terra 0.40&times;, GPT-5.6 Luna 0.10&times;, GLM 5.2 0.90&times;); three more moved input and output by different amounts, which a single billed total cannot be re-based from, so they stand as billed. GPT-5.6 Sol is unchanged. All prices are the standard endpoint, not the cheaper deferred-latency <code>flex</code> tiers.</li>
+        <li><b>Prices move after the runs do:</b> the runs were billed at the prices listed on 2026-07-24, and models added since at their listing on the day they were run. Three models have been cut since and are re-scored at today's listing (GPT-5.6 Terra 0.40&times;, GPT-5.6 Luna 0.10&times;, GLM 5.2 0.90&times;); three more moved input and output by different amounts, which a single billed total cannot be re-based from, so they stand as billed. GPT-5.6 Sol is unchanged. All prices are the standard endpoint, not the cheaper deferred-latency <code>flex</code> tiers.</li>
         <li><b>Solved</b> = every hidden test passes within the budget: 10 turns and 15 minutes of model time (LLM + doc-tool wait; wall time is not used because it depends on harness concurrency). An <b>attempt is a submission</b>, not a turn, so lookups and extra thinking turns are free and only delivered-and-broken code costs.</li>
         <li><b>Not every requested effort is a distinct setting:</b> providers quietly map some levels onto others, so two neighbouring efforts can be the same configuration. GLM 5.2 is the clearest case: <code>minimal</code>, <code>low</code>, <code>medium</code> and <code>high</code> all spend about 10k output tokens a run and are one effective level, while <code>xhigh</code> (29.6k), <code>max</code> (53.6k) and thinking off (5.0k) are genuinely different. DeepSeek, Hy3 and Gemini flatten the same way. Effort labels in this report are what we <i>requested</i>.</li>
       </ul>
@@ -1433,7 +1452,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     </div>
   </div>
 </section>
-<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · <a href="https://github.com/starknet-innovation/starknet-coding-index">github</a> · benchmark snapshot 2026-07-25</footer>
+<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · <a href="https://github.com/starknet-innovation/starknet-coding-index">github</a> · benchmark snapshot 2026-08-11</footer>
 </main>
 """)
 

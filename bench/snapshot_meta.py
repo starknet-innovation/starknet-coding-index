@@ -27,6 +27,11 @@ GGUF = {
     "qwen/qwen3.6-35b-a3b":    ("unsloth/Qwen3.6-35B-A3B-GGUF", "Qwen/Qwen3.6-35B-A3B"),
     "google/gemma-4-31b-it":   ("unsloth/gemma-4-31B-it-GGUF", "google/gemma-4-31B-it"),
     "qwen/qwen3.6-27b":        ("unsloth/Qwen3.6-27B-GGUF", "Qwen/Qwen3.6-27B"),
+    # bartowski rather than unsloth: unsloth's Muse Glimmer repo publishes no
+    # plain Q4_K_M at all (its 4-bit rung is UD-Q4_K_XL), and Q4_K_M is the
+    # exact file the local-inference class rule is defined on.
+    "meta/muse-glimmer-30b":   ("bartowski/Muse-Glimmer-30B-GGUF",
+                                "meta-models/Muse-Glimmer-30B"),
     "deepseek/deepseek-v4-flash-0731": ("unsloth/DeepSeek-V4-Flash-0731-GGUF",
                                         "deepseek-ai/DeepSeek-V4-Flash-0731"),
     # no usable repo: tencent/hy3 and deepseek/deepseek-v4-pro (none published),
@@ -86,8 +91,13 @@ def gguf_sizes(repo, expect_base):
     for s in m.get("siblings", []):
         f = s["rfilename"]
         # mmproj is the vision projector; mtp-* is Gemma's multi-token-prediction
-        # draft head, half a gigabyte of something that is not the model
-        if not f.endswith(".gguf") or re.search(r"mmproj|(^|/)mtp-", f, re.I):
+        # draft head, half a gigabyte of something that is not the model.
+        # dflash-* is the same idea for Muse Glimmer and dspark-* for DeepSeek
+        # V4 Flash (both speculative-decoding drafters), and *-imatrix.gguf is
+        # the calibration matrix bartowski ships next to the quants: all .gguf,
+        # none of them a quantization of the model.
+        if not f.endswith(".gguf") or re.search(
+                r"mmproj|imatrix|(^|/)(mtp|dflash|dspark)-", f, re.I):
             continue
         # a quant is either one file or a -00001-of-000NN shard set; strip either
         # suffix to get the stem the quant name ends with
@@ -98,10 +108,14 @@ def gguf_sizes(repo, expect_base):
     if not files:
         raise SystemExit(f"{repo}: no .gguf files matched the prefix {prefix!r}")
 
-    # exact match on the canonical name, plain quant preferred over an UD- variant
+    # exact match on the canonical name, plain quant preferred over an UD-
+    # variant. Matched case-insensitively because repos disagree on case
+    # (bartowski publishes bf16, unsloth BF16) and a case-sensitive miss drops a
+    # rung from the ladder silently instead of failing.
+    lower = {q.lower(): v for q, v in files.items()}
     out = {}
     for q in QUANTS:
-        v = files.get(q) or files.get(f"UD-{q}")
+        v = lower.get(q.lower()) or lower.get(f"UD-{q}".lower())
         if v:
             out[q] = v
     have = [(q, out[q]) for q in QUANTS if q in out]

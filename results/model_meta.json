@@ -40,6 +40,9 @@
    "gguf": {
     "repo": "unsloth/Kimi-K3-GGUF",
     "files": {
+     "UD-Q1_0": 466.4,
+     "UD-TQ1_0": 508.9,
+     "UD-TQ2_0": 551.5,
      "UD-IQ1_S": 594.0,
      "UD-IQ1_M": 648.9,
      "UD-IQ2_XXS": 711.1,
@@ -773,7 +776,62 @@
    "params_total": "2.4T",
    "params_active": "95B",
    "gguf": null
+  },
+  "meta/muse-glimmer-30b": {
+   "name": "Meta: Muse Glimmer 30B",
+   "context_length": 131072,
+   "hugging_face_id": "meta-models/Muse-Glimmer-30B",
+   "price_per_m": {
+    "input": 0.35,
+    "output": 1.5,
+    "cache_read": 0.04,
+    "cache_write": null
+   },
+   "pricing_note": "as listed 2026-08-11; the model was published 2026-08-09 and did not exist at the snapshot date",
+   "type": "dense",
+   "params_total": "29.8B",
+   "params_active": "29.8B",
+   "arch": {
+    "layers": 52
+   },
+   "gguf": {
+    "repo": "bartowski/Muse-Glimmer-30B-GGUF",
+    "IQ4_XS": 15.4,
+    "Q4_K_M": 17.3,
+    "Q6_K": 23.4,
+    "Q8_0": 29.6,
+    "BF16": 55.7,
+    "files": {
+     "IQ2_XXS": 8.9,
+     "IQ2_XS": 9.6,
+     "IQ2_S": 10.0,
+     "IQ2_M": 10.7,
+     "Q2_K": 11.0,
+     "IQ3_XXS": 11.5,
+     "IQ3_XS": 12.3,
+     "Q2_K_L": 12.3,
+     "Q3_K_S": 12.8,
+     "IQ3_M": 13.1,
+     "Q3_K_M": 14.0,
+     "Q3_K_L": 14.8,
+     "IQ4_XS": 15.4,
+     "Q3_K_XL": 16.0,
+     "IQ4_NL": 16.2,
+     "Q4_0": 16.3,
+     "Q4_K_S": 16.3,
+     "Q4_K_M": 17.3,
+     "Q4_1": 17.8,
+     "Q4_K_L": 18.3,
+     "Q5_K_S": 19.4,
+     "Q5_K_M": 20.1,
+     "Q5_K_L": 20.9,
+     "Q6_K": 23.4,
+     "Q6_K_L": 24.1,
+     "Q8_0": 29.6,
+     "bf16": 55.7
+    }
+   }
   }
  },
- "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T/104B lab-stated on the model card, published 2026-07-27 as moonshotai/Kimi-K3; Hy3 295B/21B and Qwen 27B dense lab-stated; V4 Flash 0731 304B from its own card and safetensors tensor count, 13B active from the preview card for the identical architecture (43 layers, 256 experts, 6 routed + 1 shared per token)."
+ "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T/104B lab-stated on the model card, published 2026-07-27 as moonshotai/Kimi-K3; Hy3 295B/21B and Qwen 27B dense lab-stated; V4 Flash 0731 304B from its own card and safetensors tensor count, 13B active from the preview card for the identical architecture (43 layers, 256 experts, 6 routed + 1 shared per token). Muse Glimmer 30B 29.78B dense from the HF safetensors index on meta-models/Muse-Glimmer-30B (29,776,626,688 params, no expert keys in config.json), fetched 2026-08-11."
 }

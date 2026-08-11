@@ -18,7 +18,8 @@ import sys
 from bench.report import load_runs
 from bench.sci import (CHART_TOP_N, LOCAL_QUANT, LOCAL_WEIGHT_BUDGET_GB,
                        PRICE_REVISIONS, SCI_SPEC, active_models, attempts,
-                       compute_sci, index_ci, leaderboard, price_ratio, run_cost)
+                       compute_sci, fits_locally, index_ci, leaderboard,
+                       price_ratio, run_cost)
 
 runs = load_runs(["results/runs/main.jsonl"])
 # a few claims are about the rendered prose, not just the data behind it
@@ -74,7 +75,14 @@ print("   " + "  ".join(f"{r['label']}={r['sci']:.1f}({r['variant']})" for r in 
 
 print("\n== chips and coverage")
 check("13 tasks", NT == 13, f"{NT}")
-check("23 charted models", len(lb) == 23, f"{len(lb)}")
+# Not a typed roster size: every active registry entry must reach the
+# leaderboard. Typing the count made it a chore on every deliberate addition,
+# while this still catches the failure that matters, an active model producing
+# no rows because its runs never landed.
+check("every active model is charted", len(lb) == len(active_models()),
+      f"{len(lb)} charted, {len(active_models())} active"
+      + (f" | missing: {', '.join(sorted({e['label'] for e in active_models()} - {r['label'] for r in lb}))}"
+         if len(lb) != len(active_models()) else ""))
 
 print("\n== price revisions")
 # A revision is applied as one multiplier to a recorded total, which is only
@@ -242,8 +250,11 @@ check("caveats: 13 to 120 runs per variant", min(ns) == 13 and max(ns) == 120, f
 # the rule: nothing inside it exceeds the weights budget, and nothing outside it
 # would have fitted. A one-way check would pass a class that quietly lost members.
 loc = [r for r in lb if r.get("local")]
-check(f"local class: 5 models, all within {LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
-      len(loc) == 5 and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
+_by_rule = {e["label"] for e in active_models() if fits_locally(e)}
+check(f"local class: {len(_by_rule)} models by the rule, all within "
+      f"{LOCAL_WEIGHT_BUDGET_GB:.0f} GB at {LOCAL_QUANT}",
+      {r["label"] for r in loc} == _by_rule
+      and all(r["vram_gb"] <= LOCAL_WEIGHT_BUDGET_GB for r in loc),
       f"{len(loc)} models, largest {max(r['vram_gb'] for r in loc):.0f} GB "
       f"({max(loc, key=lambda r: r['vram_gb'])['label']})")
 out = [r for r in lb if not r.get("local") and r["open_weight"] and r["vram_gb"]]
@@ -350,8 +361,8 @@ check(f"the local chart draws all {len(loc)} models that fit one machine",
       len(local_svg) == 1 and sorted(chart_labels(local_svg[0])) == sorted(r["label"] for r in loc),
       ", ".join(sorted(set(chart_labels(local_svg[0])) ^ {r["label"] for r in loc}) or ["exact"])
       if local_svg else "no chart")
-check("FAQ: 5 of 22 runnable, largest gpt-oss-120b at 63 GB",
-      "5 of 22" in report_html and len(loc) == 5
+check(f"FAQ: {len(loc)} of {len(lb)} runnable, largest gpt-oss-120b at 63 GB",
+      f"{len(loc)} of {len(lb)}" in report_html
       and max(loc, key=lambda r: r["vram_gb"])["label"] == "gpt-oss-120b"
       and round(max(r["vram_gb"] for r in loc)) == 63,
       f"{len(loc)} in class, largest {max(loc, key=lambda r: r['vram_gb'])['label']} "
@@ -367,8 +378,12 @@ for k, v in _mm.items():
     files = (v.get("gguf") or {}).get("files")
     if not files:
         continue
+    # Case-insensitive, matching snapshot_meta: repos disagree on case
+    # (bartowski publishes bf16 where unsloth publishes BF16), and this check
+    # exists to catch a wrong FILE, not a differently-cased name.
+    lower = {q.lower(): s for q, s in files.items()}
     for q in LADDER:
-        want = files.get(q) or files.get(f"UD-{q}")
+        want = lower.get(q.lower()) or lower.get(f"UD-{q}".lower())
         if v["gguf"].get(q) != want:
             bad_pick.append(f"{k}:{q} prints {v['gguf'].get(q)}, ladder has {want}")
 check("every printed quant size is the one in the published ladder",
@@ -376,10 +391,38 @@ check("every printed quant size is the one in the published ladder",
       f"{sum(len((v.get('gguf') or {}).get('files') or {}) for v in _mm.values())} files across "
       f"{sum(1 for v in _mm.values() if (v.get('gguf') or {}).get('files'))} repos")
 
+# Which open models are measured is not a number to type, it is a consequence of
+# which repos got snapshotted: a model is estimated exactly when no GGUF repo was
+# found for it. Stating it that way self-updates as the roster grows, and it
+# fails loudly if a snapshot silently stops supplying a size.
+def _gguf(r):
+    return (_mm.get(r["spec"].partition("@")[0], {}) or {}).get("gguf") or {}
+
+
+# Models whose snapshotted repo publishes no plain Q4_K_M, so they fall back to
+# the bit-width estimate even though a repo exists. Nobody quantizes a 2.8T or a
+# 304B model to that rung, so this is upstream's choice and not a snapshot bug.
+# Listed by name rather than tolerated in general, because the same shape is a
+# REAL bug when a plain quant exists elsewhere: unsloth's Muse Glimmer repo stops
+# at UD-Q4_K_XL and would have sent the class rule to the estimate while a repo
+# sat in the snapshot looking authoritative, when bartowski publishes the plain
+# file. A new name appearing here should be investigated, not added.
+NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash"}
+
+estimated = sorted(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured"))
+no_size = sorted({r["label"] for r in lb if r["open_weight"] and not _gguf(r).get("repo")}
+                 | NO_PLAIN_Q4)
 measured = [r["label"] for r in lb if r["open_weight"] and r.get("vram_measured")]
-check("8 of 14 open models have a measured Q4_K_M", len(measured) == 8,
-      f"{len(measured)} measured, estimated: "
-      + ", ".join(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured")))
+check("an open model is estimated exactly when no repo supplies its size",
+      estimated == no_size,
+      f"{len(measured)} measured, estimated: {', '.join(estimated) or 'none'}"
+      + (f" | mismatch: {', '.join(sorted(set(estimated) ^ set(no_size)))}"
+         if estimated != no_size else ""))
+ladder_gap = [r["label"] for r in lb
+              if r["open_weight"] and _gguf(r).get("repo")
+              and not _gguf(r).get(LOCAL_QUANT) and r["label"] not in NO_PLAIN_Q4]
+check(f"every snapshotted repo publishes the {LOCAL_QUANT} the class rule reads",
+      not ladder_gap, ", ".join(ladder_gap) or "none")
 # head to head
 closed = next(r for r in lb if not r["open_weight"]); openw = next(r for r in lb if r["open_weight"])
 check("head-to-head: 26 and 52 runs",
