@@ -89,6 +89,25 @@ The tag must stay **pg17** (a data directory is not readable by another major ve
 the bind path must be the same directory. The health check keeps a 60s timeout: a RAG
 round trip takes 6 to 20 seconds and a short timeout makes a healthy service look dead.
 
+`docker compose up -d postgres` from `vendor/cairo-coder` does the same thing, since the
+compose file already declares that bind mount. Four traps, each of which cost time:
+
+- **Bring up `postgres` only, never `postgres backend`.** The backend service builds from
+  `backend.dockerfile`, whose `apt-get` step cannot reach the network from inside a docker
+  build here, so the build fails and takes the whole `up` down with it. The backend runs
+  natively instead, which is what the commands above do.
+- **An empty `docker volume ls` is not a missing corpus.** The data is a bind mount at
+  `vendor/cairo-coder/data` (~196 MB), not a named volume, so it never appears in the
+  volume list. Check the corpus itself instead, which should say 4,105:
+  `docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select count(*) from documents;"'`
+- **Give the backend its own venv.** If `UV_PROJECT_ENVIRONMENT` is set, both projects
+  resolve to that one directory and `uv sync` here silently downgrades the bench project's
+  `openai`, which then fails mid-run with `cannot import name 'path_template'`. Run the
+  backend under `UV_PROJECT_ENVIRONMENT=~/.venv-cairo-coder` and leave the bench venv alone.
+- **Do not `pkill -f cairo-coder`.** The pattern matches the shell running the pkill, so
+  the command kills itself and reports exit 144 while the backend keeps serving. Find the
+  listener by port and kill that pid.
+
 To refresh the corpus with newer documentation:
 
 ```bash
