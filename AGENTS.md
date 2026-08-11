@@ -104,9 +104,12 @@ compose file already declares that bind mount. Four traps, each of which cost ti
   resolve to that one directory and `uv sync` here silently downgrades the bench project's
   `openai`, which then fails mid-run with `cannot import name 'path_template'`. Run the
   backend under `UV_PROJECT_ENVIRONMENT=~/.venv-cairo-coder` and leave the bench venv alone.
-- **Do not `pkill -f cairo-coder`.** The pattern matches the shell running the pkill, so
-  the command kills itself and reports exit 144 while the backend keeps serving. Find the
-  listener by port and kill that pid.
+- **`pkill -f` and `pgrep -f` match the command doing the matching.** Its own command line
+  contains the pattern, so `pkill -f cairo-coder` kills the shell running it (exit 144)
+  while the backend keeps serving, and `until ! pgrep -f bench.runner; do sleep 10; done`
+  never exits because the waiter matches itself, leaking a shell for the session. Bracket a
+  character so the pattern cannot match literally (`pgrep -f "[b]ench.runner"`), or watch a
+  pid or port instead of a name.
 
 To refresh the corpus with newer documentation:
 
