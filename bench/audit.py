@@ -455,7 +455,7 @@ def _gguf(r):
 # at UD-Q4_K_XL and would have sent the class rule to the estimate while a repo
 # sat in the snapshot looking authoritative, when bartowski publishes the plain
 # file. A new name appearing here should be investigated, not added.
-NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash"}
+NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash 0731"}
 
 estimated = sorted(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured"))
 no_size = sorted({r["label"] for r in lb if r["open_weight"] and not _gguf(r).get("repo")}

@@ -328,12 +328,18 @@ Two helpers keep charts consistent rather than gating them:
   rather than writing a regex: axis labels come in two shapes, a bare rotated `<text>`
   and a rotated `<g>` wrapping the label plus a rank-delta arrow, and a parser that knows
   only the first reports the MCP chart drawing four fewer models than it drew.
-- `LABEL_ANGLE = 55` and `AXIS_PAD_L = 80` are shared across charts deliberately, so
+- `LABEL_ANGLE = 55` and `AXIS_PAD_L = 98` are shared across charts deliberately, so
   they stay visually consistent. Change them in one place or not at all. `AXIS_PAD_L`
-  tracks `CHART_TOP_N`: more columns are narrower columns, which pulls column 0's centre
-  left and eats the clearance an angled label needs. The one documented exception is
-  `sci_bar_chart`, which keeps `pad_l = 64` because it alone draws in rank order, so its
-  first label is always the leader's and always short.
+  tracks `CHART_TOP_N` **and the longest label**: more columns are narrower columns, which
+  pulls column 0's centre left and eats the clearance an angled label needs, and a longer
+  name spills further into it. Renaming a model can therefore break the build, which is
+  what raised this from 80 (see the arithmetic above the constant). The one documented
+  exception is `sci_bar_chart`, which keeps `pad_l = 64` because it alone draws in rank
+  order, so its first label is always the leader's and always short.
+- **`pad_l=AXIS_PAD_L` is a default argument**, bound when the module is imported. Setting
+  `html_report.AXIS_PAD_L` at runtime changes nothing, so a dry run that tries to test a
+  new pad that way silently measures the old one. Patch `fn.__defaults__`, or just edit the
+  constant.
 
 For anything visual, run `bench.screenshot` and **look at the PNGs** before committing.
 Text and geometry checks have passed things that were plainly ugly on screen. Every

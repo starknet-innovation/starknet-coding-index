@@ -71,8 +71,8 @@ def gguf_sizes(repo, expect_base):
     `files` is the whole ladder under the exact names the repo publishes, because
     "the best quant that fits a 64 GB machine" can only be answered from the
     ladder that exists: these repos ship 13 to 38 files each, from TQ1_0 to BF16,
-    and the five-name subset we used to record made DeepSeek V4 Flash look like
-    it topped out at IQ4_XS when the repo goes to UD-Q8_K_XL.
+    and the five-name subset we used to record made DeepSeek V4 Flash 0731 look
+    like it topped out at IQ4_XS when the repo goes to UD-Q8_K_XL.
 
     The five canonical keys stay alongside it, derived from `files` with the same
     plain-over-UD preference as before, so the class rule and the open-weights

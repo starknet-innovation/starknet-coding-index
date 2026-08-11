@@ -327,12 +327,18 @@ MODEL_REGISTRY = [
                "deepseek/deepseek-v4-pro@minimal", "deepseek/deepseek-v4-pro@disabled"],
      "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
     # the 0731 release, not the preview: DeepSeek calls it the official one, and
-    # the two expose different ladders (preview xhigh/high, release max/high/low)
+    # the two expose different ladders (preview xhigh/high, release max/high/low).
+    #
+    # The label carries the date because the bare name does not identify anything
+    # stable. OpenRouter also serves ~deepseek/deepseek-v4-flash-latest, an alias
+    # that routes to whatever is newest in the family, so a published
+    # "DeepSeek V4 Flash" score silently comes to describe a model we never ran.
+    # This label matches OpenRouter's own name for the build we measured.
     {"specs": ["deepseek/deepseek-v4-flash-0731@max",
                "deepseek/deepseek-v4-flash-0731@high",
                "deepseek/deepseek-v4-flash-0731@low",
                "deepseek/deepseek-v4-flash-0731@disabled"],
-     "label": "DeepSeek V4 Flash", "lab": "DeepSeek", "open_weight": True},
+     "label": "DeepSeek V4 Flash 0731", "lab": "DeepSeek", "open_weight": True},
     {"specs": ["tencent/hy3", "tencent/hy3@max", "tencent/hy3@xhigh", "tencent/hy3@high",
                "tencent/hy3@medium", "tencent/hy3@low", "tencent/hy3@minimal",
                "tencent/hy3@disabled"],

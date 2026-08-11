@@ -180,17 +180,25 @@ SCI_CLOSED_COLOR = SNF_LAVENDER  # closed-weight models (neutral lavender-50)
 #
 # assert_output_is_portable enforces this geometry, so a future name long enough
 # to break it fails the build instead of rendering clipped.
-# Raised twice as the cut moved, both times for the same label. At the top
-# twelve, pad 64 left "DeepSeek V4 Flash (off)" (152px) reaching 87.1px against
-# 87px of clearance and the build guard caught it at 0.1px; 72 bought an 8px
-# margin. The top fifteen narrows every column from 54 to 43px, which pulls
-# column 0's centre 5.4px left and spends most of that margin again, so 80. A
-# pixel of pad is worth 0.97px of clearance, not 1: the plot loses the width, so
-# the columns narrow slightly too. The same worst case now clears by 13.9px, and
-# the angle stays put, being already steep enough that every extra degree costs
+#
+# Raised three times, every time for the same label, because the cost chart sorts
+# by price and this model is the cheapest, so it holds column 0 where a leaning
+# label has nowhere to sweep. A pixel of pad is worth 0.97px of clearance, not 1:
+# the plot loses the width, so the columns narrow slightly too.
+#   top twelve, pad 64:  "DeepSeek V4 Flash (off)" 152px spills 87.1 vs 87.0, and
+#                        the guard caught it at 0.1px; 72 bought an 8px margin
+#   top fifteen, pad 80: columns narrow 54 -> 43px, pulling column 0's centre
+#                        5.4px left and spending most of that margin again
+#   dated label, pad 98: "DeepSeek V4 Flash 0731 (off)" is 184.8px and spills
+#                        106.0 against 114.5 of clearance, so it clears by 8.5px
+# The date is in the label because the undated name does not identify a fixed
+# model (see the registry entry), and 98 is chosen over the bare minimum of 93 to
+# keep the ~8px of working slack every raise above has aimed for.
+#
+# The angle stays put: it is already steep enough that every extra degree costs
 # more label depth than it buys.
 LABEL_ANGLE = 55
-AXIS_PAD_L = 80
+AXIS_PAD_L = 98
 _LABEL_CH = 11 * 0.60      # px per character at font-size 11, measured exact
                            # against getComputedTextLength (scratchpad/measure_labels.py)
 
