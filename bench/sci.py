@@ -352,11 +352,28 @@ MODEL_REGISTRY = [
                "minimax/minimax-m3@minimal"],
      # @disabled deliberately absent: MiniMax accepts the param but thinks anyway
      "label": "MiniMax M3", "lab": "MiniMax", "open_weight": True},
-    # Benchmarked 2026-08-03. Weights ANNOUNCED for the week of 2026-08-10 via
-    # Alibaba Model Studio, the first Max-class Qwen to be opened, so this entry
-    # carries weights_pending exactly as Kimi K3's did until 2026-07-27. 2.4T
-    # total / ~95B active, which estimates to ~1.5 TB at Q4_K_M: open, but not
-    # anyone's local machine.
+    # Benchmarked 2026-08-03. CLOSED, and it stays closed even though Alibaba
+    # opened a 2.4T Qwen on 2026-08-12, because what they opened is not this
+    # endpoint. Qwen/Qwen3.8-2.4T-A95B is ungated and real (213 safetensors
+    # shards, 2,446,182,725,504 params, checked 2026-08-12), and its own card
+    # says "Qwen3.8-Max is the official version BASED ON Qwen3.8-2.4T-A95B with
+    # more features, such as vision input & non-thinking support, 1M context
+    # length by default". The differences are observable, not marketing:
+    #   released repo   model_type qwen3_5_moe_text, no vision_config and no
+    #                   projector files at all, 262k context on OpenRouter
+    #   this endpoint   text+image+video, 1M context
+    # So the vision weights Max serves are not in the download, and nobody can
+    # run what these 65 runs measured. This entry carried weights_pending on the
+    # strength of the announcement; the release resolved it the other way.
+    #
+    # OpenRouter agrees, and its behaviour is the same evidence Kimi K3's entry
+    # leans on: it did NOT attach the repo to this id, it minted a separate
+    # qwen/qwen3.8-2.4t-a95b for the open checkpoint. That model is a DIFFERENT
+    # model and is unbenchmarked; it needs its own entry and its own runs, not a
+    # flag on this one.
+    #
+    # 2.4T total / ~95B active, ~1.5 TB at Q4_K_M either way: not anyone's local
+    # machine.
     #
     # Probe: @disabled REJECTED ("Reasoning is mandatory for this endpoint"), so
     # @minimal is the floor. The ladder is two bands, not a gradient: minimal /
@@ -370,8 +387,7 @@ MODEL_REGISTRY = [
     # the model-time budget, on a run it had actually solved.
     {"specs": ["qwen/qwen3.8-max@high", "qwen/qwen3.8-max@medium",
                "qwen/qwen3.8-max@minimal"],
-     "label": "Qwen3.8 Max", "lab": "Alibaba", "open_weight": True,
-     "weights_pending": True},
+     "label": "Qwen3.8 Max", "lab": "Alibaba", "open_weight": False},
     # Full ladder swept 2026-07-25 for the effort-curve section (both conditions).
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high",
                "qwen/qwen3.6-27b@medium", "qwen/qwen3.6-27b@low",
