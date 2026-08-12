@@ -200,16 +200,26 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending
   money on models that had been dropped.
-- **The headline charts draw the top `CHART_TOP_N` (15) by index, and nothing else
-  decides membership.** The index chart, the three in "Behind the score" and the MCP
-  chart all take `chart_rows = sci_rows[:CHART_TOP_N]`. `bench.audit` reads the shipped
-  SVG back and checks that each of those charts drew exactly those models, because a
-  chart built from the wrong row set still renders perfectly. Models below the cut keep
-  their table rows and their findings; the ones that also run locally are charted in the
-  local-inference section. Moving the cut moves label
-  geometry with it (see `AXIS_PAD_L`) and changes which models are charted only in the
-  local section, which the audit reads back out of that section's own sentence rather
-  than holding a count of its own.
+- **The headline charts draw the top `CHART_TOP_N` (15) by index.** The index chart, the
+  three in "Behind the score" and the dial all take `chart_rows = sci_rows[:CHART_TOP_N]`,
+  ranked on the **baseline** score, because they answer "how good is this model on its
+  own". `bench.audit` reads the shipped SVG back and checks that each drew exactly those
+  models, because a chart built from the wrong row set still renders perfectly. Models
+  below the cut keep their table rows and their findings; the ones that also run locally
+  are charted in the local-inference section. Moving the cut moves label geometry with it
+  (see `AXIS_PAD_L`) and changes which models are charted only in the local section, which
+  the audit reads back out of that section's own sentence rather than holding a count of
+  its own.
+- **The MCP lift chart is the one exception, and ranks by `max(baseline, mcp)`.** Its
+  membership is `lift_rows`, not `chart_rows`. Selecting it on the baseline score meant the
+  chart about the documentation tool cut the models the tool transforms: DeepSeek V4 Pro
+  0813 sits 17th alone and 13th with the tool, and being closed it had no local-inference
+  chart to fall back on, so a +12.8 lift appeared nowhere but a table cell. Its own audit
+  check recomputes the best-of-either set and reads the shipped SVG back.
+  **`build_lift_pairs` must still receive rows in baseline order.** It takes each model's
+  rank from the order it is given, re-sorts by `max(base, mcp)` internally, and prints the
+  difference as the green rank-delta arrows; pass it rows already sorted by best-of-either
+  and every delta is zero and the arrows disappear with nothing failing.
 - **The local-inference class is derived, never hand-set.** `fits_locally()` asks
   whether a model's **published `Q4_K_M` file** fits `LOCAL_VRAM_GB` minus the reserve.
   Sizes come from the `gguf` block in `model_meta.json`, snapshotted from real repos;

@@ -330,10 +330,19 @@ behind = svgs("Behind the score")
 check("all three 'Behind the score' charts draw the same top models",
       len(behind) == 3 and all(sorted(chart_labels(s)) == sorted(top_n) for s in behind),
       f"{len(behind)} charts, sizes {[len(chart_labels(s)) for s in behind]}")
+# The one headline chart that does NOT share the baseline cut. It ranks by the
+# best of either condition, because ranking the documentation chart by the score
+# without documentation dropped the models it exists to show. Recomputed here
+# from the data rather than copied from the report, then read back off the
+# shipped SVG, so a chart built from the wrong row set still fails.
+_mcp_lb = {r["label"]: r for r in leaderboard(runs, condition="mcp")}
+_best = lambda r: (max(r["sci"], _mcp_lb[r["label"]]["sci"])
+                   if r["label"] in _mcp_lb else r["sci"])
+lift_n = [r["label"] for r in sorted(lb, key=_best, reverse=True)[:CHART_TOP_N]]
 mcp_svg = svgs("What does the Cairo Coder MCP add")
-check("the MCP chart draws the same top models",
-      len(mcp_svg) == 1 and sorted(chart_labels(mcp_svg[0])) == sorted(top_n),
-      ", ".join(sorted(set(chart_labels(mcp_svg[0])) ^ set(top_n)) or ["exact"]) if mcp_svg else "no chart")
+check(f"the MCP chart draws the top {CHART_TOP_N} by best-of-either condition",
+      len(mcp_svg) == 1 and sorted(chart_labels(mcp_svg[0])) == sorted(lift_n),
+      ", ".join(sorted(set(chart_labels(mcp_svg[0])) ^ set(lift_n)) or ["exact"]) if mcp_svg else "no chart")
 dial_names = re.findall(r'<div class="multiple"><h3>([^<]+)</h3>', section_html("The thinking dial"))
 check("the dial section draws the top 8 by index, in rank order",
       dial_names == top_n[:8], " > ".join(dial_names) or "no multiples")

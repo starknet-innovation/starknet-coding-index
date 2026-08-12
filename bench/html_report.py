@@ -710,6 +710,23 @@ def build(all_runs):
     # carry no effort. Models without MCP runs are omitted, not shown empty.
     mcp_rows = {r["label"]: r for r in leaderboard(all_runs, condition="mcp")}
 
+    # Membership for the lift chart ALONE, and the one place on this page that
+    # does not rank by the baseline index. Ranking the documentation chart by the
+    # score without documentation cut the models the chart exists to show: 0813
+    # sat 17th on its own and 13th with the tool, so the chart about the tool
+    # dropped it. The other headline charts keep the baseline cut, because they
+    # answer "how good is this model on its own".
+    #
+    # Order matters here and is easy to get wrong. build_lift_pairs takes each
+    # model's rank from the order it RECEIVES, re-sorts by max(base, mcp), and
+    # reports the difference as the green rank-delta arrows. Hand it rows already
+    # sorted by best-of-either and every delta is zero and the arrows vanish
+    # silently. So select on best-of-either, then keep sci_rows' baseline order.
+    _best = lambda r: (max(r["sci"], mcp_rows[r["label"]]["sci"])
+                       if r["label"] in mcp_rows else r["sci"])
+    _lift_in = {r["label"] for r in sorted(sci_rows, key=_best, reverse=True)[:CHART_TOP_N]}
+    lift_rows = [r for r in sci_rows if r["label"] in _lift_in]
+
     # Shared by the local-inference table and the models table further down, so
     # the two cannot print different throughput for the same model. Median
     # output tokens per second of model time, best baseline variant.
@@ -764,7 +781,7 @@ def build(all_runs):
                       'with-MCP</span>' if two else '<span>effort in parentheses</span>')
         return (key_open + (key_closed if any(not r["open_weight"] for r in rows) else "")
                 + key_mcp + effort_key)
-    lift_legend = f'<div class="legend legend-bottom">{keys_for(chart_rows)}</div>'
+    lift_legend = f'<div class="legend legend-bottom">{keys_for(lift_rows)}</div>'
     lift_legend_local = f'<div class="legend legend-bottom">{keys_for(local_rows)}</div>'
 
     # The substitution count is field-wide and always was; the sentence below
@@ -776,8 +793,10 @@ def build(all_runs):
     vpos = lambda v: VARIANT_ORDER.index(v) if v in VARIANT_ORDER else -1
     switched = [(lbl, b, m) for lbl, (b, m) in lift_efforts.items() if b != m]
     switched_down = [s for s in switched if vpos(s[2]) < vpos(s[1])]
+    # Against the LIFT chart's membership, not the baseline one: this sentence
+    # says where a switcher goes unshown, and the chart it points at is this one.
     switched_offchart = [s for s in switched
-                         if s[0] not in charted_labels
+                         if s[0] not in _lift_in
                          and s[0] not in {r["label"] for r in local_rows}]
 
     # The clause names the models, so it has to read for one of them and vanish
@@ -798,8 +817,8 @@ def build(all_runs):
 <section>
   <h2>What does the Cairo Coder MCP add? <span style="text-transform:none">(best config without vs with)</span></h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, second question: each model's <b>best configuration without the tool</b> (solid bar) versus its <b>best configuration with it</b>. Each condition picks its own best thinking level, and the labels show it: <b>{word(len(switched))} of the {word(len(sci_rows))} models win at a different effort with the tool than without</b>, and {word(len(switched_down))} of those {word(len(switched))} move <i>down</i> the ladder, not up. Documentation substitutes for thinking budget.{offchart_note}</p>
-  <h3 class="chart-title">Cairo Coder documentation lift, top {CHART_TOP_N} of the {len(sci_rows)} models tested</h3>
-  {chart(mcp_lift_chart(build_lift_pairs(chart_rows), efforts=lift_efforts, y_label="Starknet Coding Index"))}
+  <h3 class="chart-title">Cairo Coder documentation lift, top {CHART_TOP_N} of the {len(sci_rows)} models tested, by best score in either condition</h3>
+  {chart(mcp_lift_chart(build_lift_pairs(lift_rows), efforts=lift_efforts, y_label="Starknet Coding Index"))}
   {lift_legend}
 </section>"""
     # Local-inference section: prose and the chart, no table of its own. It had
