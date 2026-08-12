@@ -1440,7 +1440,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     <span class="chip">hidden tests <b>106</b></span>
     <!-- Typed, not derived: run records carry no timestamp, only durations.
          Extend the end date whenever a sweep adds runs. -->
-    <span class="chip">2026-07-22 to 08-11</span>
+    <span class="chip">2026-07-22 to 08-12</span>
   </div>
 </header>
 
@@ -1489,7 +1489,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     </div>
   </div>
 </section>
-<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · <a href="https://github.com/starknet-innovation/starknet-coding-index">github</a> · benchmark snapshot 2026-08-11</footer>
+<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · <a href="https://github.com/starknet-innovation/starknet-coding-index">github</a> · benchmark snapshot 2026-08-12</footer>
 </main>
 """)
 

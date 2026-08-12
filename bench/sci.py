@@ -326,6 +326,48 @@ MODEL_REGISTRY = [
                "deepseek/deepseek-v4-pro@medium", "deepseek/deepseek-v4-pro@low",
                "deepseek/deepseek-v4-pro@minimal", "deepseek/deepseek-v4-pro@disabled"],
      "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
+    # The GA checkpoint, benchmarked 2026-08-12, and a DIFFERENT MODEL from the
+    # entry above rather than a newer measurement of it. That one is the preview
+    # (its weights repo says so in as many words) at a different price and a
+    # two-tier ladder; this one is the release that ended a four-month preview.
+    # Do not read the pair as a before-and-after: the serving differs too. The
+    # DeepSeek first-party endpoint was excluded by the account's data policy
+    # until 2026-08-12, so the 432 preview-era runs came entirely from third
+    # parties at mixed fp4/fp8, while every run here is first-party. Any future
+    # top-up of the preview row should pin AWAY from deepseek to stay comparable.
+    #
+    # CLOSED, and no weights_pending: deepseek-ai/DeepSeek-V4-Pro-0813 is not
+    # public and no promise is sourceable. The sibling precedent is suggestive
+    # only, DeepSeek-V4-Flash-0731 (MIT) went up the same day Flash left preview.
+    # Params are unverifiable for the same reason, so they stay null; the press
+    # reports 1.6T/49B, which is the preview's disclosed shape.
+    #
+    # Pinned --provider-order deepseek throughout. One provider serves it today,
+    # but the preview id drew 18, and a third party appearing mid-sweep would
+    # have split the runs across serving stacks with nothing in the record to
+    # show it. Both endpoints report quantization "unknown".
+    #
+    # Probe: @disabled HONORED (mandatory false), so the floor is a real
+    # no-thinking tier the preview never exposed. @medium and @xhigh are
+    # unadvertised AND coerced, medium landing on @disabled (448 vs 436
+    # first-call tokens) and xhigh inside @high's band (6,303 vs 5,993), so both
+    # are unswept. @max is advertised and unswept too: @disabled won the bracket,
+    # so the ladder closed at the floor with nothing below it to extend to.
+    #
+    # The interesting finding is the RUNAWAY TAIL and what kills it. Baseline:
+    # 9 runs of 115 generated until they hit the provider's 65,536-token ceiling
+    # and 12 blew the 900s budget, which is 12 of 16 total failures, so most of
+    # this model's baseline failures are the clock rather than bad Cairo (its
+    # correctness component is 94). The tail is intermittent, not per-task:
+    # h3_vault@high took 1003s on one rep and 297s on another at identical
+    # concurrency. With the documentation tool the tail VANISHES, 0 runaways in
+    # 82 runs, and @high goes 73% -> 93% solved, 12% -> 26% one-shot, median
+    # model time 556s -> 165s. Docs act as an anchor that terminates the spiral,
+    # which is why this is a two-level switcher: off baseline, high with the tool.
+    {"specs": ["deepseek/deepseek-v4-pro-0813@disabled",
+               "deepseek/deepseek-v4-pro-0813@low",
+               "deepseek/deepseek-v4-pro-0813@high"],
+     "label": "DeepSeek V4 Pro 0813", "lab": "DeepSeek", "open_weight": False},
     # the 0731 release, not the preview: DeepSeek calls it the official one, and
     # the two expose different ladders (preview xhigh/high, release max/high/low).
     #

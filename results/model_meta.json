@@ -831,7 +831,22 @@
      "bf16": 55.7
     }
    }
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+   "name": "DeepSeek: DeepSeek V4 Pro 0813",
+   "context_length": 1048576,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 0.435,
+    "output": 0.87,
+    "cache_read": 0.003625,
+    "cache_write": null
+   },
+   "pricing_note": "as listed 2026-08-12, the day the GA build appeared; it did not exist at the snapshot date",
+   "type": null,
+   "params_total": null,
+   "params_active": null
   }
  },
- "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T/104B lab-stated on the model card, published 2026-07-27 as moonshotai/Kimi-K3; Hy3 295B/21B and Qwen 27B dense lab-stated; V4 Flash 0731 304B from its own card and safetensors tensor count, 13B active from the preview card for the identical architecture (43 layers, 256 experts, 6 routed + 1 shared per token). Muse Glimmer 30B 29.78B dense from the HF safetensors index on meta-models/Muse-Glimmer-30B (29,776,626,688 params, no expert keys in config.json), fetched 2026-08-11."
+ "params_sources": "Lab model cards / HF repo metadata, fetched 2026-07-24: MiMo 1.02T/42B and MiniMax 428B/23B from HF READMEs; DeepSeek 1.6T/49B from HF README (safetensors shows 862B due to FP4/FP8 mixed packing); GLM total 753B from HF safetensors, active ~40B third-party consensus (no lab statement); K3 2.8T/104B lab-stated on the model card, published 2026-07-27 as moonshotai/Kimi-K3; Hy3 295B/21B and Qwen 27B dense lab-stated; V4 Flash 0731 304B from its own card and safetensors tensor count, 13B active from the preview card for the identical architecture (43 layers, 256 experts, 6 routed + 1 shared per token). Muse Glimmer 30B 29.78B dense from the HF safetensors index on meta-models/Muse-Glimmer-30B (29,776,626,688 params, no expert keys in config.json), fetched 2026-08-11. DeepSeek V4 Pro 0813 has no published weights repo and DeepSeek's own docs are unreachable from here, so its parameter counts are left null rather than copied from the preview checkpoint."
 }

@@ -15,6 +15,7 @@ import re
 import statistics as st
 import sys
 
+from bench.html_report import word
 from bench.report import load_runs
 from bench.sci import (BUDGET_RESERVE, CHART_TOP_N, LOCAL_QUANT,
                        LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS, SCI_SPEC,
@@ -531,7 +532,15 @@ diff = [(r["label"], r["variant"] or "off", mcp[r["label"]]["variant"] or "off")
         for r in lb if r["label"] in mcp
         and (r["variant"] or "off") != (mcp[r["label"]]["variant"] or "off")]
 down = [d for d in diff if ORDER.index(d[2]) < ORDER.index(d[1])]
-check("twelve of twenty-three differ, seven downward", len(diff) == 12 and len(down) == 7,
+# Read back from the shipped sentence rather than typing the pair: the report
+# already derives both numbers, and the typed version drifted silently, still
+# claiming "twenty-three" while the prose said twenty-four and the assertion
+# only ever looked at the two counts.
+_sw = re.search(r"(\w+) of the \d+ models win at a different effort", section_html("What does"))
+_dn = re.search(r"and (\w+) of those \w+ move", section_html("What does"))
+check(f"the switcher counts match the prose: {len(diff)} differ, {len(down)} downward",
+      bool(_sw) and bool(_dn)
+      and word(len(diff)) == _sw.group(1) and word(len(down)) == _dn.group(1),
       f"{len(diff)} differ, {len(down)} down")
 # chips
 check("13 labs", len({r["lab"] for r in lb}) == 13, str(len({r["lab"] for r in lb})))
