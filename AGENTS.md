@@ -274,11 +274,24 @@ uv run python -m bench.runner --models qwen/qwen3.6-27b@low,qwen/qwen3.6-27b@hig
   blocks do not validate across a provider's two endpoints; a mid-run failover then
   produces errors that look like model failures.
 - `--concurrency` defaults to 20. The suite is dominated by LLM latency, and
-  `workspace` already caps concurrent builds at cores−2, so wide concurrency is close
-  to free for baseline batches. **Lower it for MCP-condition batches**: documentation
-  lookups queue on a single local backend, that wait counts toward the 900s model-time
-  budget and toward the speed component, so a crowded backend manufactures both
-  failures and a bad speed score.
+  `workspace` already caps concurrent builds at cores−2 (`MAX_CONCURRENT_BUILDS`), so wide
+  concurrency is close to free for baseline batches. 32 is fine and 89 runs at that width
+  drew zero retries; past roughly one wave of work it buys nothing, since the first
+  adaptive pass is only tasks × tiers × 2 cells.
+- **Why width cannot corrupt a baseline batch, which is the part worth knowing.** Driving a
+  single endpoint hard risks 429s, and `RETRIABLE_STATUS` retries them five times with
+  `min(60, 2**attempt)` backoff. That backoff never reaches the score: `models.py` resets
+  `start = time.monotonic()` **inside** the retry loop and takes `latency_s` on the
+  succeeding attempt, so a throttled call costs wall clock and nothing else. It cannot push
+  a run past the 900s budget. The measured cost is only throughput: 84 tok/s per call at 32
+  wide against 95 tok/s at 1-2 wide, about 12%, checked by comparing the same task and tier
+  across a probe and a sweep.
+- **Lower it for MCP-condition batches**, 6 to 8: documentation lookups queue on a single
+  local backend, and unlike retry backoff that wait **is** counted, because `load_runs()`
+  applies the budget to `llm_time_s + assist_time_s`. A crowded backend manufactures both
+  failures and a bad speed score. At 6 the assist share held at 10-11% of model time across
+  82 runs, so it never came close to deciding an outcome; `assist_time_s` is in every record,
+  so check it rather than assuming.
 
 ## Authoring a task package
 
