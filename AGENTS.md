@@ -269,6 +269,16 @@ uv run python -m bench.runner --models qwen/qwen3.6-27b@low,qwen/qwen3.6-27b@hig
 - **Use `--rep-offset` past the highest existing rep** for a model already in
   `main.jsonl`. Rep numbering restarts per output file, so without it the merge
   collides on the identity tuple and you get two different runs claiming to be rep 1.
+- **When a bracket lands inside its own error bar, top up every tier, not the winner.**
+  The standing rule is to top up the variant that won, but that assumes the bracket
+  identified one. Gemini 3.7 Flash's three tiers came back 86.3 / 86.2 / 85.6 at n=26,
+  a spread of 0.7 against half-widths near 5.5, so "the winner" was a coin flip and
+  topping it up alone would have let the flip decide what gets published. At n=52 the
+  order changed — 87.9 / 85.0 / 87.5, with the provider's own default tier now last
+  rather than in the middle — and the monotone one-shot climb visible at n=26 (65 → 69
+  → 77%) turned out not to exist (71 → 65 → 83%). The extra tiers cost $1.50 on that
+  model. Compare the bracket's spread against the half-widths before deciding, and if
+  the spread is inside them, treat the whole bracket as the thing to resolve.
 - **No merge tool ships here, and a merge has TWO destinations.** Append the sweep file
   into **`main.full.jsonl` in full**, and into **`main.jsonl` with `transcript` and
   `final_code` removed**. Dedupe both on `(task, model, condition, rep)`, treat an
