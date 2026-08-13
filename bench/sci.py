@@ -531,7 +531,14 @@ MODEL_REGISTRY = [
      # renamed, and OpenRouter now serves both Grok entries as "SpaceXAI: ...".
      # Both rows move together on purpose, because one company under two chips
      # would push the derived lab count to 14 for something that is not a lab.
-     "label": "Grok 4.5", "lab": "SpaceXAI", "open_weight": False},
+     #
+     # deprecated 2026-08-13: superseded by Grok 4.6; charts carry one bar per
+     # family's best (David). Worth recording that this is NOT the clear-cut case
+     # Opus 4.8 was. At matched depth (n=52 each) 4.6 leads by 2.0 against a
+     # combined half-width of 7.0, so the two are a tie, and on the MCP side 4.5
+     # is nominally ahead (88.6 against 87.6). What 4.6 actually bought was
+     # first-try polish: +6.9 effectiveness for -6.6 cost and -4.6 speed.
+     "label": "Grok 4.5", "lab": "SpaceXAI", "open_weight": False, "deprecated": True},
     # Grok 4.6, released 2026-08-12, benchmarked 2026-08-13. Four xAI endpoints,
     # all healthy at probe time, so no pinning; 0 retries across 234 runs.
     #

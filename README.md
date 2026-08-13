@@ -3,7 +3,7 @@
 How good is each frontier LLM at writing Starknet smart contracts on its own, and which
 models get better when you hand them a Cairo documentation tool?
 
-This repository is the benchmark behind both answers: 26 models from 13 labs, **8,931
+This repository is the benchmark behind both answers: 25 models from 13 labs, **8,931
 agentic runs** on 13 hand-written contract tasks, graded by 106 hidden `snforge` tests.
 Every model ran the suite both ways, alone and with the
 [Cairo Coder](https://www.cairo-coder.com/) MCP documentation tool.
@@ -23,15 +23,15 @@ documentation tool:
 | 1 | Opus 5 | low | 92.0 ±0.7 | 100% |
 | 2 | Grok 4.6 | xhigh | 90.3 ±3.2 | 87% |
 | 3 | Fable 5 | xhigh | 89.3 ±1.2 | 100% |
-| 4 | Grok 4.5 | medium | 88.3 ±3.8 | 75% |
-| 5 | Sonnet 5 | high | 83.4 ±4.3 | 67% |
+| 4 | Sonnet 5 | high | 83.4 ±4.3 | 67% |
+| 5 | Kimi K3 | low | 83.2 ±4.2 | 71% |
 
 Intervals are bootstrapped over each model's runs (1,000 resamples), and most of this
-table is a tie. Opus 5 separates only from Fable 5 and Sonnet 5; both Grok intervals are
-wide enough to overlap it, and Grok 4.6, Fable 5 and Grok 4.5 all overlap each other.
+table is a tie. Opus 5 separates from Fable 5, Sonnet 5 and Kimi K3, but not from Grok
+4.6, whose wider interval overlaps it; Grok 4.6 overlaps everything below it too.
 Read overlapping pairs as ties, not an order.
 
-All 26 models, the difficulty breakdown and the documentation-tool deltas are in the
+All 25 models, the difficulty breakdown and the documentation-tool deltas are in the
 report. To print the full leaderboard yourself:
 
 ```bash

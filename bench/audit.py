@@ -359,9 +359,10 @@ check("Muse Spark's dial splits in two: 66-71 below high, 80 at high and xhigh",
       all(66 <= mus[t] < 72 for t in ("minimal", "low", "medium"))
       and all(79.5 <= mus[t] < 81 for t in ("high", "xhigh")),
       ", ".join(f"{t} {v:.1f}" for t, v in mus.items()))
-grok = [sci(C(f"x-ai/grok-4.5@{t}")) for t in ("minimal", "low", "medium", "high", "max")]
-check("Grok 4.5's five tiers land within 3 points",
-      max(grok) - min(grok) < 3, f"span {max(grok) - min(grok):.1f}")
+# Grok 4.5's flat-dial claim is gone with the model: it was deprecated 2026-08-13
+# and is no longer drawn, so the check went with the prose. Note the failure mode
+# it would otherwise have had: its runs are still in main.jsonl, so the assertion
+# kept passing while the sentence pointed at a model absent from the grid.
 # The one dial in the grid that climbs end to end, which the prose now points at.
 g46 = [sci(C(f"x-ai/grok-4.6@{t}")) for t in ("low", "medium", "high", "xhigh")]
 _g46_one = [one(C(f"x-ai/grok-4.6@{t}")) for t in ("low", "xhigh")]
