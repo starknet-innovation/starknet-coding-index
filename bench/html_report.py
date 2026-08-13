@@ -1144,7 +1144,11 @@ def build(all_runs):
             if delta is not None else '<td class="r">n/a</td>'
         )
         model_rows.append(
-            f'<tr><td>{r["label"]}</td>'
+            # data-weights, not the cell text, is what the toggle reads: the Lab
+            # column contains "OpenAI", so matching text for "open" pulls in three
+            # closed models. The attribute cannot collide.
+            f'<tr data-weights="{"open" if r["open_weight"] else "closed"}">'
+            f'<td>{r["label"]}</td>'
             + num_td(r["sci"], f'{r["sci"]:.1f}'
                      + (f' <span class="ci">&plusmn;{ci_by_label[r["label"]]:.1f}</span>'
                         if r["label"] in ci_by_label else ''))
@@ -1273,6 +1277,69 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
 });
 });
 </script>"""
+
+    # The filter builds its own controls rather than shipping them in the markup:
+    # an inert column header still reads as a header, but a search box that does
+    # nothing reads as broken, so with JS off the reader gets today's plain table.
+    #
+    # Rows are HIDDEN, never removed. Every grep-based audit check reads the
+    # shipped HTML, including the one asserting no retired model is named, so the
+    # DOM has to stay complete. Hiding also leaves the sorter alone: it re-appends
+    # rows and the hidden ones simply reorder with the rest.
+    n_open = sum(1 for r in sci_rows if r["open_weight"])
+    filter_js = f"""<script>
+document.addEventListener("DOMContentLoaded", function () {{
+  var table = document.getElementById("modeltable");
+  if (!table) return;
+  var rows = Array.prototype.slice.call(table.querySelectorAll("tr")).slice(1);
+
+  var bar = document.createElement("div");
+  bar.className = "tfilter";
+  bar.innerHTML =
+    '<label class="visually-hidden" for="mfind">Search the models table</label>' +
+    '<input id="mfind" type="search" placeholder="search name, lab, price, context...">' +
+    '<span class="tfilter-chips" role="group" aria-label="Filter by weights">' +
+      '<button type="button" data-w="all" aria-pressed="true">all</button>' +
+      '<button type="button" data-w="open" aria-pressed="false">open {n_open}</button>' +
+      '<button type="button" data-w="closed" aria-pressed="false">closed {len(sci_rows) - n_open}</button>' +
+    '</span><span class="tfilter-count" aria-live="polite"></span>';
+  table.parentNode.parentNode.insertBefore(bar, table.parentNode);
+
+  var input = bar.querySelector("input");
+  var chips = Array.prototype.slice.call(bar.querySelectorAll("button"));
+  var count = bar.querySelector(".tfilter-count");
+  var weights = "all";
+
+  function apply() {{
+    /* every whitespace-separated term must appear somewhere in the row, which is
+       what makes "open deepseek" usable where "open" alone is ambiguous */
+    var terms = input.value.toLowerCase().split(/\\s+/).filter(Boolean);
+    var shown = 0;
+    rows.forEach(function (row) {{
+      var hay = row.textContent.toLowerCase();
+      var ok = terms.every(function (t) {{ return hay.indexOf(t) !== -1; }})
+               && (weights === "all" || row.getAttribute("data-weights") === weights);
+      row.style.display = ok ? "" : "none";
+      if (ok) shown++;
+    }});
+    count.textContent = "showing " + shown + " of " + rows.length;
+    bar.classList.toggle("filtered", shown !== rows.length);
+  }}
+
+  input.addEventListener("input", apply);
+  input.addEventListener("keydown", function (e) {{
+    if (e.key === "Escape") {{ input.value = ""; apply(); }}
+  }});
+  chips.forEach(function (chip) {{
+    chip.addEventListener("click", function () {{
+      weights = chip.getAttribute("data-w");
+      chips.forEach(function (c) {{ c.setAttribute("aria-pressed", String(c === chip)); }});
+      apply();
+    }});
+  }});
+  apply();
+}});
+</script>"""
     models_html = f"""
 <section>
   <h2>The models</h2>
@@ -1282,6 +1349,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     {"".join(model_rows)}
   </table></div>
   {sorter_js}
+  {filter_js}
 </section>
 
 <section>
@@ -1425,6 +1493,29 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     color:var(--muted);margin:35px 0 4px;text-align:center}}
   .wchip{{font-family:var(--mono);font-size:11px;font-weight:600}}
   .wchip.ow{{color:{SCI_OPEN_COLOR}}} .wchip.cw{{color:{SCI_CLOSED_COLOR}}}
+  /* Models-table filter. Borrows the mono/muted/line vocabulary the chips and
+     table headers already use, and the open/closed colours from .wchip, so the
+     control reads as the same language as the column it filters. Wraps at narrow
+     widths; the input takes the remaining room on one line when there is room. */
+  .tfilter{{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:20px 0 0}}
+  .tfilter input{{flex:1 1 240px;min-width:0;font-family:var(--mono);font-size:12.5px;
+    color:var(--ink);background:var(--panel);border:1px solid var(--line);
+    border-radius:4px;padding:7px 10px}}
+  .tfilter input:focus-visible{{outline:2px solid {SCI_OPEN_COLOR};outline-offset:1px}}
+  .tfilter-chips{{display:flex;gap:6px}}
+  .tfilter-chips button{{font-family:var(--mono);font-size:11px;font-weight:600;
+    color:var(--muted);background:var(--panel);border:1px solid var(--line);
+    border-radius:3px;padding:5px 9px;cursor:pointer}}
+  .tfilter-chips button:hover{{color:var(--ink)}}
+  .tfilter-chips button[aria-pressed="true"]{{border-color:currentColor}}
+  .tfilter-chips button[data-w="open"][aria-pressed="true"]{{color:{SCI_OPEN_COLOR}}}
+  .tfilter-chips button[data-w="closed"][aria-pressed="true"]{{color:{SCI_CLOSED_COLOR}}}
+  .tfilter-chips button[data-w="all"][aria-pressed="true"]{{color:var(--ink)}}
+  .tfilter-count{{font-family:var(--mono);font-size:11px;color:var(--muted)}}
+  /* only shout the count when it is not simply "all of them" */
+  .tfilter.filtered .tfilter-count{{color:var(--ink)}}
+  .visually-hidden{{position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap}}
   .scibar{{touch-action:manipulation}}
   .scibar:hover{{filter:brightness(1.08)}}
   #tip{{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--ink);box-shadow:0 4px 14px rgba(28,34,48,.14);pointer-events:none;white-space:nowrap}}

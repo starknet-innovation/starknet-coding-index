@@ -627,6 +627,22 @@ _dead_specs = {s for e in MODEL_REGISTRY if e.get("deprecated") for s in e["spec
 _retired = [r for r in _raw if r["model"] in _dead_specs and not r.get("error")]
 _n_retired = len(_retired)
 _n_err = sum(1 for r in _raw if r.get("error"))
+print("\n== models table filter")
+# Both failure modes here are invisible in a screenshot, and one of them would
+# quietly break every other check in this file.
+_mt = re.search(r'<table id="modeltable".*?</table>', report_html, re.S)
+_mt_rows = len(re.findall(r"<tr", _mt.group(0))) - 1 if _mt else -1
+check(f"the models table ships all {len(lb)} rows, filtering client-side only",
+      _mt_rows == len(lb),
+      f"{_mt_rows} rows in the shipped table vs {len(lb)} on the leaderboard")
+_dw = len(re.findall(r'<tr data-weights="(?:open|closed)"', report_html))
+check("every model row carries data-weights for the toggle",
+      _dw == len(lb), f"{_dw} of {len(lb)} rows tagged")
+check("the filter script is wired to the models table",
+      'getElementById("modeltable")' in report_html
+      and 'class="tfilter"' not in report_html,   # injected, not shipped inert
+      "wired" if 'getElementById("modeltable")' in report_html else "no filter script")
+
 print("\n== deprecation is total")
 _named = [e["label"] for e in MODEL_REGISTRY if e.get("deprecated")
           and re.sub(r"<[^>]+>", "", report_html).count(e["label"])]

@@ -10,8 +10,11 @@ Every model ran the suite both ways, alone and with the
 
 The finished report is live at
 [starknet-innovation.github.io/starknet-coding-index](https://starknet-innovation.github.io/starknet-coding-index/),
-deployed from [`results/report.html`](results/report.html) on every push: self-contained,
-no JavaScript, generated from the data in this repo.
+deployed from [`results/report.html`](results/report.html) on every push: one
+self-contained file, no external requests and no build step, generated from the data in
+this repo. The small amount of inline JavaScript is progressive: the charts, tables and
+every number render without it, and it adds the chart tooltips, sortable headers and the
+models-table filter.
 
 ## Results
 
