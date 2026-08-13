@@ -302,6 +302,19 @@ uv run python -m bench.runner --models qwen/qwen3.6-27b@low,qwen/qwen3.6-27b@hig
   a run past the 900s budget. The measured cost is only throughput: 84 tok/s per call at 32
   wide against 95 tok/s at 1-2 wide, about 12%, checked by comparing the same task and tier
   across a probe and a sweep.
+- **After a batch loses runs to transport errors, check per-task balance before merging.**
+  `load_runs` drops error records, so a partly-failed batch merges silently, and the damage
+  is not the missing rows but which rows are missing. `compute_sci` balances **only**
+  `correct`, as a mean of per-task means; `effective` (weight 0.50) is a flat mean over all
+  runs and `cost` and `speed` are medians over all runs, so 75% of the score reads whatever
+  task mix the file happens to hold. Dropped runs are never a random sample: they land on
+  whatever was still streaming, which is the long hard tasks, and those are the runs most
+  likely to have failed or blown the time budget. Merging the remainder therefore flatters
+  the model twice. A laptop suspending mid-sweep cost 13 of 78 runs this way, all of them on
+  hard and medium tasks, with the four easy tasks untouched at 6/6. Re-run the missing cells
+  (the runner treats an error row as incomplete, so pointing it at the same `--out` retries
+  exactly those), then count runs per task before merging. The fix is cheap; noticing is the
+  hard part, since the batch reports a clean 100% solve rate on what survived.
 - **Lower it for MCP-condition batches**, 6 to 8: documentation lookups queue on a single
   local backend, and unlike retry backoff that wait **is** counted, because `load_runs()`
   applies the budget to `llm_time_s + assist_time_s`. A crowded backend manufactures both

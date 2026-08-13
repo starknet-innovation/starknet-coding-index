@@ -411,8 +411,9 @@ MODEL_REGISTRY = [
     # OpenRouter agrees, and its behaviour is the same evidence Kimi K3's entry
     # leans on: it did NOT attach the repo to this id, it minted a separate
     # qwen/qwen3.8-2.4t-a95b for the open checkpoint. That model is a DIFFERENT
-    # model and is unbenchmarked; it needs its own entry and its own runs, not a
-    # flag on this one.
+    # model with its own entry and its own runs below, not a flag on this one.
+    # Rechecked 2026-08-13 and the split still holds: the open config is
+    # text-only with no vision_config, this endpoint still serves image+video.
     #
     # 2.4T total / ~95B active, ~1.5 TB at Q4_K_M either way: not anyone's local
     # machine.
@@ -430,6 +431,54 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.8-max@high", "qwen/qwen3.8-max@medium",
                "qwen/qwen3.8-max@minimal"],
      "label": "Qwen3.8 Max", "lab": "Alibaba", "open_weight": False},
+    # The OPEN checkpoint the entry above is careful not to be: weights published
+    # 2026-08-12 as Qwen/Qwen3.8-2.4T-A95B, benchmarked 2026-08-13. Labelled with
+    # the full name OpenRouter uses, because "Qwen3.8 2.4T" alone would not
+    # separate it from Max, which is also 2.4T/95B; the Weights column is what
+    # actually distinguishes the two rows.
+    #
+    # PINNED to Modal, and here the pin is the methodology rather than a
+    # workaround. A first attempt was abandoned 2026-08-12 after $0.62 because
+    # launch-week serving gave 46s/284s/616s for the same tier and task. Waiting
+    # a day fixed it: 4 endpoints, 3 healthy, and per-call throughput across the
+    # probe held a median of 229 tok/s with a 1.7x slow tail. Modal was picked
+    # over the marginally faster Together because it is the one healthy endpoint
+    # whose price matches what model_meta publishes ($2/$6 against Together's
+    # $2.50/$6.25), so recorded cost and the report's own $/M agree. The audit
+    # asserts every run here carries the pin.
+    #
+    # Every healthy endpoint serves this at 4-bit (Modal nvfp4, DeepInfra fp4,
+    # Together unknown); there is no bf16 option anywhere. Unpinned throughput
+    # routing can land on an fp4 endpoint for other models too, so this is a
+    # difference of degree, but for this model it is the only thing on offer.
+    #
+    # The context we publish is 262144, which is what the released config
+    # declares. OpenRouter reports 1M for this id because Modal rope-extends it;
+    # every other open row here publishes the context its own weights declare.
+    #
+    # Probe: @disabled REJECTED with Max's exact message ("Reasoning is mandatory
+    # for this endpoint and cannot be disabled"), which is consistent with Max
+    # being the variant that ADDS non-thinking support.
+    #
+    # The ladder does not run in the order its names suggest. Median first-call
+    # output tokens over the whole baseline sweep: low 2,586 (n=26), high 4,841
+    # (n=27), medium 7,242 (n=25). medium is the MOST expensive tier and high sits
+    # in the middle, so all three are distinct and all three are swept.
+    #
+    # Stated from the full sweep rather than from the probe on purpose. The probe
+    # read the same ordering off two tasks and looked tight enough within each
+    # tier to quote, and it did NOT replicate: re-running e1_counter in the sweep
+    # put low at 1273-1486 against the probe's 628-708 and reversed medium and
+    # high on that task alone. Per-task first-call tokens are too noisy at n=2 to
+    # rank tiers; only the pooled medians survive contact with more data.
+    #
+    # 2.4T total / 95B active. unsloth's ladder starts at 397 GB (UD-Q1_0) and
+    # reaches 1.3 TB at 4-bit, so it fits none of the machine budgets and is named
+    # in the table's prose instead. No repo publishes a plain Q4_K_M; see the
+    # audit's NO_PLAIN_Q4.
+    {"specs": ["qwen/qwen3.8-2.4t-a95b@medium", "qwen/qwen3.8-2.4t-a95b@high",
+               "qwen/qwen3.8-2.4t-a95b@low"],
+     "label": "Qwen3.8 2.4T A95B", "lab": "Alibaba", "open_weight": True},
     # Full ladder swept 2026-07-25 for the effort-curve section (both conditions).
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high",
                "qwen/qwen3.6-27b@medium", "qwen/qwen3.6-27b@low",

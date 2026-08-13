@@ -494,7 +494,12 @@ def _gguf(r):
 # at UD-Q4_K_XL and would have sent the class rule to the estimate while a repo
 # sat in the snapshot looking authoritative, when bartowski publishes the plain
 # file. A new name appearing here should be investigated, not added.
-NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash 0731"}
+# Qwen3.8 2.4T A95B investigated per the paragraph above rather than just added:
+# no repo publishes the plain file. unsloth stops at UD-IQ4_XS, AtomicChat ships
+# only BF16 and Q8_0 (and declares no base_model), DevQuasar's repo is still
+# empty, a4lg's is the MTP drafter, and bartowski has none. At 2.4T the plain
+# rung would be ~1.3 TB, so this is upstream's choice, same as K3's.
+NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash 0731", "Qwen3.8 2.4T A95B"}
 
 estimated = sorted(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured"))
 no_size = sorted({r["label"] for r in lb if r["open_weight"] and not _gguf(r).get("repo")}
@@ -698,6 +703,23 @@ _fat = [f'{r["task"]}/{r["model"]}/rep{r["rep"]}'
         if r.get("transcript") or r.get("final_code")]
 check("no tracked record carries a transcript or submitted code",
       not _fat, f"{len(_fat)} records: " + ", ".join(_fat[:3]) if _fat else "0 of 7,702")
+# Qwen3.8 2.4T A95B is the one row where single-provider routing IS the
+# methodology, not a workaround: it was parked once because launch-week serving
+# gave 46s/284s/616s on the same cell, and it is measured on a Modal pin so the
+# serving variable is held still. Records do not store which provider answered,
+# so the pin in llm_opts plus allow_fallbacks=False is the only evidence these
+# runs are single-endpoint, and an unpinned top-up would silently blend three
+# quantizations and two price points into this row.
+#
+# Scoped to this model deliberately. Five models legitimately mix modes, having
+# been swept before their pin was introduced, so a blanket "never mixed" rule
+# would fail on history that is not a defect.
+_q38 = [r for r in runs if r["model"].partition("@")[0] == "qwen/qwen3.8-2.4t-a95b"]
+_unpinned = [r for r in _q38 if not (r.get("llm_opts") or {}).get("provider_order")]
+check("every Qwen3.8 2.4T A95B run is pinned to one provider",
+      _q38 and not _unpinned,
+      f"{len(_q38) - len(_unpinned)}/{len(_q38)} pinned"
+      + (f", {len(_unpinned)} not" if _unpinned else ""))
 # The local archive is where that material belongs, and every merge should append
 # to both files. Compared by RECORD COUNT rather than by identity tuple: the two
 # files disagree on model ids for legacy records (load_runs folds llm_opts effort

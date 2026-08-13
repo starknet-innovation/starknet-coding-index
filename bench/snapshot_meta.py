@@ -34,6 +34,12 @@ GGUF = {
                                 "meta-models/Muse-Glimmer-30B"),
     "deepseek/deepseek-v4-flash-0731": ("unsloth/DeepSeek-V4-Flash-0731-GGUF",
                                         "deepseek-ai/DeepSeek-V4-Flash-0731"),
+    # Ladder tops out at UD-IQ4_XS: no plain Q4_K_M and no UD-Q4_K_M either, the
+    # same shape as Kimi K3, so the label is in the audit's NO_PLAIN_Q4. Recorded
+    # for provenance rather than for the machine table, where a 2.4T model needs
+    # more than the largest budget even at one bit.
+    "qwen/qwen3.8-2.4t-a95b":  ("unsloth/Qwen3.8-2.4T-A95B-GGUF",
+                                "Qwen/Qwen3.8-2.4T-A95B"),
     # no usable repo: tencent/hy3 and deepseek/deepseek-v4-pro (none published),
     # thinkingmachines/inkling (only Inkling-Small, a different model)
 }
