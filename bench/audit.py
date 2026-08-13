@@ -116,9 +116,16 @@ print("\n== FAQ cards")
 o, f, k, mi, s5, sol = (by[n] for n in
     ["Opus 5", "Fable 5", "Kimi K3", "MiMo-V2.5-Pro", "Sonnet 5", "GPT-5.6 Sol"])
 check("Opus 100% one-shot", one(C(o["spec"])) == 100, f"{one(C(o['spec'])):.0f}%")
-check("Opus has the fastest median pass of the charted models",
-      min((pass_time(by[r["label"]]["spec"]), r["label"])
-          for r in lb if r["label"] in charted)[1] == "Opus 5")
+# Opus held this until 2026-08-13, when Gemini 3.7 Flash arrived at half its
+# median pass. The card now concedes the point by name, so the check asserts the
+# ordering the sentence claims rather than just who is first.
+_pass_rank = sorted((pass_time(by[r["label"]]["spec"]), r["label"])
+                    for r in lb if r["label"] in charted)
+check("Gemini 3.7 Flash serves the fastest median pass, 1.8x ahead of Opus",
+      _pass_rank[0][1] == "Gemini 3.7 Flash" and _pass_rank[1][1] == "Opus 5"
+      and abs(_pass_rank[1][0] / _pass_rank[0][0] - 1.8) < 0.1,
+      f"{_pass_rank[0][1]} {_pass_rank[0][0]:.1f}s vs {_pass_rank[1][1]} {_pass_rank[1][0]:.1f}s "
+      f"({_pass_rank[1][0]/_pass_rank[0][0]:.2f}x)")
 check("Opus is 2.7 clear of second", abs(o["sci"] - f["sci"] - 2.7) < 0.06, f"{o['sci']-f['sci']:.2f}")
 check("Kimi 71% vs MiMo 40% one-shot",
       round(one(C(k["spec"]))) == 71 and round(one(C(mi["spec"]))) == 40,
@@ -385,6 +392,34 @@ check("Grok 4.6's dial climbs monotonically, 84.4 to 90.3, on one-shot not corre
       ", ".join(f"{v:.1f}" for v in g46)
       + f"; one-shot {_g46_one[0]:.0f}% -> {_g46_one[1]:.0f}%"
       + f"; all tiers 100% solved: {all(_g46_solved)}")
+# Gemini 3.7 Flash is the counterweight to Grok 4.6 in the same grid: an equally
+# real dial that the index refuses to reward, because the effectiveness it buys
+# is paid for exactly in cost and speed. The negative half is the claim worth
+# pinning, so the spread is asserted as a ceiling, not just the endpoints.
+g37 = {t: sci(C(f"google/gemini-3.7-flash@{t}")) for t in ("low", "medium", "high")}
+_g37_one = {t: one(C(f"google/gemini-3.7-flash@{t}")) for t in ("low", "high")}
+_g37_x = (med_cost("google/gemini-3.7-flash@high") / med_cost("google/gemini-3.7-flash@low"),
+          st.median([x["llm_time_s"] for x in C("google/gemini-3.7-flash@high")])
+          / st.median([x["llm_time_s"] for x in C("google/gemini-3.7-flash@low")]))
+check("Gemini 3.7's dial buys one-shot, 71 to 83%, for 2.8x the money and 2.6x the wait",
+      max(g37.values()) - min(g37.values()) < 3.0
+      and round(_g37_one["low"]) == 71 and round(_g37_one["high"]) == 83
+      and all(all(x["solved"] for x in C(f"google/gemini-3.7-flash@{t}"))
+              for t in ("low", "medium", "high"))
+      and abs(_g37_x[0] - 2.8) < 0.15 and abs(_g37_x[1] - 2.6) < 0.15,
+      ", ".join(f"{t} {v:.1f}" for t, v in g37.items())
+      + f"; spread {max(g37.values()) - min(g37.values()):.1f}"
+      + f"; one-shot {_g37_one['low']:.0f}% -> {_g37_one['high']:.0f}%"
+      + f"; {_g37_x[0]:.2f}x cost, {_g37_x[1]:.2f}x time")
+# The noise-floor datapoint: two MCP cells where the mechanism is provably absent,
+# because the model never called the tool, and the score still moved either way.
+_g37_mcp = {t: C(f"google/gemini-3.7-flash@{t}", "mcp") for t in ("low", "medium")}
+check("Gemini 3.7's low and medium MCP cells move +/-5 with zero lookups",
+      all(sum(x.get("n_assist_calls") or 0 for x in rs) == 0 for rs in _g37_mcp.values())
+      and abs(sci(_g37_mcp["low"]) - g37["low"]) > 3
+      and abs(sci(_g37_mcp["medium"]) - g37["medium"]) > 3,
+      ", ".join(f"{t}: {sum(x.get('n_assist_calls') or 0 for x in rs)} lookups over {len(rs)} runs, "
+                f"delta {sci(rs) - g37[t]:+.1f}" for t, rs in _g37_mcp.items()))
 fable = {t: sci(C(f"anthropic/claude-fable-5@{t}")) for t in ("xhigh", "max")}
 check("Fable's max drops 5.6 below its xhigh plateau",
       abs(fable["xhigh"] - fable["max"] - 5.6) < 0.15,

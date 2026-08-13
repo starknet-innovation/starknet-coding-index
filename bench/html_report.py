@@ -963,7 +963,7 @@ def build(all_runs):
 <section>
   <h2>The thinking dial</h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the top {word(DIAL_TOP_N)} models, each drawn across its own effort ladder. The ring marks <b>the tier the leaderboard scores</b>.</p>
-  <p class="takeaway" style="margin:0 0 10px">Things to look for: <b>Muse Spark 1.2's dial splits in two</b>, minimal through medium landing at 66 to 71 and high and xhigh at 80. <b>All three Anthropic models pay for <code>max</code></b>: Opus 5 peaks at <code>low</code> and gives back 7 points, while Fable 5 and Sonnet 5 hold plateaus that <code>max</code> drops by 5.6 and 10. Kimi K3 is level at off, low and its <code>max</code> default, dipping only at <code>high</code>. <b>Grok 4.6 is the only dial here that climbs the whole way</b>, 84.4 at <code>low</code> to 90.3 at <code>xhigh</code>, and it buys first-try success rather than correctness: 62% to 87% one-shot with every tier already at 100% solved.</p>
+  <p class="takeaway" style="margin:0 0 10px">Things to look for: <b>Muse Spark 1.2's dial splits in two</b>, minimal through medium landing at 66 to 71 and high and xhigh at 80. <b>All three Anthropic models pay for <code>max</code></b>: Opus 5 peaks at <code>low</code> and gives back 7 points, while Fable 5 and Sonnet 5 hold plateaus that <code>max</code> drops by 5.6 and 10. Kimi K3 is level at off, low and its <code>max</code> default, dipping only at <code>high</code>. <b>Grok 4.6 is the only dial here that climbs the whole way</b>, 84.4 at <code>low</code> to 90.3 at <code>xhigh</code>, and it buys first-try success rather than correctness: 62% to 87% one-shot with every tier already at 100% solved. <b>Gemini 3.7 Flash is the same story with the opposite ending</b>: its one-shot rate climbs just as honestly, 71% to 83%, but the ladder costs it 2.8&times; the money and 2.6&times; the wait, so the index hands back nothing and its three tiers finish within 2.9 points of each other.</p>
   {dial_grid(dial_labels)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span></div>
 </section>"""
@@ -1002,9 +1002,10 @@ def build(all_runs):
     # opposite case, number-forward, and use .scorecard.)
     FAQ = [
         ("Why does Opus 5 win?", "100% one-shot",
-         "Every task in every rep solved on the first submission, at the field's fastest "
-         "median pass. Nothing else in the field is perfect on that measure, which is why a "
-         "flagship price tag still leaves it 2.7 points clear."),
+         "Every task in every rep solved on the first submission. Nothing else in the field is "
+         "perfect on that measure, which is why a flagship price tag still leaves it 2.7 points "
+         "clear. It is no longer the quickest, though: Gemini 3.7 Flash serves a median pass "
+         "1.8&times; faster, and solves everything too."),
         ("Kimi K3 over MiMo? MiMo is far cheaper", "71% vs 40% one-shot",
          "This is the index working as intended. MiMo serves a pass 1.4× faster and 6× cheaper, "
          "and still loses 4.3 points, because it delivers broken code first about three runs in "

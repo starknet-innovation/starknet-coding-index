@@ -7,12 +7,27 @@
    "context_length": 1048576,
    "hugging_face_id": null,
    "price_per_m": {
-    "input": 1.5,
-    "output": 7.5,
-    "cache_read": 0.15,
-    "cache_write": 0.08333333333333334
+    "input": 0.75,
+    "output": 3.75,
+    "cache_read": 0.075,
+    "cache_write": 0.04166666666666667
    },
-   "pricing_note": null,
+   "pricing_note": "halved by Google after the snapshot date, found 2026-08-13; the pre-cut $1.50/$7.50 the runs were billed at is the was-vector in sci.PRICE_REVISIONS",
+   "type": null,
+   "params_total": null,
+   "params_active": null
+  },
+  "google/gemini-3.7-flash": {
+   "name": "Google: Gemini 3.7 Flash",
+   "context_length": 1048576,
+   "hugging_face_id": null,
+   "price_per_m": {
+    "input": 0.75,
+    "output": 3.75,
+    "cache_read": 0.075,
+    "cache_write": 0.04166666666666667
+   },
+   "pricing_note": "as listed 2026-08-13 on google-ai-studio, the endpoint the runs were pinned to; the model shipped that day and did not exist at the snapshot date. Google's Vertex endpoints carry a launch discount of 50% that this deliberately does not price against, on the same reasoning that keeps the half-price flex tiers out",
    "type": null,
    "params_total": null,
    "params_active": null

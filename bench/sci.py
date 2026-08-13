@@ -105,6 +105,18 @@ PRICE_REVISIONS = {
     "openai/gpt-5.6-luna-pro":  ((1.00,  6.00, 0.10, 1.250), (0.10, 0.60, 0.01, 0.125)),
     # Z.ai cut GLM 5.2 ~10% in the same week, unrelated to OpenAI.
     "z-ai/glm-5.2":             ((0.7966, 2.5036, 0.14794, None), (0.7168, 2.2528, 0.13312, None)),
+    # Google halved Gemini 3.6 Flash some time after the 2026-08-01 snapshot;
+    # found on 2026-08-13 while pricing 3.7 Flash. Every component moved by
+    # exactly 0.5, so it is expressible. The runs themselves confirm the "was"
+    # vector: least squares over the 299 recorded runs implies $1.34/$7.56,
+    # which is $1.50/$7.50 with cache reads pulling the input average down.
+    #
+    # This one matters beyond its own row. Both Gemini entries are priced at the
+    # google-ai-studio standard endpoint, and 3.7 Flash lists at the same
+    # $0.75/$3.75 there, so without the revision the newer model would appear to
+    # cost half what its predecessor does when the two are in fact identical.
+    "google/gemini-3.6-flash":  ((1.50, 7.50, 0.15, 0.08333333333333334),
+                                 (0.75, 3.75, 0.075, 0.04166666666666667)),
 }
 
 
@@ -562,7 +574,52 @@ MODEL_REGISTRY = [
     {"specs": ["google/gemini-3.6-flash@max", "google/gemini-3.6-flash@xhigh",
                "google/gemini-3.6-flash@high", "google/gemini-3.6-flash@medium",
                "google/gemini-3.6-flash@low", "google/gemini-3.6-flash@minimal"],
-     "label": "Gemini 3.6 Flash", "lab": "Google", "open_weight": False},
+     # deprecated 2026-08-13: superseded by Gemini 3.7 Flash; charts carry one bar
+     # per family's best (David). Unlike the Grok 4.5 retirement the same day,
+     # this pair is not a tie that needed a tiebreak: 87.9 against 73.2 is a gap
+     # of 14.7 on a combined half-width of 8.6, and 3.7 is also 3.3x cheaper per
+     # task and 4.7x faster. Its 299 runs stay in main.jsonl as the audit trail.
+     "label": "Gemini 3.6 Flash", "lab": "Google", "open_weight": False,
+     "deprecated": True},
+    # Gemini 3.7 Flash, released and benchmarked 2026-08-13 (canonical slug
+    # google/gemini-3.7-flash-20260813). Six endpoints, all status 0, but pinned
+    # --provider-order google-ai-studio regardless: Gemini thought signatures only
+    # validate on the endpoint that issued them, and AI Studio was both the faster
+    # half at probe time (144 tok/s p50 against Vertex's 88) and the one billing
+    # the undiscounted list price. Vertex carries a 50% launch discount, and
+    # scoring a permanent row against a promotion is the defect the flex-tier note
+    # above already rules out. The runs confirm the pin landed: least squares over
+    # them implies exactly $0.75/$3.75. 234 runs, 0 errors, 0 retries.
+    #
+    # Probe: @disabled is a 400, "Reasoning is mandatory for this endpoint and
+    # cannot be disabled", so @low is the floor. OpenRouter advertises low/medium/
+    # high and defaults to medium; @xhigh and @max are unadvertised, accepted, and
+    # land INSIDE @high's band. Median first-call output on the two hard probe
+    # tasks is 2.7k at low against 8.9k / 7.1k / 9.2k at high / xhigh / max: a
+    # 3.3x step up from the floor, then 1.30x across the top three. Two real
+    # levels, so neither unadvertised tier was swept, the same call Grok 4.6's
+    # @max got.
+    #
+    # The dial is inert on the index, and the tiers trade one component for
+    # another rather than climbing: SCI 87.9 / 85.0 / 87.5 at low / medium / high,
+    # every pair overlapping, while one-shot goes 71 -> 65 -> 83% and pays for the
+    # top end in cost (77 -> 58) and speed (100 -> 90). Correctness is 100% at all
+    # three, 156/156. Note @medium, the provider default, is the WORST of the
+    # three rather than the middle: at n=26 it read as the midpoint of a monotone
+    # climb, and only the top-up to n=52 broke that. That is why the top-up went
+    # to all three tiers instead of the nominal winner, and it is the argument for
+    # doing so whenever a bracket lands inside its own error bar.
+    #
+    # The MCP cells are the cleanest noise measurement in the dataset. At @low and
+    # @medium the model called assist_with_cairo ZERO times across 52 runs, so
+    # those cells differ from baseline only by an unused tool definition sitting
+    # in the prompt -- and they still moved -5.4 and +3.4. That is the n=26 error
+    # bar with the mechanism held at zero, not behaviour, and it is the scale at
+    # which every small lift in this study should be read. Only @high touches the
+    # tool at all, 0.42 calls/run over 7 of 26 runs, for +0.6.
+    {"specs": ["google/gemini-3.7-flash@low", "google/gemini-3.7-flash@medium",
+               "google/gemini-3.7-flash@high"],
+     "label": "Gemini 3.7 Flash", "lab": "Google", "open_weight": False},
     {"specs": ["openai/gpt-5.6-luna-pro", "openai/gpt-5.6-luna@max",
                "openai/gpt-5.6-luna@xhigh", "openai/gpt-5.6-luna@high",
                "openai/gpt-5.6-luna@medium", "openai/gpt-5.6-luna@low",
