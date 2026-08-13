@@ -14,6 +14,7 @@ import base64
 import json
 import math
 import re
+import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -22,8 +23,8 @@ from . import config
 from .report import load_runs
 from .sci import (BARE_VARIANT_LABELS, BUDGET_RESERVE, CHART_TOP_N, LOCAL_QUANT,
                   LOCAL_RESERVE_GB, LOCAL_VRAM_GB, SCI_SPEC, VRAM_BUDGETS,
-                  attempt_score, attempts, best_quant_for, compute_sci,
-                  index_ci, leaderboard, param_count, run_cost)
+                  active_runs, attempt_score, attempts, best_quant_for,
+                  compute_sci, index_ci, leaderboard, param_count, run_cost)
 
 # Starknet Foundation design tokens, read off starknet.org's stylesheet
 # (snf-st.shared.css exposes them as --base-color-* custom properties).
@@ -974,6 +975,25 @@ def build(all_runs):
     # how "Why 4th?" survived until a model landed above Sonnet 5.
     _rank_of = lambda label: next(
         i for i, r in enumerate(sci_rows, 1) if r["label"] == label)
+
+    # The Sol card's cost comparison, derived end to end: which model it is
+    # measured against, the multiple, and whether Sol's first-try rate is half
+    # of it or less. The fixed version quoted Grok 4.5, which no longer exists.
+    _sol_row = next(r for r in sci_rows if r["label"] == "GPT-5.6 Sol")
+    _sol_vs = next(r for r in sci_rows if r["label"].startswith("Grok"))
+    _med = lambda row: statistics.median(
+        [run_cost(x) for x in all_runs
+         if x["model"] == row["spec"] and x["condition"] == "baseline"
+         and x.get("cost_usd") is not None])
+    _one = lambda row: 100 * sum(
+        1 for x in all_runs if x["model"] == row["spec"] and x["condition"] == "baseline"
+        and x["solved"] and attempts(x) == 1) / len(
+        [x for x in all_runs if x["model"] == row["spec"] and x["condition"] == "baseline"])
+    _sol_cost = _med(_sol_row)
+    _sol_mult = round(_sol_cost / _med(_sol_vs))
+    _ratio = _one(_sol_row) / _one(_sol_vs)
+    _sol_share = "half" if 0.45 <= _ratio <= 0.55 else (
+        "under half" if _ratio < 0.45 else f"{_ratio * 100:.0f}%")
     _ordinal = lambda n: f"{n}{'th' if 10 <= n % 100 <= 20 else {1:'st', 2:'nd', 3:'rd'}.get(n % 10, 'th')}"
 
     # Fair questions: the priors readers arrive with. The QUESTION is the hook a
@@ -1009,11 +1029,15 @@ def build(all_runs):
          f"{_local_small['label']} at {_local_small['vram_gb']:.0f} GB of weights to "
          f"{_local_big['label']} at {_local_big['vram_gb']:.0f} GB, and they compare on their "
          "own footing in the section below. The rest need a rack or are closed."),
+        # The comparison model and the multiple are both derived. This card said
+        # "nine times Grok's bill" against Grok 4.5, and when 4.5 was retired the
+        # sentence kept quoting a multiple no model in the report could produce.
         ("Sol mid-pack? It rivals Fable elsewhere", "40% one-shot",
          "Cairo knowledge is not the problem (100% of hidden tests pass on delivered code); the "
-         "habit is: a median of two submissions per task at $0.0895, nine times Grok's bill for "
-         "half of Grok's first-try rate. The docs change the habit: 72% first-try and a median "
-         "of one, the largest such shift in the study."),
+         f"habit is: a median of two submissions per task at ${_sol_cost:.4f}, {_sol_mult}x "
+         f"{_sol_vs['label']}'s bill for {_sol_share} of {_sol_vs['label']}'s first-try rate. "
+         "The docs change the habit: 72% first-try and a median of one, the largest such shift "
+         "in the study."),
     ]
     faq_cards = "".join(
         f'<div class="qcard"><h3>{q}</h3><p><b class="ans">{stat}.</b> {a}</p></div>'
@@ -1641,7 +1665,11 @@ def angled_labels_overhanging(html, margin=4):
 
 def main():
     paths = [Path(p) for p in sys.argv[1:]] or [config.RUNS_DIR / "main.jsonl"]
-    runs = load_runs(paths)
+    # Filtered once, here, so build() never sees a retired model's runs and no
+    # single figure can leak one. The run count did exactly that: it printed
+    # every record in the file while every other number was already scoped to
+    # active_models().
+    runs = active_runs(load_runs(paths))
     if not runs:
         print("no runs found")
         sys.exit(1)

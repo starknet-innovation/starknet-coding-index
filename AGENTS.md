@@ -200,6 +200,22 @@ the markdown reporter count 8,440 runs against 7,338 real ones.
   sweep scripts, not just charts. A deprecated model must produce no report rows, no
   charts and **no new runs**. A report-only flag once left sweeps quietly spending
   money on models that had been dropped.
+- **Deprecation is total: it reaches the counts too, via `active_runs()`.** A retired model
+  contributes nothing a reader can see, including the run total. `html_report.main()` and
+  `audit.py` both wrap the loader in `active_runs()` so `build()` never sees a retired run
+  and no single figure can leak one; the archive parity check is the one deliberate
+  exception, because it counts raw lines in `main.jsonl` against `main.full.jsonl` and the
+  records stay in both. `bench.status` also stays raw: money spent on a since-retired model
+  was still spent. The audit pins the whole arithmetic in one equation, published + errors
+  + retired == lines in the file, and separately asserts no retired label appears anywhere
+  in the report.
+- **Retiring a model can strand prose that never named it.** Deprecating Grok 4.5 left the
+  Sol FAQ card claiming "nine times Grok's bill", a multiple computed from 4.5 that no
+  remaining model produced, and the dial's "five tiers land within 3 points" pointing at a
+  chart that no longer drew it. Neither failed: their checks read `main.jsonl`, where the
+  runs still exist. **After deprecating anything, grep the shipped report for the label AND
+  for claims derived from it**, and prefer deriving such prose from the leaderboard so the
+  next retirement fixes itself.
 - **The headline charts draw the top `CHART_TOP_N` (15) by index.** The index chart, the
   three in "Behind the score" and the dial all take `chart_rows = sci_rows[:CHART_TOP_N]`,
   ranked on the **baseline** score, because they answer "how good is this model on its

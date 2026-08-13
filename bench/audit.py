@@ -18,12 +18,15 @@ import sys
 from bench.html_report import word
 from bench.report import load_runs
 from bench.sci import (BUDGET_RESERVE, CHART_TOP_N, LOCAL_QUANT,
-                       LOCAL_WEIGHT_BUDGET_GB, PRICE_REVISIONS, SCI_SPEC,
-                       VRAM_BUDGETS, active_models, attempts, best_quant_for,
-                       compute_sci, fits_locally, index_ci, leaderboard,
-                       price_ratio, run_cost)
+                       LOCAL_WEIGHT_BUDGET_GB, MODEL_REGISTRY, PRICE_REVISIONS,
+                       SCI_SPEC, VRAM_BUDGETS, active_models, active_runs,
+                       attempts, best_quant_for, compute_sci, fits_locally,
+                       index_ci, leaderboard, price_ratio, run_cost)
 
-runs = load_runs(["results/runs/main.jsonl"])
+# Same filter the report applies, so every claim here is checked against what the
+# report actually publishes. The archive parity check near the bottom deliberately
+# counts raw file lines instead, because main.jsonl keeps the retired records.
+runs = active_runs(load_runs(["results/runs/main.jsonl"]))
 # a few claims are about the rendered prose, not just the data behind it
 report_html = open("results/report.html", encoding="utf-8").read()
 lb = leaderboard(runs)
@@ -166,6 +169,14 @@ check("27B 15% -> 69% solved",
       f"{solve(C(q27['spec'])):.0f}->{solve(C(q27['spec'],'mcp')):.0f}")
 check("Sol 40% one-shot at its winner", round(one(C(sol["spec"]))) == 40, f"{one(C(sol['spec'])):.0f}%")
 check("Sol $0.0895 per task", abs(med_cost(sol["spec"]) - 0.0895) < 0.002, f"${med_cost(sol['spec']):.4f}")
+# The card's cost comparison is derived against whichever Grok is in the report,
+# so check the shipped sentence rather than a typed multiple. The fixed version
+# said "nine times Grok's bill" from Grok 4.5 and survived its retirement.
+_grok = next(r for r in lb if r["label"].startswith("Grok"))
+_mult = round(med_cost(sol["spec"]) / med_cost(_grok["spec"]))
+check(f"the Sol card measures against {_grok['label']} at {_mult}x its bill",
+      f"{_mult}x {_grok['label']}'s bill" in report_html,
+      f"expected \"{_mult}x {_grok['label']}'s bill\"")
 solm = C("openai/gpt-5.6-sol@max", "mcp")
 check("Sol 72% one-shot with the tool", round(one(solm)) == 72, f"{one(solm):.0f}%")
 check("Sol +7.9 with the tool", abs(mcp["GPT-5.6 Sol"]["sci"] - by["GPT-5.6 Sol"]["sci"] - 7.9) < 0.06,
@@ -205,10 +216,8 @@ CHARTED_ANTHROPIC = ("anthropic/claude-opus-5", "anthropic/claude-sonnet-5", "an
 check("Anthropic (charted) never called the tool",
       sum(ncalls(x) for x in runs if x["condition"] == "mcp"
           and x["model"].split("@")[0] in CHARTED_ANTHROPIC) == 0)
-gb, gm = C("x-ai/grok-4.5@max"), C("x-ai/grok-4.5@max", "mcp")
-check("Grok ~0.9 lookups/run, 74->88 one-shot",
-      abs(st.mean([ncalls(x) for x in gm]) - 0.88) < 0.1 and round(one(gm)) == 88,
-      f"{st.mean([ncalls(x) for x in gm]):.2f} calls, {one(gb):.0f}->{one(gm):.0f}")
+# The "Grok ~0.9 lookups/run" check is gone with Grok 4.5: it asserted numbers the
+# report never actually printed, so it was verifying nothing a reader could see.
 check("terra-pro 53.8 below terra@max 55.2, and the prose quotes those",
       abs(sci(C("openai/gpt-5.6-terra-pro")) - 53.8) < 0.06
       and abs(sci(C("openai/gpt-5.6-terra@max")) - 55.2) < 0.06
@@ -609,6 +618,36 @@ for rank, label, variant, score, ci, onesub in rows:
            f"{r['raw']['one_sub_pct']:.0f}%") if r else "no such rank")
 # the lede's scale numbers, and the record counts the data section promises
 n_lines = sum(1 for _ in open("results/runs/main.jsonl", encoding="utf-8"))
+
+# Deprecation has to be total: a retired model contributes no rows, no charts and
+# no runs to any published figure. Both halves are asserted here rather than left
+# to hold by accident, because the run count leaked for exactly that reason.
+_raw = [_json.loads(_l) for _l in open("results/runs/main.jsonl", encoding="utf-8") if _l.strip()]
+_dead_specs = {s for e in MODEL_REGISTRY if e.get("deprecated") for s in e["specs"]}
+_retired = [r for r in _raw if r["model"] in _dead_specs and not r.get("error")]
+_n_retired = len(_retired)
+_n_err = sum(1 for r in _raw if r.get("error"))
+print("\n== deprecation is total")
+_named = [e["label"] for e in MODEL_REGISTRY if e.get("deprecated")
+          and re.sub(r"<[^>]+>", "", report_html).count(e["label"])]
+check("no retired model is named anywhere in the report",
+      not _named,
+      ", ".join(_named) or
+      f"{len([e for e in MODEL_REGISTRY if e.get('deprecated')])} retired, none mentioned")
+# The check that actually catches the leak: the number the report PRINTS, read
+# back out of the shipped chip, against the filtered data. Nothing tied those
+# together before, which is how the chip published every record in the file while
+# every other figure was scoped to active models.
+_chip = re.search(r'<span class="chip">runs <b>(\d+)</b></span>', report_html)
+check(f"the report's run chip prints the active count, {len(runs)}",
+      bool(_chip) and int(_chip.group(1)) == len(runs),
+      f"chip says {_chip.group(1) if _chip else 'not found'}, data has {len(runs)}")
+# And one equation so no record falls outside every group. This does NOT catch a
+# model moving between active and retired (the total is invariant under that); it
+# catches a record belonging to nothing, e.g. a spec dropped from the registry.
+check("every record is accounted for: published + errors + retired == file",
+      len(runs) + _n_err + _n_retired == n_lines,
+      f"{len(runs)} + {_n_err} + {_n_retired} = {len(runs) + _n_err + _n_retired} vs {n_lines} lines")
 # Modal count, not max: three runs shipped a #[test] inside lib.cairo, which
 # snforge collects, so their totals sit one above the task's real test count.
 n_tests = sum(st.mode([x["tests_passed"] + x["tests_failed"] for x in runs
@@ -620,7 +659,12 @@ for claim, want in [
     ("README lede: runs", f"{len(runs):,}\nagentic runs**"),
     ("README lede: tasks", f"{NT} hand-written contract tasks"),
     ("README lede: hidden tests", f"{n_tests} hidden `snforge` tests"),
-    ("README data: records vs analysed", f"holds {n_lines:,} records, the {len(runs):,} analysed"),
+    # All three groups, so the arithmetic in the sentence cannot drift apart:
+    # analysed + transport errors + retired has to account for every line.
+    ("README data: records vs analysed",
+     f"holds {n_lines:,} records: the {len(runs):,} analysed runs, {_n_err} that hit a"),
+    ("README data: retired runs excluded",
+     f"and {_n_retired:,} belonging to models since retired"),
     # The lede count was checked but this second one was not, so it sat at "All 23
     # models" through two additions before anyone noticed.
     ("README results: all-models pointer", f"All {len(lb)} models, the difficulty"),

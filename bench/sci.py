@@ -494,12 +494,16 @@ MODEL_REGISTRY = [
     # (edge = floor, ladder closed). Plus: real curve, high interior winner
     # (xhigh collapsed 92 -> 77 correctness).
     {"specs": ["qwen/qwen3.7-max@disabled", "qwen/qwen3.7-max@low", "qwen/qwen3.7-max@high"],
-     # charted False: closed Qwen; the interesting Qwen models are the open ones (David)
+     # All four of these comments said "charted False" until 2026-08-13, and two
+     # promised the row stayed in the roster table. That was the old flag. Since
+     # `deprecated` replaced it a retired model contributes NOTHING to the report:
+     # no rows, no charts, no place in any published count, and no new runs. Its
+     # records stay in main.jsonl as the audit trail. See active_models/active_runs.
+     # retired: closed Qwen; the interesting Qwen models are the open ones (David)
      "label": "Qwen3.7 Max", "lab": "Alibaba", "open_weight": False, "deprecated": True},
     {"specs": ["qwen/qwen3.7-plus@disabled", "qwen/qwen3.7-plus@low", "qwen/qwen3.7-plus@high",
                "qwen/qwen3.7-plus@xhigh"],
-     # charted False: one Qwen 3.7 bar is enough (David); Plus stays in the
-     # roster table and prose but not in charts 1-2
+     # retired: one Qwen 3.7 bar is enough (David), and Qwen3.8 Max supersedes it
      "label": "Qwen3.7 Plus", "lab": "Alibaba", "open_weight": False, "deprecated": True},
     {"specs": ["anthropic/claude-sonnet-5@max", "anthropic/claude-sonnet-5@xhigh",
                "anthropic/claude-sonnet-5@high", "anthropic/claude-sonnet-5@medium",
@@ -572,12 +576,12 @@ MODEL_REGISTRY = [
                "anthropic/claude-opus-4.8@high", "anthropic/claude-opus-4.8@low",
                "anthropic/claude-opus-4.8@disabled"],
      # bare skipped: adaptive thinking at an unnameable level (probe 2026-07-24)
-     # charted False: superseded by Opus 5; charts carry one bar per family's best (David)
+     # retired: superseded by Opus 5; charts carry one bar per family's best (David)
      "label": "Opus 4.8", "lab": "Anthropic", "open_weight": False, "deprecated": True},
     {"specs": ["anthropic/claude-haiku-4.5@max", "anthropic/claude-haiku-4.5@xhigh",
                "anthropic/claude-haiku-4.5@high", "anthropic/claude-haiku-4.5@low",
                "anthropic/claude-haiku-4.5"],
-     # charted False: budget tier, not a coding pick (David); data stays in the table
+     # retired: budget tier, not a coding pick (David)
      "label": "Haiku 4.5", "lab": "Anthropic", "open_weight": False, "deprecated": True},
     {"specs": ["openai/gpt-5.6-sol@max", "openai/gpt-5.6-sol@xhigh",
                "openai/gpt-5.6-sol@high", "openai/gpt-5.6-sol@low",
@@ -727,8 +731,29 @@ def active_models():
     earlier "charted: False" flag only hid them in the report, so top-up sweeps
     kept spending money and hours on models David had already dropped. Anything
     that picks models to run must go through this function.
+
+    Counts too, via active_runs(): a retired model contributes nothing to any
+    published figure, not even "we tested X models on Y runs".
     """
     return [e for e in MODEL_REGISTRY if not e.get("deprecated")]
+
+
+def active_runs(all_runs):
+    """Runs belonging to models still in the study.
+
+    Deprecation means the model never happened as far as published figures go,
+    counts included, so this is what the report and the audit are built from.
+    Scores never needed it, because leaderboard() already iterates
+    active_models(); the aggregates did, and the run count was reading every
+    record in the file.
+
+    The records STAY in main.jsonl. It is the audit trail, prune_runs has to
+    account for every line, and main.full.jsonl is checked against it row for
+    row, so the one caller that must keep seeing everything is that parity
+    check.
+    """
+    dead = {s for e in MODEL_REGISTRY if e.get("deprecated") for s in e["specs"]}
+    return [r for r in all_runs if r["model"] not in dead]
 
 
 def leaderboard(all_runs, condition=None):
