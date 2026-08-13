@@ -149,7 +149,13 @@ check("K3 71% vs Qwen3.8 Max 9% first-try compiles",
       round(one(C(k["spec"]))) == 71 and round(one(C(q38["spec"]))) == 9,
       f"{one(C(k['spec'])):.0f}%/{one(C(q38['spec'])):.0f}%")
 
-check("Sonnet is 4th", [r["label"] for r in lb].index("Sonnet 5") == 3)
+# Not a pinned position: the FAQ card names Sonnet's rank and the report derives
+# it, so read the shipped card back and compare it to the data. Pinning it to 4th
+# meant a model landing above Sonnet failed a check about Sonnet.
+_s5_rank = [r["label"] for r in lb].index("Sonnet 5") + 1
+_ord = f"{_s5_rank}{'th' if 10 <= _s5_rank % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(_s5_rank % 10, 'th')}"
+check(f"the Sonnet card names its real rank, {_ord}",
+      f"Why {_ord}?" in report_html, f"expected 'Why {_ord}?'")
 check("Opus-Sonnet gap 8.6", abs(o["sci"] - s5["sci"] - 8.6) < 0.06, f"{o['sci']-s5['sci']:.2f}")
 check("Sonnet 67% one-shot", round(one(C(s5["spec"]))) == 67, f"{one(C(s5['spec'])):.0f}%")
 q27 = by["Qwen3.6-27B"]
@@ -354,8 +360,21 @@ check("Muse Spark's dial splits in two: 66-71 below high, 80 at high and xhigh",
       and all(79.5 <= mus[t] < 81 for t in ("high", "xhigh")),
       ", ".join(f"{t} {v:.1f}" for t, v in mus.items()))
 grok = [sci(C(f"x-ai/grok-4.5@{t}")) for t in ("minimal", "low", "medium", "high", "max")]
-check("Grok's five tiers land within 3 points",
+check("Grok 4.5's five tiers land within 3 points",
       max(grok) - min(grok) < 3, f"span {max(grok) - min(grok):.1f}")
+# The one dial in the grid that climbs end to end, which the prose now points at.
+g46 = [sci(C(f"x-ai/grok-4.6@{t}")) for t in ("low", "medium", "high", "xhigh")]
+_g46_one = [one(C(f"x-ai/grok-4.6@{t}")) for t in ("low", "xhigh")]
+_g46_solved = [all(r["solved"] for r in C(f"x-ai/grok-4.6@{t}"))
+               for t in ("low", "medium", "high", "xhigh")]
+check("Grok 4.6's dial climbs monotonically, 84.4 to 90.3, on one-shot not correctness",
+      all(a <= b for a, b in zip(g46, g46[1:]))
+      and abs(g46[0] - 84.4) < 0.1 and abs(g46[-1] - 90.3) < 0.1
+      and round(_g46_one[0]) == 62 and round(_g46_one[1]) == 87
+      and all(_g46_solved),
+      ", ".join(f"{v:.1f}" for v in g46)
+      + f"; one-shot {_g46_one[0]:.0f}% -> {_g46_one[1]:.0f}%"
+      + f"; all tiers 100% solved: {all(_g46_solved)}")
 fable = {t: sci(C(f"anthropic/claude-fable-5@{t}")) for t in ("xhigh", "max")}
 check("Fable's max drops 5.6 below its xhigh plateau",
       abs(fable["xhigh"] - fable["max"] - 5.6) < 0.15,
@@ -601,6 +620,9 @@ for claim, want in [
     ("README lede: tasks", f"{NT} hand-written contract tasks"),
     ("README lede: hidden tests", f"{n_tests} hidden `snforge` tests"),
     ("README data: records vs analysed", f"holds {n_lines:,} records, the {len(runs):,} analysed"),
+    # The lede count was checked but this second one was not, so it sat at "All 23
+    # models" through two additions before anyone noticed.
+    ("README results: all-models pointer", f"All {len(lb)} models, the difficulty"),
 ]:
     check(claim, want in readme, want.replace("\n", " "))
 

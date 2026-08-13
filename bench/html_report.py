@@ -962,13 +962,19 @@ def build(all_runs):
 <section>
   <h2>The thinking dial</h2>
   <p class="takeaway" style="margin:0 0 10px">Same index, baseline runs only: the top {word(DIAL_TOP_N)} models, each drawn across its own effort ladder. The ring marks <b>the tier the leaderboard scores</b>.</p>
-  <p class="takeaway" style="margin:0 0 10px">Things to look for: <b>Muse Spark 1.2's dial splits in two</b>, minimal through medium landing at 66 to 71 and high and xhigh at 80. <b>All three Anthropic models pay for <code>max</code></b>: Opus 5 peaks at <code>low</code> and gives back 7 points, while Fable 5 and Sonnet 5 hold plateaus that <code>max</code> drops by 5.6 and 10. Grok 4.5's five tiers land within 3 points of each other, and Kimi K3 is level at off, low and its <code>max</code> default, dipping only at <code>high</code>.</p>
+  <p class="takeaway" style="margin:0 0 10px">Things to look for: <b>Muse Spark 1.2's dial splits in two</b>, minimal through medium landing at 66 to 71 and high and xhigh at 80. <b>All three Anthropic models pay for <code>max</code></b>: Opus 5 peaks at <code>low</code> and gives back 7 points, while Fable 5 and Sonnet 5 hold plateaus that <code>max</code> drops by 5.6 and 10. Grok 4.5's five tiers land within 3 points of each other, and Kimi K3 is level at off, low and its <code>max</code> default, dipping only at <code>high</code>. <b>Grok 4.6 is the only dial here that climbs the whole way</b>, 84.4 at <code>low</code> to 90.3 at <code>xhigh</code>, and it buys first-try success rather than correctness: 62% to 87% one-shot with every tier already at 100% solved.</p>
   {dial_grid(dial_labels)}
   <div class="legend legend-bottom"><span><span class="key" style="background:{SCI_OPEN_COLOR}"></span>open weights</span><span><span class="key" style="background:{SCI_CLOSED_COLOR}"></span>closed weights</span></div>
 </section>"""
 
     _local_small = min(local_rows, key=lambda r: r["vram_gb"])
     _local_big = max(local_rows, key=lambda r: r["vram_gb"])
+
+    # A model's place in the ranking, for prose that names one. Hardcoding it is
+    # how "Why 4th?" survived until a model landed above Sonnet 5.
+    _rank_of = lambda label: next(
+        i for i, r in enumerate(sci_rows, 1) if r["label"] == label)
+    _ordinal = lambda n: f"{n}{'th' if 10 <= n % 100 <= 20 else {1:'st', 2:'nd', 3:'rd'}.get(n % 10, 'th')}"
 
     # Fair questions: the priors readers arrive with. The QUESTION is the hook a
     # reader scans for, so it leads the card; the number is evidence and sits
@@ -989,7 +995,9 @@ def build(all_runs):
          "task. <b>Twenty-five of the 31 points come from effectiveness</b>: whether the first "
          "submission builds, 71% against 9%, with cheaper and faster serving covering the rest. "
          "Mostly a knowledge gap about Cairo's API surface, not a reasoning gap."),
-        ("Sonnet 5 solves everything. Why 4th?", "67% vs 100% one-shot",
+        # The rank is derived: this card asked "Why 4th?" and went stale the moment
+        # a model landed above Sonnet, which Grok 4.6 did on 2026-08-13.
+        (f"Sonnet 5 solves everything. Why {_ordinal(_rank_of('Sonnet 5'))}?", "67% vs 100% one-shot",
          "That first-try gap against Opus 5 is most of the 8.6 points between them. The dial "
          "does nothing until <code>max</code>, and that is a cliff, not a step: 88% one-shot, "
          "the best of any Sonnet setting, for 61k output tokens, $0.68 and nine minutes a task."),
@@ -1459,7 +1467,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     <span class="chip">hidden tests <b>106</b></span>
     <!-- Typed, not derived: run records carry no timestamp, only durations.
          Extend the end date whenever a sweep adds runs. -->
-    <span class="chip">2026-07-22 to 08-12</span>
+    <span class="chip">2026-07-22 to 08-13</span>
   </div>
 </header>
 
@@ -1508,7 +1516,7 @@ document.querySelectorAll("table.sortable").forEach(function (table) {
     </div>
   </div>
 </section>
-<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · <a href="https://github.com/starknet-innovation/starknet-coding-index">github</a> · benchmark snapshot 2026-08-12</footer>
+<footer>A Starknet Foundation report · <a href="https://www.starknet.org">starknet.org</a> · <a href="https://github.com/starknet-innovation/starknet-coding-index">github</a> · benchmark snapshot 2026-08-13</footer>
 </main>
 """)
 

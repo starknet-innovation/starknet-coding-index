@@ -3,7 +3,7 @@
 How good is each frontier LLM at writing Starknet smart contracts on its own, and which
 models get better when you hand them a Cairo documentation tool?
 
-This repository is the benchmark behind both answers: 25 models from 13 labs, **8,697
+This repository is the benchmark behind both answers: 26 models from 13 labs, **8,931
 agentic runs** on 13 hand-written contract tasks, graded by 106 hidden `snforge` tests.
 Every model ran the suite both ways, alone and with the
 [Cairo Coder](https://www.cairo-coder.com/) MCP documentation tool.
@@ -21,16 +21,17 @@ documentation tool:
 | # | Model | Setting | SCI | Solved on first submission |
 |---|-------|---------|-----|----------------------------|
 | 1 | Opus 5 | low | 92.0 ±0.7 | 100% |
-| 2 | Fable 5 | xhigh | 89.3 ±1.2 | 100% |
-| 3 | Grok 4.5 | medium | 88.3 ±3.8 | 75% |
-| 4 | Sonnet 5 | high | 83.4 ±4.3 | 67% |
-| 5 | Kimi K3 | low | 83.2 ±4.2 | 71% |
+| 2 | Grok 4.6 | xhigh | 90.3 ±3.2 | 87% |
+| 3 | Fable 5 | xhigh | 89.3 ±1.2 | 100% |
+| 4 | Grok 4.5 | medium | 88.3 ±3.8 | 75% |
+| 5 | Sonnet 5 | high | 83.4 ±4.3 | 67% |
 
-Intervals are bootstrapped over each model's runs (1,000 resamples). Opus 5 separates
-from every model below it except Grok 4.5; Fable 5 separates from ranks 4 and 5, while
-Grok's wide interval overlaps the whole band. Read overlapping pairs as ties, not an order.
+Intervals are bootstrapped over each model's runs (1,000 resamples), and most of this
+table is a tie. Opus 5 separates only from Fable 5 and Sonnet 5; both Grok intervals are
+wide enough to overlap it, and Grok 4.6, Fable 5 and Grok 4.5 all overlap each other.
+Read overlapping pairs as ties, not an order.
 
-All 23 models, the difficulty breakdown and the documentation-tool deltas are in the
+All 26 models, the difficulty breakdown and the documentation-tool deltas are in the
 report. To print the full leaderboard yourself:
 
 ```bash
@@ -100,7 +101,7 @@ version of it. Per-model deltas are charted in the report.
 
 ## Published data
 
-`results/runs/main.jsonl` holds 8,745 records, the 8,697 analysed runs plus 48 that
+`results/runs/main.jsonl` holds 8,979 records, the 8,931 analysed runs plus 48 that
 hit a transport error and are dropped at load. It is the only input the report and the
 audit need:
 

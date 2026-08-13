@@ -527,7 +527,35 @@ MODEL_REGISTRY = [
     {"specs": ["x-ai/grok-4.5@max", "x-ai/grok-4.5@xhigh", "x-ai/grok-4.5@high",
                "x-ai/grok-4.5@medium", "x-ai/grok-4.5@low", "x-ai/grok-4.5@minimal"],
      # thinking mandatory (@disabled rejected); bare = dynamic, skipped
-     "label": "Grok 4.5", "lab": "xAI", "open_weight": False},
+     # lab was "xAI" until 2026-08-13: xAI was acquired by SpaceX Corp and
+     # renamed, and OpenRouter now serves both Grok entries as "SpaceXAI: ...".
+     # Both rows move together on purpose, because one company under two chips
+     # would push the derived lab count to 14 for something that is not a lab.
+     "label": "Grok 4.5", "lab": "SpaceXAI", "open_weight": False},
+    # Grok 4.6, released 2026-08-12, benchmarked 2026-08-13. Four xAI endpoints,
+    # all healthy at probe time, so no pinning; 0 retries across 234 runs.
+    #
+    # Probe: thinking mandatory as with 4.5, so no @disabled. The ladder is two
+    # bands, and e1_counter is far too easy to see them (every tier solved
+    # one-shot under 700 tokens). On h1_component and h2_erc721 the medians
+    # separate: low 873 / medium 854 sit together, then a 3.5x step to high 3006,
+    # after which high / xhigh / max span only 1.70x with @max BELOW @xhigh.
+    # @max is unadvertised AND inside that band, so it is unswept. @medium was
+    # swept despite looking like a duplicate of @low at n=1, and that was right:
+    # at n=26 it is clearly distinct (69% one-shot against low's 62%).
+    #
+    # Unusually for this field, the dial WORKS: one-shot climbs 62 -> 69 -> 77 ->
+    # 88% across low/medium/high/xhigh with correctness pinned at 100% everywhere,
+    # so @xhigh wins on effectiveness rather than on the floor being cheapest.
+    #
+    # The documentation tool makes it WORSE, -3.4. It lifts one-shot further
+    # (@high 77 -> 96%, @xhigh 88 -> 96%) and it reaches for the tool constantly
+    # (91 of 104 mcp runs), but lookups are 29% of model time on a model whose own
+    # median is only 18s, so cost and speed give back more than effectiveness
+    # gains. A fast model pays proportionally more for the same lookup.
+    {"specs": ["x-ai/grok-4.6@low", "x-ai/grok-4.6@medium",
+               "x-ai/grok-4.6@high", "x-ai/grok-4.6@xhigh"],
+     "label": "Grok 4.6", "lab": "SpaceXAI", "open_weight": False},
     {"specs": ["anthropic/claude-fable-5@max", "anthropic/claude-fable-5@xhigh",
                "anthropic/claude-fable-5@high", "anthropic/claude-fable-5@medium",
                "anthropic/claude-fable-5@low", "anthropic/claude-fable-5@minimal"],
