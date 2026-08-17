@@ -3,7 +3,7 @@
 How good is each frontier LLM at writing Starknet smart contracts on its own, and which
 models get better when you hand them a Cairo documentation tool?
 
-This repository is the benchmark behind both answers: 26 models from 13 labs, **8,262
+This repository is the benchmark behind both answers: 27 models from 13 labs, **8,464
 agentic runs** on 13 hand-written contract tasks, graded by 106 hidden `snforge` tests.
 Every model ran the suite both ways, alone and with the
 [Cairo Coder](https://www.cairo-coder.com/) MCP documentation tool.
@@ -39,7 +39,7 @@ Gemini 3.7 Flash is the one to look at on price. It reaches fourth at about a ce
 task, on the fastest median answer in the field at 6.2 seconds, while solving every
 task in every rep; its predecessor sat 15 points lower for three times the money.
 
-All 26 models, the difficulty breakdown and the documentation-tool deltas are in the
+All 27 models, the difficulty breakdown and the documentation-tool deltas are in the
 report. To print the full leaderboard yourself:
 
 ```bash
@@ -109,7 +109,7 @@ version of it. Per-model deltas are charted in the report.
 
 ## Published data
 
-`results/runs/main.jsonl` holds 9,448 records: the 8,262 analysed runs, 51 that hit a
+`results/runs/main.jsonl` holds 9,650 records: the 8,464 analysed runs, 51 that hit a
 transport error and are dropped at load, and 1,135 belonging to models since retired from
 the study, which the report excludes from every figure including its run count. It is
 the only input the report and the audit need:

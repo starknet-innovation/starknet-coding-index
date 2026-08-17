@@ -420,6 +420,25 @@ check("Gemini 3.7's low and medium MCP cells move +/-5 with zero lookups",
       and abs(sci(_g37_mcp["medium"]) - g37["medium"]) > 3,
       ", ".join(f"{t}: {sum(x.get('n_assist_calls') or 0 for x in rs)} lookups over {len(rs)} runs, "
                 f"delta {sci(rs) - g37[t]:+.1f}" for t, rs in _g37_mcp.items()))
+# Qwen3.8 27B is the study's second measurement of the substitution law at the 27B
+# size class, and it lands on top of the first: Qwen3.6-27B gained +22.0, this one
+# +21.8, a generation later. The pair is the load-bearing evidence that the law is
+# a property of the size class rather than of one checkpoint, so both halves are
+# asserted -- the lift itself, and the mechanism, which is that documentation makes
+# runs SHORTER and so hands back cells the 900s budget was eating.
+_q27b = sci(C("qwen/qwen3.8-27b@low"))
+_q27m = sci(C("qwen/qwen3.8-27b@low", "mcp"))
+_q27_ob = lambda c: sum(1 for r in runs if r["model"].partition("@")[0] == "qwen/qwen3.8-27b"
+                        and r["condition"] == c and r.get("over_time_budget"))
+_q27_n = lambda c: sum(1 for r in runs if r["model"].partition("@")[0] == "qwen/qwen3.8-27b"
+                       and r["condition"] == c)
+check("Qwen3.8 27B gains +21.8 from the docs, and the budget losses fall with it",
+      abs((_q27m - _q27b) - 21.8) < 0.2
+      and _q27_ob("baseline") / _q27_n("baseline") > 0.30
+      and _q27_ob("mcp") / _q27_n("mcp") < 0.15,
+      f"{_q27b:.1f} -> {_q27m:.1f} ({_q27m - _q27b:+.1f}); over budget "
+      f"{100 * _q27_ob('baseline') / _q27_n('baseline'):.0f}% baseline -> "
+      f"{100 * _q27_ob('mcp') / _q27_n('mcp'):.0f}% mcp")
 fable = {t: sci(C(f"anthropic/claude-fable-5@{t}")) for t in ("xhigh", "max")}
 check("Fable's max drops 5.6 below its xhigh plateau",
       abs(fable["xhigh"] - fable["max"] - 5.6) < 0.15,
@@ -755,6 +774,14 @@ check("every Qwen3.8 2.4T A95B run is pinned to one provider",
       _q38 and not _unpinned,
       f"{len(_q38) - len(_unpinned)}/{len(_q38)} pinned"
       + (f", {len(_unpinned)} not" if _unpinned else ""))
+# Qwen3.8 27B has the same requirement for a sharper reason: two of its three
+# endpoints sat at status -2 through the sweep, so the pin is what makes the row
+# a single bf16 price basis instead of a blend with two fp8 providers.
+_q27 = [r for r in runs if r["model"].partition("@")[0] == "qwen/qwen3.8-27b"]
+_u27 = [r for r in _q27 if not (r.get("llm_opts") or {}).get("provider_order")]
+check("every Qwen3.8 27B run is pinned to one provider",
+      _q27 and not _u27,
+      f"{len(_q27) - len(_u27)}/{len(_q27)} pinned" + (f", {len(_u27)} not" if _u27 else ""))
 # The local archive is where that material belongs, and every merge should append
 # to both files. Compared by RECORD COUNT rather than by identity tuple: the two
 # files disagree on model ids for legacy records (load_runs folds llm_opts effort

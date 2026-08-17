@@ -491,6 +491,50 @@ MODEL_REGISTRY = [
     {"specs": ["qwen/qwen3.8-2.4t-a95b@medium", "qwen/qwen3.8-2.4t-a95b@high",
                "qwen/qwen3.8-2.4t-a95b@low"],
      "label": "Qwen3.8 2.4T A95B", "lab": "Alibaba", "open_weight": True},
+    # Qwen3.8 27B, released 2026-08-14, benchmarked 2026-08-16. Dense 27B
+    # vision-language model, weights public at Qwen/Qwen3.8-27B. 202 merged runs,
+    # 0 provider retries, one transport error that was retried into a clean cell.
+    #
+    # Pinned --provider-order akashml. Only three endpoints exist and two of them
+    # (chutes/fp8, io-net/fp8) sat at status -2 for the whole session, so AkashML
+    # was not a preference but the only healthy option. It happens to be the right
+    # one anyway: bf16 against fp8 elsewhere, and $0.45/$3.20 against a cheapest of
+    # $0.40/$3.00, a 7% premium for a single-quant single-price basis. Serving is
+    # the weak point of this row and the comment should say so plainly: p50
+    # throughput drifted 33 -> 25 tok/s across the session and the runs decoded at
+    # a median 30.6 tok/s, against the 84-95 tok/s the rest of the suite sees.
+    #
+    # Probe: @disabled is ACCEPTED here (reasoning.mandatory is false), unlike the
+    # 2.4T sibling. @xhigh is advertised but unusable — all three probe cells blew
+    # the 900s budget, including 1735s on h1_component in a single turn and 1096s
+    # on e1_counter, the easiest task in the suite. It was not swept, and that is a
+    # budget verdict rather than a quality one.
+    #
+    # THE BUDGET IS THE STORY, and it is worth reading carefully before comparing
+    # this row to anything. 37% of baseline runs exceeded the 900s model-time
+    # budget and were flipped to failures. That is not an outlier: Qwen3.6-27B
+    # published at 30%. But it is doing real work here. At raw solve rates @low and
+    # @medium TIE at 46%; after the budget they read 43.6 and 37.8, so the cutoff,
+    # not capability, is what makes @low the published variant. Eight runs across
+    # both conditions solved every hidden test and were scored as failures, all of
+    # them between 913s and 1005s. m1_erc20_capped@medium did it FOUR separate
+    # times and is recorded as 0-for-4.
+    #
+    # The dial is inert and thinking is not what this model is short of: SCI 14.5 /
+    # 18.1 / 16.5 at disabled/low/medium, every pair overlapping, and the one-shot
+    # rate is 0% at every baseline tier. It never delivers working code first try.
+    #
+    # What it IS short of is Cairo knowledge, and the documentation tool supplies
+    # exactly that: +21.8, from 18.1 to 39.9, with correctness going 43.6 -> 93.6
+    # at @low. That reproduces Qwen3.6-27B's +22.0 almost exactly, one full model
+    # generation later, which is the strongest evidence in the study that the
+    # substitution law is a property of the size class and not of one checkpoint.
+    # The mechanism is visible twice over: the tool raises the solve rate AND
+    # shortens runs (median 864s -> 436s at @low), which drops the over-budget rate
+    # from 37% to 11% and hands back runs the budget was eating.
+    {"specs": ["qwen/qwen3.8-27b@low", "qwen/qwen3.8-27b@medium",
+               "qwen/qwen3.8-27b@disabled"],
+     "label": "Qwen3.8 27B", "lab": "Alibaba", "open_weight": True},
     # Full ladder swept 2026-07-25 for the effort-curve section (both conditions).
     {"specs": ["qwen/qwen3.6-27b@max", "qwen/qwen3.6-27b@xhigh", "qwen/qwen3.6-27b@high",
                "qwen/qwen3.6-27b@medium", "qwen/qwen3.6-27b@low",

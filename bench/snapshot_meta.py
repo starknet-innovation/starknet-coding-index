@@ -27,6 +27,9 @@ GGUF = {
     "qwen/qwen3.6-35b-a3b":    ("unsloth/Qwen3.6-35B-A3B-GGUF", "Qwen/Qwen3.6-35B-A3B"),
     "google/gemma-4-31b-it":   ("unsloth/gemma-4-31B-it-GGUF", "google/gemma-4-31B-it"),
     "qwen/qwen3.6-27b":        ("unsloth/Qwen3.6-27B-GGUF", "Qwen/Qwen3.6-27B"),
+    # Vision-language, so this repo ships an mmproj projector and a sharded BF16;
+    # the loader already drops mmproj and collapses -00001-of-000NN shard sets.
+    "qwen/qwen3.8-27b":        ("unsloth/Qwen3.8-27B-GGUF", "Qwen/Qwen3.8-27B"),
     # bartowski rather than unsloth: unsloth's Muse Glimmer repo publishes no
     # plain Q4_K_M at all (its 4-bit rung is UD-Q4_K_XL), and Q4_K_M is the
     # exact file the local-inference class rule is defined on.
