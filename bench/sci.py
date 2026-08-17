@@ -337,7 +337,15 @@ MODEL_REGISTRY = [
     {"specs": ["deepseek/deepseek-v4-pro@xhigh", "deepseek/deepseek-v4-pro@high",
                "deepseek/deepseek-v4-pro@medium", "deepseek/deepseek-v4-pro@low",
                "deepseek/deepseek-v4-pro@minimal", "deepseek/deepseek-v4-pro@disabled"],
-     "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True},
+     # deprecated 2026-08-16: superseded by the GA checkpoint below, now that its
+     # weights are public and the family no longer needs a preview row. Worth
+     # recording that this is NOT a case of the newer model winning: at n=52 and
+     # n=53 they tie at 51.3 and 51.0, with the PREVIEW nominally 0.3 ahead. What
+     # 0813 earns the slot with is serving, not scoring -- $0.0056 against
+     # $0.0213 a task, and 63.8 against 50.7 with the documentation tool. Its 433
+     # records stay in main.jsonl as the audit trail.
+     "label": "DeepSeek V4-Pro", "lab": "DeepSeek", "open_weight": True,
+     "deprecated": True},
     # The GA checkpoint, benchmarked 2026-08-12, and a DIFFERENT MODEL from the
     # entry above rather than a newer measurement of it. That one is the preview
     # (its weights repo says so in as many words) at a different price and a
@@ -345,14 +353,29 @@ MODEL_REGISTRY = [
     # Do not read the pair as a before-and-after: the serving differs too. The
     # DeepSeek first-party endpoint was excluded by the account's data policy
     # until 2026-08-12, so the 432 preview-era runs came entirely from third
-    # parties at mixed fp4/fp8, while every run here is first-party. Any future
-    # top-up of the preview row should pin AWAY from deepseek to stay comparable.
+    # parties at mixed fp4/fp8, while every run here is first-party. That warning
+    # used to end "any future top-up of the preview should pin AWAY from deepseek";
+    # the preview is retired as of 2026-08-16 and takes no new runs at all, so the
+    # confound is now frozen into the record rather than something to steer around.
     #
-    # CLOSED, and no weights_pending: deepseek-ai/DeepSeek-V4-Pro-0813 is not
-    # public and no promise is sourceable. The sibling precedent is suggestive
-    # only, DeepSeek-V4-Flash-0731 (MIT) went up the same day Flash left preview.
-    # Params are unverifiable for the same reason, so they stay null; the press
-    # reports 1.6T/49B, which is the preview's disclosed shape.
+    # OPEN as of 2026-08-16: deepseek-ai/DeepSeek-V4-Pro-0813 is public and MIT,
+    # 66 safetensors shards. This entry was closed with a note that no promise was
+    # sourceable and that params were unverifiable in consequence; both are now
+    # settled from the repo itself rather than from reporting.
+    #
+    # The weights correct the press figure this comment used to hedge on. TOTAL is
+    # 1.65T (1,650,497,936,906 per the safetensors metadata), not the 1.6T that was
+    # circulating, because that number is the PREVIEW's: 1.60T measured the same
+    # way. The core architecture is byte-identical across the two -- 61 layers, 384
+    # routed experts, 6 per token, 1 shared, hidden 7168, moe_intermediate 3072 --
+    # so active stays 49B and the whole 52B delta is one component the preview does
+    # not have: a dspark speculative-decoding drafter over layers 58-60
+    # (dspark_markov_rank 512). snapshot_meta already filters dspark-* GGUF files,
+    # so the loader was ready for this before the weights existed.
+    #
+    # unsloth publishes a GGUF repo but no plain Q4_K_M, so the label is in the
+    # audit's NO_PLAIN_Q4 and its size is estimated. Recorded for provenance only:
+    # at 1.65T it clears no VRAM budget on the machine table even at one bit.
     #
     # Pinned --provider-order deepseek throughout. One provider serves it today,
     # but the preview id drew 18, and a third party appearing mid-sweep would
@@ -379,7 +402,7 @@ MODEL_REGISTRY = [
     {"specs": ["deepseek/deepseek-v4-pro-0813@disabled",
                "deepseek/deepseek-v4-pro-0813@low",
                "deepseek/deepseek-v4-pro-0813@high"],
-     "label": "DeepSeek V4 Pro 0813", "lab": "DeepSeek", "open_weight": False},
+     "label": "DeepSeek V4 Pro 0813", "lab": "DeepSeek", "open_weight": True},
     # the 0731 release, not the preview: DeepSeek calls it the official one, and
     # the two expose different ladders (preview xhigh/high, release max/high/low).
     #

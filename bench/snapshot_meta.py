@@ -37,6 +37,12 @@ GGUF = {
                                 "meta-models/Muse-Glimmer-30B"),
     "deepseek/deepseek-v4-flash-0731": ("unsloth/DeepSeek-V4-Flash-0731-GGUF",
                                         "deepseek-ai/DeepSeek-V4-Flash-0731"),
+    # Weights went public 2026-08-16. Ladder stops short of a plain Q4_K_M, so the
+    # label is in the audit's NO_PLAIN_Q4; recorded for provenance, since at 1.65T
+    # it clears no budget on the machine table anyway. The dspark drafter this
+    # build adds is already excluded by the dspark- filter below.
+    "deepseek/deepseek-v4-pro-0813": ("unsloth/DeepSeek-V4-Pro-0813-GGUF",
+                                      "deepseek-ai/DeepSeek-V4-Pro-0813"),
     # Ladder tops out at UD-IQ4_XS: no plain Q4_K_M and no UD-Q4_K_M either, the
     # same shape as Kimi K3, so the label is in the audit's NO_PLAIN_Q4. Recorded
     # for provenance rather than for the machine table, where a 2.4T model needs

@@ -553,7 +553,8 @@ def _gguf(r):
 # only BF16 and Q8_0 (and declares no base_model), DevQuasar's repo is still
 # empty, a4lg's is the MTP drafter, and bartowski has none. At 2.4T the plain
 # rung would be ~1.3 TB, so this is upstream's choice, same as K3's.
-NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash 0731", "Qwen3.8 2.4T A95B"}
+NO_PLAIN_Q4 = {"Kimi K3", "DeepSeek V4 Flash 0731", "Qwen3.8 2.4T A95B",
+               "DeepSeek V4 Pro 0813"}
 
 estimated = sorted(r["label"] for r in lb if r["open_weight"] and not r.get("vram_measured"))
 no_size = sorted({r["label"] for r in lb if r["open_weight"] and not _gguf(r).get("repo")}
